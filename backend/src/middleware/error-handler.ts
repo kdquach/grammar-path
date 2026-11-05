@@ -53,3 +53,4 @@ export const errorHandler: ErrorRequestHandler = (
   console.error("Unhandled error:", err);
   sendError(res, "INTERNAL_SERVER_ERROR", errorMessage, 500);
 };
+

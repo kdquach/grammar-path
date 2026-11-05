@@ -33,3 +33,4 @@ grammarpath-app/
 - Database: Managed PostgreSQL on Neon (`neondb`)
 - Schema: Locked 22-table relational schema matching `../grammarpath-data/prisma/schema.prisma`
 - Phase 5 Access Mode: Strictly **READ-ONLY** (no DDL migrations or write operations permitted).
+

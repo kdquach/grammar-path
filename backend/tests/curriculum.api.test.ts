@@ -218,3 +218,4 @@ describe("Curriculum & Theory Read APIs Integration Tests", () => {
     expect(res.body.error.code).toBe("NOT_FOUND");
   });
 });
+

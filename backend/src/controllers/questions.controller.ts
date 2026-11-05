@@ -1,0 +1,151 @@
+import { Request, Response, NextFunction } from "express";
+import { z } from "zod";
+import prisma from "../lib/prisma";
+import { sendSuccess } from "../utils/response";
+import { AppError } from "../middleware/error-handler";
+import { formatQuestionDetail, formatQuestionSolution } from "../utils/formatters";
+import { includeAnswersQuerySchema } from "./exercises.controller";
+
+export const questionIdParamSchema = z.object({
+  questionId: z.string().trim().min(1, "questionId cannot be empty"),
+});
+
+export async function getQuestionById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { questionId } = questionIdParamSchema.parse(req.params);
+    const { includeAnswers } = includeAnswersQuerySchema.parse(req.query);
+
+    const question = await prisma.question.findFirst({
+      where: { questionId },
+      include: {
+        sourcePages: {
+          orderBy: { pageNumber: "asc" },
+        },
+        options: {
+          orderBy: { displayOrder: "asc" },
+        },
+        blanks: {
+          orderBy: { blankIndex: "asc" },
+          include: {
+            acceptedAnswers: {
+              orderBy: { displayOrder: "asc" },
+            },
+          },
+        },
+        parts: {
+          orderBy: { displayOrder: "asc" },
+          include: {
+            acceptedAnswers: {
+              orderBy: { displayOrder: "asc" },
+            },
+          },
+        },
+        acceptedAnswers: {
+          orderBy: { displayOrder: "asc" },
+        },
+        exercise: {
+          include: {
+            unit: {
+              select: {
+                unitNumber: true,
+                title: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!question) {
+      throw AppError.notFound(
+        `Question '${questionId}' not found`,
+        "NOT_FOUND"
+      );
+    }
+
+    const formatted = formatQuestionDetail(question, includeAnswers);
+
+    sendSuccess(res, formatted);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getQuestionSolution(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { questionId } = questionIdParamSchema.parse(req.params);
+
+    const question = await prisma.question.findFirst({
+      where: { questionId },
+      include: {
+        blanks: {
+          orderBy: { blankIndex: "asc" },
+          include: {
+            acceptedAnswers: {
+              orderBy: { displayOrder: "asc" },
+            },
+          },
+        },
+        parts: {
+          orderBy: { displayOrder: "asc" },
+          include: {
+            acceptedAnswers: {
+              orderBy: { displayOrder: "asc" },
+            },
+          },
+        },
+        acceptedAnswers: {
+          orderBy: { displayOrder: "asc" },
+        },
+        answerKey: {
+          include: {
+            sourcePages: {
+              orderBy: { pageNumber: "asc" },
+            },
+          },
+        },
+        explanation: true,
+      },
+    });
+
+    if (!question) {
+      throw AppError.notFound(
+        `Question '${questionId}' not found`,
+        "NOT_FOUND"
+      );
+    }
+
+    let linkedSection: { sectionId: string; heading: string } | null = null;
+    if (question.explanation?.ruleReference) {
+      const section = await prisma.theorySection.findFirst({
+        where: {
+          sectionId: {
+            equals: question.explanation.ruleReference.trim(),
+            mode: "insensitive",
+          },
+        },
+        select: {
+          sectionId: true,
+          heading: true,
+        },
+      });
+      if (section) {
+        linkedSection = section;
+      }
+    }
+
+    const solution = formatQuestionSolution(question, linkedSection);
+
+    sendSuccess(res, solution);
+  } catch (error) {
+    next(error);
+  }
+}
