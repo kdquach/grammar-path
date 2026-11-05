@@ -1,0 +1,435 @@
+// prisma/schema.prisma
+// GrammarPath Phase 4.1 — Final Proposed Schema (22 Tables)
+// All UUIDs use @db.Uuid. Future progress tables removed.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum QuestionType {
+  fill_blank
+  transformation
+  sentence_correction
+  multiple_choice
+  matching
+  word_formation
+  other
+
+  @@map("question_type_enum")
+}
+
+enum VerificationStatus {
+  verified
+  inferred
+  needs_review
+  unavailable
+
+  @@map("verification_status_enum")
+}
+
+enum ContentOrigin {
+  textbook
+  ai_generated
+  human_authored
+
+  @@map("content_origin_enum")
+}
+
+enum AnswerType {
+  string
+  array
+  null_value @map("null")
+
+  @@map("answer_type_enum")
+}
+
+// ─── Books ────────────────────────────────────────────────────────────────────
+
+model Book {
+  id            String   @id @default(uuid()) @db.Uuid
+  title         String   @db.VarChar(255)
+  edition       String   @db.VarChar(50)
+  author        String   @db.VarChar(255)
+  publisher     String?  @db.VarChar(255)
+  pdfFilename   String   @map("pdf_filename") @db.VarChar(255)
+  totalPdfPages Int      @map("total_pdf_pages")
+  totalUnits    Int?     @map("total_units")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  units         Unit[]
+
+  @@unique([title, edition])
+  @@map("books")
+}
+
+// ─── Units ────────────────────────────────────────────────────────────────────
+
+model Unit {
+  id                 String    @id @default(uuid()) @db.Uuid
+  bookId             String    @map("book_id") @db.Uuid
+  unitNumber         Int       @map("unit_number")
+  title              String    @db.Text
+  schemaVersion      String    @default("1.0.0") @map("schema_version") @db.VarChar(20)
+  theoryPdfPage      Int?      @map("theory_pdf_page")
+  exercisePdfPage    Int?      @map("exercise_pdf_page")
+  bookTheoryPage     Int?      @map("book_theory_page")
+  bookExercisePage   Int?      @map("book_exercise_page")
+  bookAnswerKeyPage  Int?      @map("book_answer_key_page")
+  confidenceLevel    String?   @map("confidence_level") @db.VarChar(50)
+  sourceFileSha256   String?   @map("source_file_sha256") @db.VarChar(64)
+  mappingVersion     String    @default("1.0.0") @map("mapping_version") @db.VarChar(20)
+  importRunId        String?   @map("import_run_id") @db.Uuid
+  importedAt         DateTime? @map("imported_at") @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  book               Book                @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  sourcePages        UnitSourcePage[]
+  theorySections     TheorySection[]
+  textbookExamples   TextbookExample[]
+  exercises          Exercise[]
+  validation         UnitValidation?
+  unresolvedItems    UnresolvedItem[]
+
+  @@unique([bookId, unitNumber])
+  @@index([unitNumber])
+  @@map("units")
+}
+
+model UnitSourcePage {
+  id         String @id @default(uuid()) @db.Uuid
+  unitId     String @map("unit_id") @db.Uuid
+  pageNumber Int    @map("page_number")
+  pageRole   String @map("page_role") @db.VarChar(30)
+
+  unit       Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, pageNumber, pageRole])
+  @@index([pageNumber])
+  @@map("unit_source_pages")
+}
+
+// ─── Theory Sections ──────────────────────────────────────────────────────────
+
+model TheorySection {
+  id            String   @id @default(uuid()) @db.Uuid
+  unitId        String   @map("unit_id") @db.Uuid
+  sectionId     String   @map("section_id") @db.VarChar(20)
+  heading       String   @db.Text
+  sourceContent String   @map("source_content") @db.Text
+  displayOrder  Int      @map("display_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  unit          Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  sourcePages   TheorySectionSourcePage[]
+
+  @@unique([unitId, sectionId])
+  @@unique([unitId, displayOrder])
+  @@index([sectionId])
+  @@map("theory_sections")
+}
+
+model TheorySectionSourcePage {
+  id              String        @id @default(uuid()) @db.Uuid
+  theorySectionId String        @map("theory_section_id") @db.Uuid
+  pageNumber      Int           @map("page_number")
+
+  theorySection   TheorySection @relation(fields: [theorySectionId], references: [id], onDelete: Cascade)
+
+  @@unique([theorySectionId, pageNumber])
+  @@map("theory_section_source_pages")
+}
+
+// ─── Textbook Illustrative Examples ───────────────────────────────────────────
+
+model TextbookExample {
+  id            String   @id @default(uuid()) @db.Uuid
+  unitId        String   @map("unit_id") @db.Uuid
+  exampleId     String   @map("example_id") @db.VarChar(50)
+  originalText  String   @map("original_text") @db.Text
+  translationVi String?  @map("translation_vi") @db.Text
+  displayOrder  Int      @map("display_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  unit          Unit                        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  sourcePages   TextbookExampleSourcePage[]
+
+  @@unique([unitId, exampleId])
+  @@unique([unitId, displayOrder])
+  @@map("textbook_examples")
+}
+
+model TextbookExampleSourcePage {
+  id                String          @id @default(uuid()) @db.Uuid
+  textbookExampleId String          @map("textbook_example_id") @db.Uuid
+  pageNumber        Int             @map("page_number")
+
+  textbookExample   TextbookExample @relation(fields: [textbookExampleId], references: [id], onDelete: Cascade)
+
+  @@unique([textbookExampleId, pageNumber])
+  @@map("textbook_example_source_pages")
+}
+
+// ─── Exercises ────────────────────────────────────────────────────────────────
+
+model Exercise {
+  id                       String       @id @default(uuid()) @db.Uuid
+  unitId                   String       @map("unit_id") @db.Uuid
+  exerciseId               String       @map("exercise_id") @db.VarChar(50)
+  exerciseNumber           String       @map("exercise_number") @db.VarChar(20)
+  questionType             QuestionType @map("question_type")
+  instruction              String       @db.Text
+  hasVisualContext         Boolean      @default(false) @map("has_visual_context")
+  visualContextDescription String?      @map("visual_context_description") @db.Text
+  contextNotes             String?      @map("context_notes") @db.Text
+  displayOrder             Int          @map("display_order")
+  createdAt                DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  unit                     Unit                   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  wordBankItems            ExerciseWordBankItem[]
+  questions                Question[]
+
+  @@unique([unitId, exerciseId])
+  @@unique([unitId, displayOrder])
+  @@index([questionType])
+  @@map("exercises")
+}
+
+model ExerciseWordBankItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  exerciseId   String   @map("exercise_id") @db.Uuid
+  word         String   @db.VarChar(200)
+  displayOrder Int      @map("display_order")
+
+  exercise     Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@unique([exerciseId, displayOrder])
+  @@map("exercise_word_bank_items")
+}
+
+// ─── Questions ────────────────────────────────────────────────────────────────
+
+model Question {
+  id                       String             @id @default(uuid()) @db.Uuid
+  exerciseId               String             @map("exercise_id") @db.Uuid
+  questionId               String             @unique @map("question_id") @db.VarChar(50)
+  questionContent          String             @map("question_content") @db.Text
+  isExample                Boolean            @default(false) @map("is_example")
+  exampleAnswer            String?            @map("example_answer") @db.Text
+  hasVisualContext         Boolean            @default(false) @map("has_visual_context")
+  visualContextDescription String?            @map("visual_context_description") @db.Text
+  contextClue              String?            @map("context_clue") @db.Text
+  correctAnswerType        AnswerType         @map("correct_answer_type")
+  correctAnswerText        String?            @map("correct_answer_text") @db.Text
+  correctAnswerArray       Json?              @map("correct_answer_array")
+  verificationStatus       VerificationStatus @default(verified) @map("verification_status")
+  contentOrigin            ContentOrigin      @default(textbook) @map("content_origin")
+  displayOrder             Int                @map("display_order")
+  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  exercise                 Exercise             @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  sourcePages              QuestionSourcePage[]
+  options                  QuestionOption[]
+  blanks                   QuestionBlank[]
+  parts                    QuestionPart[]
+  acceptedAnswers          AcceptedAnswer[]
+  answerKey                AnswerKey?
+  explanation              Explanation?
+
+  @@unique([exerciseId, displayOrder])
+  @@index([exerciseId])
+  @@index([isExample])
+  @@index([contentOrigin])
+  @@map("questions")
+}
+
+model QuestionSourcePage {
+  id         String   @id @default(uuid()) @db.Uuid
+  questionId String   @map("question_id") @db.Uuid
+  pageNumber Int      @map("page_number")
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, pageNumber])
+  @@map("question_source_pages")
+}
+
+model QuestionOption {
+  id           String   @id @default(uuid()) @db.Uuid
+  questionId   String   @map("question_id") @db.Uuid
+  optionKey    String   @map("option_key") @db.VarChar(10)
+  optionText   String   @map("option_text") @db.Text
+  displayOrder Int      @map("display_order")
+
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, optionKey])
+  @@unique([questionId, displayOrder])
+  @@map("question_options")
+}
+
+// ─── Question Blanks ──────────────────────────────────────────────────────────
+
+model QuestionBlank {
+  id                 String                @id @default(uuid()) @db.Uuid
+  questionId         String                @map("question_id") @db.Uuid
+  blankIndex         Int                   @map("blank_index")
+  correctAnswerType  AnswerType            @map("correct_answer_type")
+  correctAnswerText  String?               @map("correct_answer_text") @db.Text
+  correctAnswerArray Json?                 @map("correct_answer_array")
+
+  question           Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  acceptedAnswers    BlankAcceptedAnswer[]
+
+  @@unique([questionId, blankIndex])
+  @@map("question_blanks")
+}
+
+model BlankAcceptedAnswer {
+  id           String        @id @default(uuid()) @db.Uuid
+  blankId      String        @map("blank_id") @db.Uuid
+  answerText   String        @map("answer_text") @db.Text
+  displayOrder Int           @map("display_order")
+
+  blank        QuestionBlank @relation(fields: [blankId], references: [id], onDelete: Cascade)
+
+  @@unique([blankId, displayOrder])
+  @@map("blank_accepted_answers")
+}
+
+// ─── Question Parts ───────────────────────────────────────────────────────────
+
+model QuestionPart {
+  id                 String               @id @default(uuid()) @db.Uuid
+  questionId         String               @map("question_id") @db.Uuid
+  partId             String               @map("part_id") @db.VarChar(50)
+  questionContent    String               @map("question_content") @db.Text
+  correctAnswerType  AnswerType           @map("correct_answer_type")
+  correctAnswerText  String?              @map("correct_answer_text") @db.Text
+  correctAnswerArray Json?                @map("correct_answer_array")
+  displayOrder       Int                  @map("display_order")
+
+  question           Question             @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  acceptedAnswers    PartAcceptedAnswer[]
+
+  @@unique([questionId, partId])
+  @@unique([questionId, displayOrder])
+  @@map("question_parts")
+}
+
+model PartAcceptedAnswer {
+  id           String       @id @default(uuid()) @db.Uuid
+  partId       String       @map("part_id") @db.Uuid
+  answerText   String       @map("answer_text") @db.Text
+  displayOrder Int          @map("display_order")
+
+  part         QuestionPart @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@unique([partId, displayOrder])
+  @@map("part_accepted_answers")
+}
+
+// ─── Top-level Question Accepted Answers ──────────────────────────────────────
+
+model AcceptedAnswer {
+  id           String   @id @default(uuid()) @db.Uuid
+  questionId   String   @map("question_id") @db.Uuid
+  answerText   String   @map("answer_text") @db.Text
+  displayOrder Int      @map("display_order")
+
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, displayOrder])
+  @@map("accepted_answers")
+}
+
+// ─── Answer Keys ──────────────────────────────────────────────────────────────
+
+model AnswerKey {
+  id                 String                @id @default(uuid()) @db.Uuid
+  questionId         String                @unique @map("question_id") @db.Uuid
+  exerciseNumber     String                @map("exercise_number") @db.VarChar(20)
+  answerType         AnswerType            @map("answer_type")
+  answerText         String?               @map("answer_text") @db.Text
+  answerArray        Json?                 @map("answer_array")
+  verificationStatus VerificationStatus    @default(verified) @map("verification_status")
+  notes              String?               @db.Text
+  contentOrigin      ContentOrigin         @default(textbook) @map("content_origin")
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  question           Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  sourcePages        AnswerKeySourcePage[]
+
+  @@index([exerciseNumber])
+  @@map("answer_keys")
+}
+
+model AnswerKeySourcePage {
+  id          String    @id @default(uuid()) @db.Uuid
+  answerKeyId String    @map("answer_key_id") @db.Uuid
+  pageNumber  Int       @map("page_number")
+
+  answerKey   AnswerKey @relation(fields: [answerKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([answerKeyId, pageNumber])
+  @@map("answer_key_source_pages")
+}
+
+// ─── Explanations ─────────────────────────────────────────────────────────────
+
+model Explanation {
+  id                  String        @id @default(uuid()) @db.Uuid
+  questionId          String        @unique @map("question_id") @db.Uuid
+  aiExplanation       String        @map("ai_explanation") @db.Text
+  explanationLanguage String        @default("vi") @map("explanation_language") @db.VarChar(10)
+  basedOnSource       Boolean       @default(true) @map("based_on_source")
+  ruleReference       String?       @map("rule_reference") @db.VarChar(20)
+  contentOrigin       ContentOrigin @default(ai_generated) @map("content_origin")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  question            Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([ruleReference])
+  @@map("explanations")
+}
+
+// ─── Validation & Unresolved ──────────────────────────────────────────────────
+
+model UnitValidation {
+  id          String    @id @default(uuid()) @db.Uuid
+  unitId      String    @unique @map("unit_id") @db.Uuid
+  status      String    @db.VarChar(30)
+  checkedAt   DateTime? @map("checked_at") @db.Timestamptz(6)
+  issues      Json      @default("[]")
+  importRunId String?   @map("import_run_id") @db.Uuid
+
+  unit        Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@map("unit_validation")
+}
+
+model UnresolvedItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  unitId      String  @map("unit_id") @db.Uuid
+  itemId      String  @map("item_id") @db.VarChar(100)
+  description String  @db.Text
+  reason      String  @db.Text
+  sourcePages Json?   @map("source_pages")
+
+  unit        Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, itemId])
+  @@map("unresolved_items")
+}
+
