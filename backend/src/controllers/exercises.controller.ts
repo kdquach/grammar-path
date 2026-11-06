@@ -4,6 +4,7 @@ import prisma from "../lib/prisma";
 import { sendSuccess } from "../utils/response";
 import { AppError } from "../middleware/error-handler";
 import { formatExercise, formatQuestionSolution } from "../utils/formatters";
+import { evaluateQuestion } from "../utils/grader";
 import { unitNumberParamSchema } from "./units.controller";
 
 export const includeAnswersQuerySchema = z.object({
@@ -18,6 +19,12 @@ export const includeAnswersQuerySchema = z.object({
 
 export const exerciseIdParamSchema = z.object({
   exerciseId: z.string().trim().min(1, "exerciseId cannot be empty"),
+});
+
+export const checkExerciseBodySchema = z.object({
+  answers: z.record(
+    z.union([z.string(), z.array(z.string()), z.record(z.string())])
+  ),
 });
 
 export async function getUnitExercises(
@@ -237,6 +244,98 @@ export async function getExerciseSolutions(
       exerciseId: exercise.exerciseId,
       exerciseNumber: exercise.exerciseNumber,
       totalSolutions: solutions.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function checkExerciseAnswers(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { exerciseId } = exerciseIdParamSchema.parse(req.params);
+    const { answers } = checkExerciseBodySchema.parse(req.body);
+
+    const exercise = await prisma.exercise.findFirst({
+      where: { exerciseId },
+      include: {
+        questions: {
+          orderBy: { displayOrder: "asc" },
+          include: {
+            blanks: {
+              orderBy: { blankIndex: "asc" },
+              include: {
+                acceptedAnswers: {
+                  orderBy: { displayOrder: "asc" },
+                },
+              },
+            },
+            parts: {
+              orderBy: { displayOrder: "asc" },
+              include: {
+                acceptedAnswers: {
+                  orderBy: { displayOrder: "asc" },
+                },
+              },
+            },
+            acceptedAnswers: {
+              orderBy: { displayOrder: "asc" },
+            },
+            explanation: true,
+          },
+        },
+      },
+    });
+
+    if (!exercise) {
+      throw AppError.notFound(
+        `Exercise '${exerciseId}' not found`,
+        "NOT_FOUND"
+      );
+    }
+
+    const results = exercise.questions.map((q) => {
+      let studentAnswer = answers[q.questionId];
+
+      // If studentAnswer was not provided under questionId, check if answers were keyed by partId
+      if (
+        studentAnswer === undefined &&
+        q.parts &&
+        q.parts.length > 0
+      ) {
+        const partAnswers: Record<string, string> = {};
+        let hasAnyPart = false;
+        for (const p of q.parts) {
+          if (answers[p.partId] !== undefined) {
+            partAnswers[p.partId] = String(answers[p.partId]);
+            hasAnyPart = true;
+          }
+        }
+        if (hasAnyPart) {
+          studentAnswer = partAnswers;
+        }
+      }
+
+      return evaluateQuestion(q, studentAnswer);
+    });
+
+    const totalQuestions = results.length;
+    const correctCount = results.filter((r) => r.isCorrect).length;
+    const scorePercentage =
+      totalQuestions > 0
+        ? Math.round((correctCount / totalQuestions) * 1000) / 10
+        : 0;
+
+    sendSuccess(res, {
+      exerciseId: exercise.exerciseId,
+      exerciseNumber: exercise.exerciseNumber,
+      totalQuestions,
+      correctCount,
+      scorePercentage,
+      results,
     });
   } catch (error) {
     next(error);

@@ -4,10 +4,19 @@ import prisma from "../lib/prisma";
 import { sendSuccess } from "../utils/response";
 import { AppError } from "../middleware/error-handler";
 import { formatQuestionDetail, formatQuestionSolution } from "../utils/formatters";
+import { evaluateQuestion } from "../utils/grader";
 import { includeAnswersQuerySchema } from "./exercises.controller";
 
 export const questionIdParamSchema = z.object({
   questionId: z.string().trim().min(1, "questionId cannot be empty"),
+});
+
+export const checkQuestionBodySchema = z.object({
+  answer: z.union([
+    z.string(),
+    z.array(z.string()),
+    z.record(z.string()),
+  ]),
 });
 
 export async function getQuestionById(
@@ -145,6 +154,64 @@ export async function getQuestionSolution(
     const solution = formatQuestionSolution(question, linkedSection);
 
     sendSuccess(res, solution);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function checkQuestionAnswer(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { questionId } = questionIdParamSchema.parse(req.params);
+    const { answer } = checkQuestionBodySchema.parse(req.body);
+
+    const question = await prisma.question.findFirst({
+      where: { questionId },
+      include: {
+        blanks: {
+          orderBy: { blankIndex: "asc" },
+          include: {
+            acceptedAnswers: {
+              orderBy: { displayOrder: "asc" },
+            },
+          },
+        },
+        parts: {
+          orderBy: { displayOrder: "asc" },
+          include: {
+            acceptedAnswers: {
+              orderBy: { displayOrder: "asc" },
+            },
+          },
+        },
+        acceptedAnswers: {
+          orderBy: { displayOrder: "asc" },
+        },
+        explanation: true,
+      },
+    });
+
+    if (!question) {
+      throw AppError.notFound(
+        `Question '${questionId}' not found`,
+        "NOT_FOUND"
+      );
+    }
+
+    const result = evaluateQuestion(question, answer);
+
+    sendSuccess(res, {
+      questionId: question.questionId,
+      isCorrect: result.isCorrect,
+      studentAnswer: result.studentAnswer,
+      correctAnswers: result.correctAnswers,
+      expectedAnswers: result.expectedAnswers,
+      explanation: result.explanation,
+      ruleReference: result.ruleReference,
+    });
   } catch (error) {
     next(error);
   }
