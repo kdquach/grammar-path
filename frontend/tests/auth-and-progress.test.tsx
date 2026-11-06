@@ -281,4 +281,39 @@ describe("Frontend Authentication, Progress Dashboard & Mistake Review", () => {
       ).toBeInTheDocument();
     });
   });
+
+  // 4. Sidebar Collapsible State Toggle
+  it("4. AppLayout Sidebar: Toggle collapse/expand button toggles sidebar width and persists preference in localStorage", async () => {
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <AppLayout />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    // Initial state: expanded, shows "Catalog", "Curriculum", and collapse button
+    expect(screen.getByText("Catalog")).toBeInTheDocument();
+    expect(screen.getByText("Murphy's English Grammar")).toBeInTheDocument();
+
+    const toggleBtn = screen.getByTestId("sidebar-toggle-button");
+    expect(toggleBtn).toBeInTheDocument();
+    expect(toggleBtn).toHaveAttribute("aria-label", "Thu nhỏ thanh bên");
+
+    // Click toggle button to collapse
+    fireEvent.click(toggleBtn);
+
+    // In collapsed mode: full text label "Murphy's English Grammar" is hidden, aria-label switches to expand
+    expect(screen.queryByText("Murphy's English Grammar")).not.toBeInTheDocument();
+    expect(toggleBtn).toHaveAttribute("aria-label", "Mở rộng thanh bên");
+    expect(localStorage.getItem("grammarpath_sidebar_collapsed")).toBe("true");
+
+    // Click toggle button again to expand
+    fireEvent.click(toggleBtn);
+
+    // Full text restored
+    expect(screen.getByText("Murphy's English Grammar")).toBeInTheDocument();
+    expect(toggleBtn).toHaveAttribute("aria-label", "Thu nhỏ thanh bên");
+    expect(localStorage.getItem("grammarpath_sidebar_collapsed")).toBe("false");
+  });
 });

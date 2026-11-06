@@ -22,6 +22,25 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   const [jumpUnit, setJumpUnit] = useState<string>("");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("grammarpath_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("grammarpath_sidebar_collapsed", String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const handleJump = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +54,12 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col md:flex-row">
-      {/* ─── Desktop Sticky Sidebar ──────────────────────────────────────── */}
-      <aside className="hidden md:flex md:w-64 lg:w-72 md:flex-col md:fixed md:inset-y-0 bg-white border-r border-slate-200 z-30 shadow-2xs">
+      {/* ─── Desktop Sticky Collapsible Sidebar ──────────────────────────── */}
+      <aside
+        className={`hidden md:flex md:flex-col md:fixed md:inset-y-0 bg-white border-r border-slate-200 z-30 shadow-2xs transition-all duration-300 ease-in-out ${
+          isCollapsed ? "md:w-20" : "md:w-64 lg:w-72"
+        }`}
+      >
         <Sidebar
           user={user}
           logout={logout}
@@ -47,6 +70,8 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           totalUnits={totalUnits}
           totalExercises={totalExercises}
           totalQuestions={totalQuestions}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={toggleCollapse}
         />
       </aside>
 
@@ -121,13 +146,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
               totalUnits={totalUnits}
               totalExercises={totalExercises}
               totalQuestions={totalQuestions}
+              isCollapsed={false}
             />
           </div>
         </div>
       )}
 
       {/* ─── Main Content Canvas ─────────────────────────────────────────── */}
-      <div className="flex-1 md:pl-64 lg:pl-72 flex flex-col min-w-0 min-h-screen">
+      <div
+        className={`flex-1 flex flex-col min-w-0 min-h-screen transition-all duration-300 ease-in-out ${
+          isCollapsed ? "md:pl-20" : "md:pl-64 lg:pl-72"
+        }`}
+      >
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Outlet />
         </main>
