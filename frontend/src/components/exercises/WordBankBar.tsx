@@ -108,3 +108,4 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({ items, onSelectWord })
 };
 
 export default WordBankBar;
+
