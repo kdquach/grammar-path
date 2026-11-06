@@ -25,6 +25,9 @@ vi.mock("../src/api/client", () => {
     getMistakes: vi.fn(),
     checkQuestionAnswer: vi.fn(),
     getQuestionSolution: vi.fn(),
+    getAdaptiveAnalytics: vi.fn(),
+    getAdaptiveRecommendations: vi.fn(),
+    explainTheory: vi.fn(),
   };
   return {
     default: mockApi,
@@ -110,6 +113,19 @@ describe("Frontend Authentication, Progress Dashboard & Mistake Review", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    vi.mocked(api.getAdaptiveAnalytics).mockResolvedValue({
+      totalEvaluated: 10,
+      totalCorrect: 8,
+      totalErrors: 2,
+      accuracyPercentage: 80,
+      weakestUnits: [],
+      errorDistribution: [],
+      weakestQuestionType: null,
+    });
+    vi.mocked(api.getAdaptiveRecommendations).mockResolvedValue({
+      recommendations: [],
+      totalRecommendations: 0,
+    });
   });
 
   // 1. AuthModal & AppLayout Header authentication state

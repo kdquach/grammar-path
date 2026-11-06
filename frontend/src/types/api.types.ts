@@ -352,3 +352,58 @@ export interface MistakeItem {
   lastAttemptedAt: string;
 }
 
+// ─── Phase 9 Adaptive Learning & AI Types ───────────────────────────────────
+
+export interface ExplainTheoryPayload {
+  sectionId: string;
+  heading: string;
+  sourceContent: string;
+  userQuestion?: string;
+}
+
+export interface ExplainTheoryResponse {
+  explanation: string;
+}
+
+export interface AdaptiveWeakUnit {
+  unitNumber: number;
+  unitTitle: string;
+  totalAttempts: number;
+  errorCount: number;
+  accuracyPercentage: number;
+  weakestQuestionTypes: string[];
+}
+
+export interface AdaptiveErrorDistributionItem {
+  questionType: string;
+  errorCount: number;
+  totalAttempts: number;
+  errorRatePercentage: number;
+}
+
+export interface AdaptiveAnalytics {
+  totalEvaluated: number;
+  totalCorrect: number;
+  totalErrors: number;
+  accuracyPercentage: number;
+  weakestUnits: AdaptiveWeakUnit[];
+  errorDistribution: AdaptiveErrorDistributionItem[];
+  weakestQuestionType: string | null;
+}
+
+export interface ReviewRecommendation {
+  unitNumber: number;
+  unitTitle: string;
+  priority: "high" | "medium" | "low";
+  reason: string;
+  errorCount: number;
+  accuracyPercentage: number;
+  weakestQuestionTypes: string[];
+  suggestedActions: string[];
+}
+
+export interface AdaptiveRecommendationsResponse {
+  recommendations: ReviewRecommendation[];
+  totalRecommendations: number;
+}
+

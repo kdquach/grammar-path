@@ -17,6 +17,7 @@ import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import type { ProgressOverview } from "../types/api.types";
 import AuthModal from "../components/auth/AuthModal";
+import AdaptiveReviewPanel from "../components/adaptive/AdaptiveReviewPanel";
 
 export const ProgressDashboardPage: React.FC = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -301,6 +302,9 @@ export const ProgressDashboardPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ─── Phase 9: Adaptive Review & AI Tutor Engine ───────────────────── */}
+      <AdaptiveReviewPanel />
 
       {/* ─── Recent Attempts Table ────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs space-y-4 p-6">

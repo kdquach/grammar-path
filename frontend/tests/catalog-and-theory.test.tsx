@@ -20,6 +20,7 @@ vi.mock("../src/api/client", () => {
       getTheorySection: vi.fn(),
       getUnitDetail: vi.fn(),
       getUnitTheory: vi.fn(),
+      explainTheory: vi.fn(),
     },
     api: {
       getBook: vi.fn(),
@@ -27,6 +28,7 @@ vi.mock("../src/api/client", () => {
       getTheorySection: vi.fn(),
       getUnitDetail: vi.fn(),
       getUnitTheory: vi.fn(),
+      explainTheory: vi.fn(),
     },
   };
 });

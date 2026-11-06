@@ -6,8 +6,15 @@ import {
   EyeOff,
   FileText,
   Bookmark,
+  Sparkles,
+  X,
+  Loader2,
+  Send,
+  AlertCircle,
+  HelpCircle,
 } from "lucide-react";
 import type { TheorySection, TextbookExample } from "../../types/api.types";
+import api from "../../api/client";
 
 interface TheoryViewerProps {
   theorySections: TheorySection[];
@@ -28,10 +35,19 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
     Record<string, boolean>
   >({});
 
+  // AI Explainer Drawer / Modal State
+  const [activeAiSection, setActiveAiSection] = useState<TheorySection | null>(
+    null
+  );
+  const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
+  const [userQuestion, setUserQuestion] = useState<string>("");
+  const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
   const toggleAllTranslations = () => {
     const nextState = !showAllTranslations;
     setShowAllTranslations(nextState);
-    // Reset individual overrides when toggling globally
     setRevealedTranslations({});
   };
 
@@ -40,6 +56,51 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
       const current = prev[exampleId] ?? showAllTranslations;
       return { ...prev, [exampleId]: !current };
     });
+  };
+
+  const handleOpenAiModal = (section: TheorySection) => {
+    setActiveAiSection(section);
+    setIsAiModalOpen(true);
+    setUserQuestion("");
+    setAiExplanation(null);
+    setAiError(null);
+
+    // Automatically trigger initial explanation
+    fetchAiExplanation(section);
+  };
+
+  const fetchAiExplanation = (section: TheorySection, customQuestion?: string) => {
+    setIsAiLoading(true);
+    setAiError(null);
+
+    api
+      .explainTheory({
+        sectionId: section.sectionId,
+        heading: section.heading,
+        sourceContent: section.sourceContent,
+        userQuestion: customQuestion && customQuestion.trim().length > 0 ? customQuestion.trim() : undefined,
+      })
+      .then((res) => {
+        setAiExplanation(res.explanation);
+        setIsAiLoading(false);
+      })
+      .catch((err) => {
+        setAiError(err.message || "Không thể tải giải thích từ AI lúc này. Vui lòng thử lại!");
+        setIsAiLoading(false);
+      });
+  };
+
+  const handleAskQuestion = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeAiSection) return;
+    fetchAiExplanation(activeAiSection, userQuestion);
+  };
+
+  const handlePromptChipClick = (promptText: string) => {
+    setUserQuestion(promptText);
+    if (activeAiSection) {
+      fetchAiExplanation(activeAiSection, promptText);
+    }
   };
 
   return (
@@ -65,7 +126,7 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
               id={`section-${section.sectionId}`}
               className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:border-slate-300 transition-colors"
             >
-              {/* Header with Section ID badge and PDF page */}
+              {/* Header with Section ID badge, quick lookup, and PDF page */}
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span className="inline-flex items-center justify-center px-3 py-1 bg-brand-50 border border-brand-200 text-brand-700 font-bold text-sm rounded-lg shadow-xs">
@@ -74,7 +135,7 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
                   {onOpenRuleModal && (
                     <button
                       onClick={() => onOpenRuleModal(section.sectionId)}
-                      className="text-xs text-brand-600 hover:text-brand-800 underline font-medium"
+                      className="text-xs text-brand-600 hover:text-brand-800 underline font-medium cursor-pointer"
                     >
                       Quick lookup
                     </button>
@@ -98,6 +159,21 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
               <div className="bg-slate-50/70 border border-slate-200/80 rounded-lg p-4 font-mono text-xs sm:text-sm text-slate-800 whitespace-pre-wrap leading-relaxed overflow-x-auto">
                 {section.sourceContent}
               </div>
+
+              {/* AI Explainer Action Button */}
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
+                <span className="text-[11px] text-slate-400">
+                  Cần giải thích dễ hiểu hơn bằng tiếng Việt?
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAiModal(section)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs shadow-2xs transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>🤖 AI giảng lại bằng tiếng Việt</span>
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -120,7 +196,7 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
             {/* Global Vietnamese Translation Toggle Button */}
             <button
               onClick={toggleAllTranslations}
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-150 shadow-xs bg-white hover:bg-slate-50 text-slate-700 border-slate-300"
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg border transition-all duration-150 shadow-xs bg-white hover:bg-slate-50 text-slate-700 border-slate-300 cursor-pointer"
               aria-label={
                 showAllTranslations
                   ? "Hide all Vietnamese translations"
@@ -185,7 +261,7 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
                             <button
                               onClick={() => toggleExampleTranslation(ex.exampleId)}
                               title="Hide translation"
-                              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors"
+                              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors cursor-pointer"
                             >
                               <EyeOff className="w-3.5 h-3.5" />
                             </button>
@@ -193,7 +269,7 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
                         ) : (
                           <button
                             onClick={() => toggleExampleTranslation(ex.exampleId)}
-                            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline py-1"
+                            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 hover:underline py-1 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>Reveal Vietnamese translation</span>
@@ -212,8 +288,231 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
           </div>
         </section>
       )}
+
+      {/* ─── Part 3: Interactive AI Explainer Modal / Drawer ───────────────── */}
+      {isAiModalOpen && activeAiSection && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-scale-in">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-linear-to-r from-indigo-50/70 to-brand-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-tight">
+                    Gia sư AI — Mục {activeAiSection.sectionId}
+                  </h3>
+                  <p className="text-xs text-slate-500 truncate max-w-md">
+                    {activeAiSection.heading}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                aria-label="Close AI explanation"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Scrollable Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              {/* Optional Custom Question Box */}
+              <div className="bg-slate-50 border border-slate-200/90 rounded-xl p-4 space-y-3">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <HelpCircle className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Hỏi AI về phần lý thuyết này (tùy chọn):</span>
+                </label>
+                <form onSubmit={handleAskQuestion} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={userQuestion}
+                    onChange={(e) => setUserQuestion(e.target.value)}
+                    placeholder="VD: Khi nào không dùng thì này? Phân biệt với thì hiện tại đơn..."
+                    className="flex-1 px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-800"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isAiLoading}
+                    className="inline-flex items-center gap-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors shadow-2xs disabled:opacity-50 cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Hỏi AI</span>
+                  </button>
+                </form>
+
+                {/* Prompt suggestion chips */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[11px] text-slate-400 font-medium">Gợi ý câu hỏi:</span>
+                  <button
+                    type="button"
+                    onClick={() => handlePromptChipClick("Cho thêm ví dụ giao tiếp thông dụng hàng ngày")}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors cursor-pointer"
+                  >
+                    + Ví dụ giao tiếp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePromptChipClick("Những lỗi sai phổ biến mà người Việt hay gặp là gì?")}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors cursor-pointer"
+                  >
+                    + Lỗi người Việt hay gặp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handlePromptChipClick("Tóm tắt công thức ngắn gọn và mẹo ghi nhớ nhanh")}
+                    className="text-[11px] px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors cursor-pointer"
+                  >
+                    + Tóm tắt & mẹo nhớ
+                  </button>
+                </div>
+              </div>
+
+              {/* Explanation Content Box */}
+              {isAiLoading && (
+                <div className="py-12 flex flex-col items-center justify-center space-y-3 text-slate-400">
+                  <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                  <p className="text-xs font-medium text-slate-600">
+                    Đang triệu hồi AI gia sư phân tích và giải thích bài học...
+                  </p>
+                </div>
+              )}
+
+              {aiError && !isAiLoading && (
+                <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between gap-3 text-xs text-rose-700">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{aiError}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchAiExplanation(activeAiSection, userQuestion)}
+                    className="px-3 py-1 bg-white border border-rose-300 rounded font-bold hover:bg-rose-100 transition-colors cursor-pointer shrink-0"
+                  >
+                    Thử lại
+                  </button>
+                </div>
+              )}
+
+              {aiExplanation && !isAiLoading && (
+                <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-5 shadow-2xs">
+                  {renderFormattedMarkdown(aiExplanation)}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <span className="text-[11px] text-slate-400">
+                GrammarPath Adaptive AI Explainer Engine
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsAiModalOpen(false)}
+                className="px-4 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+/**
+ * Lightweight helper to render formatted markdown explanation nicely with headings, quotes, and bullets.
+ */
+function renderFormattedMarkdown(markdown: string) {
+  const lines = markdown.split("\n");
+
+  return (
+    <div className="space-y-2 text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={idx} className="h-1" />;
+        }
+        if (trimmed.startsWith("### ")) {
+          return (
+            <h4
+              key={idx}
+              className="font-extrabold text-xs sm:text-sm text-indigo-950 mt-3 mb-1 flex items-center gap-1.5"
+            >
+              <span>{trimmed.replace("### ", "")}</span>
+            </h4>
+          );
+        }
+        if (trimmed.startsWith("## ")) {
+          return (
+            <h3
+              key={idx}
+              className="font-black text-sm sm:text-base text-slate-900 mt-4 mb-2 pb-1 border-b border-indigo-100"
+            >
+              {trimmed.replace("## ", "")}
+            </h3>
+          );
+        }
+        if (trimmed.startsWith("> ")) {
+          return (
+            <blockquote
+              key={idx}
+              className="border-l-3 border-indigo-500 bg-indigo-50/70 p-2.5 rounded-r-lg text-slate-700 italic my-2 font-mono text-[11px] sm:text-xs"
+            >
+              {trimmed.replace("> ", "")}
+            </blockquote>
+          );
+        }
+        if (trimmed.startsWith("- ")) {
+          return (
+            <div key={idx} className="flex items-start gap-2 ml-2">
+              <span className="text-indigo-600 font-bold">•</span>
+              <div>{renderFormattedText(trimmed.replace("- ", ""))}</div>
+            </div>
+          );
+        }
+        if (/^\d+\.\s/.test(trimmed)) {
+          const numberPart = trimmed.slice(0, trimmed.indexOf(" ") + 1);
+          const restPart = trimmed.slice(trimmed.indexOf(" ") + 1);
+          return (
+            <div key={idx} className="flex items-start gap-2 ml-2">
+              <span className="text-indigo-600 font-bold">{numberPart}</span>
+              <div>{renderFormattedText(restPart)}</div>
+            </div>
+          );
+        }
+        if (trimmed === "---") {
+          return <hr key={idx} className="my-3 border-slate-200" />;
+        }
+        return <p key={idx}>{renderFormattedText(trimmed)}</p>;
+      })}
+    </div>
+  );
+}
+
+function renderFormattedText(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-bold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith("*") && part.endsWith("*")) {
+      return (
+        <em key={i} className="italic text-slate-700">
+          {part.slice(1, -1)}
+        </em>
+      );
+    }
+    return part;
+  });
+}
 
 export default TheoryViewer;

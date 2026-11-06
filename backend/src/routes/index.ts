@@ -7,6 +7,8 @@ import exercisesRouter from "./exercises.routes";
 import questionsRouter from "./questions.routes";
 import authRouter from "./auth.routes";
 import progressRouter from "./progress.routes";
+import aiRouter from "./ai.routes";
+import adaptiveRouter from "./adaptive.routes";
 
 const router = Router();
 
@@ -18,5 +20,7 @@ router.use(exercisesRouter);
 router.use(questionsRouter);
 router.use(authRouter);
 router.use(progressRouter);
+router.use(aiRouter);
+router.use(adaptiveRouter);
 
 export default router;

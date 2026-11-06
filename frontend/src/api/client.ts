@@ -18,6 +18,10 @@ import type {
   ProgressOverview,
   UnitProgressDetail,
   MistakeItem,
+  ExplainTheoryPayload,
+  ExplainTheoryResponse,
+  AdaptiveAnalytics,
+  AdaptiveRecommendationsResponse,
 } from "../types/api.types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
@@ -327,6 +331,35 @@ export const api = {
    */
   async getMistakes(): Promise<MistakeItem[]> {
     const { data } = await request<MistakeItem[]>("/progress/mistakes");
+    return data;
+  },
+
+  // ─── Phase 9 Adaptive Learning & AI Methods ────────────────────────────────
+
+  /**
+   * Requests an AI-powered pedagogical explanation for a specific theory section in natural Vietnamese.
+   */
+  async explainTheory(payload: ExplainTheoryPayload): Promise<ExplainTheoryResponse> {
+    const { data } = await request<ExplainTheoryResponse>("/theory/explain-theory", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return data;
+  },
+
+  /**
+   * Fetches learner's error pattern analytics, weakest units, and question type breakdown.
+   */
+  async getAdaptiveAnalytics(): Promise<AdaptiveAnalytics> {
+    const { data } = await request<AdaptiveAnalytics>("/adaptive/analytics");
+    return data;
+  },
+
+  /**
+   * Fetches personalized review recommendations prioritized by error rate and learning progress.
+   */
+  async getAdaptiveRecommendations(): Promise<AdaptiveRecommendationsResponse> {
+    const { data } = await request<AdaptiveRecommendationsResponse>("/adaptive/recommendations");
     return data;
   },
 };

@@ -14,6 +14,7 @@ import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import type { MistakeItem, QuestionSolution, QuestionCheckResult } from "../types/api.types";
 import AuthModal from "../components/auth/AuthModal";
+import AdaptiveReviewPanel from "../components/adaptive/AdaptiveReviewPanel";
 
 export const MistakeReviewPage: React.FC = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -434,6 +435,11 @@ export const MistakeReviewPage: React.FC = () => {
           })}
         </div>
       )}
+
+      {/* ─── Phase 9: Adaptive Error Pattern Analytics & Recommendations ── */}
+      <div className="pt-6 border-t border-slate-200">
+        <AdaptiveReviewPanel />
+      </div>
     </div>
   );
 };
