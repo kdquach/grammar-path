@@ -258,3 +258,4 @@ export interface ExerciseCheckResult {
   scorePercentage: number;
   results: QuestionCheckResult[];
 }
+

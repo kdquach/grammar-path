@@ -253,6 +253,22 @@ export function evaluateQuestion(
     acceptableList.push(question.exampleAnswer);
   }
 
+  // Cross-match options: if question has options, link optionKey <-> optionText
+  if (Array.isArray(question.options) && question.options.length > 0) {
+    for (const opt of question.options) {
+      const keyMatches = opt.optionKey && matchesAnyExpected(opt.optionKey, acceptableList);
+      const textMatches = opt.optionText && matchesAnyExpected(opt.optionText, acceptableList);
+      if (keyMatches || textMatches) {
+        if (opt.optionKey && !acceptableList.includes(opt.optionKey)) {
+          acceptableList.push(opt.optionKey);
+        }
+        if (opt.optionText && !acceptableList.includes(opt.optionText)) {
+          acceptableList.push(opt.optionText);
+        }
+      }
+    }
+  }
+
   let isCorrect = false;
   if (typeof studentAnswer === "string") {
     isCorrect = matchesAnyExpected(studentAnswer, acceptableList);

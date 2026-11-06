@@ -284,6 +284,9 @@ export async function checkExerciseAnswers(
             acceptedAnswers: {
               orderBy: { displayOrder: "asc" },
             },
+            options: {
+              orderBy: { displayOrder: "asc" },
+            },
             explanation: true,
           },
         },

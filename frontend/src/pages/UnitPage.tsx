@@ -12,6 +12,7 @@ import api from "../api/client";
 import type { UnitDetail, UnitTheory } from "../types/api.types";
 import TheoryViewer from "../components/theory/TheoryViewer";
 import RuleReferenceModal from "../components/theory/RuleReferenceModal";
+import ExerciseViewer from "../components/exercises/ExerciseViewer";
 
 export const UnitPage: React.FC = () => {
   const { unitNumber: unitNumberParam } = useParams<{ unitNumber: string }>();
@@ -191,51 +192,10 @@ export const UnitPage: React.FC = () => {
               onOpenRuleModal={(ruleId) => setSelectedRuleId(ruleId)}
             />
           ) : (
-            /* Exercise Overview List (ready for Checkpoint 6.2 Polymorphic Renderer) */
-            <div className="space-y-4">
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-xs sm:text-sm flex items-center justify-between">
-                <span>
-                  Unit {unitNumber} includes {unitDetail.exercises.length} practice
-                  exercise sets.
-                </span>
-                <span className="font-semibold text-xs text-blue-700">
-                  Checkpoint 6.1 Preview
-                </span>
-              </div>
-
-              <div className="grid gap-4">
-                {unitDetail.exercises.map((ex) => (
-                  <div
-                    key={ex.exerciseId}
-                    className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        <span className="font-extrabold text-sm px-2.5 py-1 bg-slate-100 text-slate-800 rounded-md">
-                          Exercise {ex.exerciseNumber}
-                        </span>
-                        <span className="text-xs uppercase font-bold tracking-wider px-2 py-0.5 bg-brand-50 text-brand-700 border border-brand-200 rounded">
-                          {ex.questionType.replace("_", " ")}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
-                        <span>{ex.questionCount} Questions</span>
-                        {ex.wordBankCount > 0 && (
-                          <>
-                            <span>•</span>
-                            <span>{ex.wordBankCount} Word Bank Items</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="text-sm text-slate-700 font-medium italic">
-                      "{ex.instruction}"
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <ExerciseViewer
+              unitNumber={unitDetail.unitNumber}
+              onOpenRuleReference={(ruleId) => setSelectedRuleId(ruleId)}
+            />
           )}
 
           {/* Quick Rule Reference Lookup Modal */}

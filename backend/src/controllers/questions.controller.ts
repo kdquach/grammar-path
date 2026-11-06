@@ -190,6 +190,9 @@ export async function checkQuestionAnswer(
         acceptedAnswers: {
           orderBy: { displayOrder: "asc" },
         },
+        options: {
+          orderBy: { displayOrder: "asc" },
+        },
         explanation: true,
       },
     });
