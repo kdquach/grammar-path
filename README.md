@@ -22,7 +22,7 @@ grammarpath-app/
 │   ├── src/
 │   │   ├── api/              # Typed API client layer (`client.ts`)
 │   │   ├── components/
-│   │   │   ├── layout/       # AppLayout header, navigation, and footer
+│   │   │   ├── layout/       # AppLayout, Sidebar navigation, auth controls, and footer
 │   │   │   ├── theory/       # TheoryViewer, RuleReferenceModal drawer
 │   │   │   └── exercises/    # Polymorphic renderers, WordBankBar, QuestionCard, ExerciseViewer
 │   │   │       └── renderers/# Option, MultiPart, FillBlank, Sentence renderers
