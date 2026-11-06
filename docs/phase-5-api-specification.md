@@ -563,3 +563,4 @@ All endpoints are validated through automated Vitest + Supertest integration tes
 - `backend/tests/grading.api.test.ts`: 8 tests (Exact matching, alternative accepted answers, multi-blank arrays, multi-part records, feedback explanations, exercise-level scoring, stateless DB verification, validation errors).
 
 **Total Test Count:** 25 integration tests (100% passing).
+
