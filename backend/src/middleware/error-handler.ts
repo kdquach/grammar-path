@@ -23,8 +23,20 @@ export class AppError extends Error {
     return new AppError(400, "VALIDATION_ERROR", message, details);
   }
 
+  static unauthorized(message = "Unauthorized", code = "UNAUTHORIZED"): AppError {
+    return new AppError(401, code, message);
+  }
+
+  static forbidden(message = "Forbidden", code = "FORBIDDEN"): AppError {
+    return new AppError(403, code, message);
+  }
+
   static notFound(message = "Resource not found", code = "NOT_FOUND"): AppError {
     return new AppError(404, code, message);
+  }
+
+  static conflict(message = "Conflict", code = "CONFLICT"): AppError {
+    return new AppError(409, code, message);
   }
 
   static internal(message = "Internal server error", code = "INTERNAL_SERVER_ERROR"): AppError {

@@ -50,6 +50,14 @@ enum AnswerType {
   @@map("answer_type_enum")
 }
 
+enum LearningStatus {
+  not_started
+  in_progress
+  completed
+
+  @@map("learning_status_enum")
+}
+
 // ─── Books ────────────────────────────────────────────────────────────────────
 
 model Book {
@@ -64,7 +72,7 @@ model Book {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  units         Unit[]
+  units Unit[]
 
   @@unique([title, edition])
   @@map("books")
@@ -73,31 +81,32 @@ model Book {
 // ─── Units ────────────────────────────────────────────────────────────────────
 
 model Unit {
-  id                 String    @id @default(uuid()) @db.Uuid
-  bookId             String    @map("book_id") @db.Uuid
-  unitNumber         Int       @map("unit_number")
-  title              String    @db.Text
-  schemaVersion      String    @default("1.0.0") @map("schema_version") @db.VarChar(20)
-  theoryPdfPage      Int?      @map("theory_pdf_page")
-  exercisePdfPage    Int?      @map("exercise_pdf_page")
-  bookTheoryPage     Int?      @map("book_theory_page")
-  bookExercisePage   Int?      @map("book_exercise_page")
-  bookAnswerKeyPage  Int?      @map("book_answer_key_page")
-  confidenceLevel    String?   @map("confidence_level") @db.VarChar(50)
-  sourceFileSha256   String?   @map("source_file_sha256") @db.VarChar(64)
-  mappingVersion     String    @default("1.0.0") @map("mapping_version") @db.VarChar(20)
-  importRunId        String?   @map("import_run_id") @db.Uuid
-  importedAt         DateTime? @map("imported_at") @db.Timestamptz(6)
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String    @id @default(uuid()) @db.Uuid
+  bookId            String    @map("book_id") @db.Uuid
+  unitNumber        Int       @map("unit_number")
+  title             String    @db.Text
+  schemaVersion     String    @default("1.0.0") @map("schema_version") @db.VarChar(20)
+  theoryPdfPage     Int?      @map("theory_pdf_page")
+  exercisePdfPage   Int?      @map("exercise_pdf_page")
+  bookTheoryPage    Int?      @map("book_theory_page")
+  bookExercisePage  Int?      @map("book_exercise_page")
+  bookAnswerKeyPage Int?      @map("book_answer_key_page")
+  confidenceLevel   String?   @map("confidence_level") @db.VarChar(50)
+  sourceFileSha256  String?   @map("source_file_sha256") @db.VarChar(64)
+  mappingVersion    String    @default("1.0.0") @map("mapping_version") @db.VarChar(20)
+  importRunId       String?   @map("import_run_id") @db.Uuid
+  importedAt        DateTime? @map("imported_at") @db.Timestamptz(6)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  book               Book                @relation(fields: [bookId], references: [id], onDelete: Restrict)
-  sourcePages        UnitSourcePage[]
-  theorySections     TheorySection[]
-  textbookExamples   TextbookExample[]
-  exercises          Exercise[]
-  validation         UnitValidation?
-  unresolvedItems    UnresolvedItem[]
+  book             Book               @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  sourcePages      UnitSourcePage[]
+  theorySections   TheorySection[]
+  textbookExamples TextbookExample[]
+  exercises        Exercise[]
+  validation       UnitValidation?
+  unresolvedItems  UnresolvedItem[]
+  learningProgress LearningProgress[]
 
   @@unique([bookId, unitNumber])
   @@index([unitNumber])
@@ -110,7 +119,7 @@ model UnitSourcePage {
   pageNumber Int    @map("page_number")
   pageRole   String @map("page_role") @db.VarChar(30)
 
-  unit       Unit   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@unique([unitId, pageNumber, pageRole])
   @@index([pageNumber])
@@ -128,8 +137,8 @@ model TheorySection {
   displayOrder  Int      @map("display_order")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  unit          Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  sourcePages   TheorySectionSourcePage[]
+  unit        Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  sourcePages TheorySectionSourcePage[]
 
   @@unique([unitId, sectionId])
   @@unique([unitId, displayOrder])
@@ -138,11 +147,11 @@ model TheorySection {
 }
 
 model TheorySectionSourcePage {
-  id              String        @id @default(uuid()) @db.Uuid
-  theorySectionId String        @map("theory_section_id") @db.Uuid
-  pageNumber      Int           @map("page_number")
+  id              String @id @default(uuid()) @db.Uuid
+  theorySectionId String @map("theory_section_id") @db.Uuid
+  pageNumber      Int    @map("page_number")
 
-  theorySection   TheorySection @relation(fields: [theorySectionId], references: [id], onDelete: Cascade)
+  theorySection TheorySection @relation(fields: [theorySectionId], references: [id], onDelete: Cascade)
 
   @@unique([theorySectionId, pageNumber])
   @@map("theory_section_source_pages")
@@ -159,8 +168,8 @@ model TextbookExample {
   displayOrder  Int      @map("display_order")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  unit          Unit                        @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  sourcePages   TextbookExampleSourcePage[]
+  unit        Unit                        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  sourcePages TextbookExampleSourcePage[]
 
   @@unique([unitId, exampleId])
   @@unique([unitId, displayOrder])
@@ -168,11 +177,11 @@ model TextbookExample {
 }
 
 model TextbookExampleSourcePage {
-  id                String          @id @default(uuid()) @db.Uuid
-  textbookExampleId String          @map("textbook_example_id") @db.Uuid
-  pageNumber        Int             @map("page_number")
+  id                String @id @default(uuid()) @db.Uuid
+  textbookExampleId String @map("textbook_example_id") @db.Uuid
+  pageNumber        Int    @map("page_number")
 
-  textbookExample   TextbookExample @relation(fields: [textbookExampleId], references: [id], onDelete: Cascade)
+  textbookExample TextbookExample @relation(fields: [textbookExampleId], references: [id], onDelete: Cascade)
 
   @@unique([textbookExampleId, pageNumber])
   @@map("textbook_example_source_pages")
@@ -194,9 +203,10 @@ model Exercise {
   createdAt                DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  unit                     Unit                   @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  wordBankItems            ExerciseWordBankItem[]
-  questions                Question[]
+  unit             Unit                   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  wordBankItems    ExerciseWordBankItem[]
+  questions        Question[]
+  exerciseAttempts ExerciseAttempt[]
 
   @@unique([unitId, exerciseId])
   @@unique([unitId, displayOrder])
@@ -205,12 +215,12 @@ model Exercise {
 }
 
 model ExerciseWordBankItem {
-  id           String   @id @default(uuid()) @db.Uuid
-  exerciseId   String   @map("exercise_id") @db.Uuid
-  word         String   @db.VarChar(200)
-  displayOrder Int      @map("display_order")
+  id           String @id @default(uuid()) @db.Uuid
+  exerciseId   String @map("exercise_id") @db.Uuid
+  word         String @db.VarChar(200)
+  displayOrder Int    @map("display_order")
 
-  exercise     Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
   @@unique([exerciseId, displayOrder])
   @@map("exercise_word_bank_items")
@@ -237,14 +247,15 @@ model Question {
   createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  exercise                 Exercise             @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  sourcePages              QuestionSourcePage[]
-  options                  QuestionOption[]
-  blanks                   QuestionBlank[]
-  parts                    QuestionPart[]
-  acceptedAnswers          AcceptedAnswer[]
-  answerKey                AnswerKey?
-  explanation              Explanation?
+  exercise         Exercise              @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  sourcePages      QuestionSourcePage[]
+  options          QuestionOption[]
+  blanks           QuestionBlank[]
+  parts            QuestionPart[]
+  acceptedAnswers  AcceptedAnswer[]
+  answerKey        AnswerKey?
+  explanation      Explanation?
+  questionAttempts QuestionAttemptItem[]
 
   @@unique([exerciseId, displayOrder])
   @@index([exerciseId])
@@ -254,24 +265,24 @@ model Question {
 }
 
 model QuestionSourcePage {
-  id         String   @id @default(uuid()) @db.Uuid
-  questionId String   @map("question_id") @db.Uuid
-  pageNumber Int      @map("page_number")
+  id         String @id @default(uuid()) @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  pageNumber Int    @map("page_number")
 
-  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, pageNumber])
   @@map("question_source_pages")
 }
 
 model QuestionOption {
-  id           String   @id @default(uuid()) @db.Uuid
-  questionId   String   @map("question_id") @db.Uuid
-  optionKey    String   @map("option_key") @db.VarChar(10)
-  optionText   String   @map("option_text") @db.Text
-  displayOrder Int      @map("display_order")
+  id           String @id @default(uuid()) @db.Uuid
+  questionId   String @map("question_id") @db.Uuid
+  optionKey    String @map("option_key") @db.VarChar(10)
+  optionText   String @map("option_text") @db.Text
+  displayOrder Int    @map("display_order")
 
-  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, optionKey])
   @@unique([questionId, displayOrder])
@@ -281,27 +292,27 @@ model QuestionOption {
 // ─── Question Blanks ──────────────────────────────────────────────────────────
 
 model QuestionBlank {
-  id                 String                @id @default(uuid()) @db.Uuid
-  questionId         String                @map("question_id") @db.Uuid
-  blankIndex         Int                   @map("blank_index")
-  correctAnswerType  AnswerType            @map("correct_answer_type")
-  correctAnswerText  String?               @map("correct_answer_text") @db.Text
-  correctAnswerArray Json?                 @map("correct_answer_array")
+  id                 String     @id @default(uuid()) @db.Uuid
+  questionId         String     @map("question_id") @db.Uuid
+  blankIndex         Int        @map("blank_index")
+  correctAnswerType  AnswerType @map("correct_answer_type")
+  correctAnswerText  String?    @map("correct_answer_text") @db.Text
+  correctAnswerArray Json?      @map("correct_answer_array")
 
-  question           Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  acceptedAnswers    BlankAcceptedAnswer[]
+  question        Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  acceptedAnswers BlankAcceptedAnswer[]
 
   @@unique([questionId, blankIndex])
   @@map("question_blanks")
 }
 
 model BlankAcceptedAnswer {
-  id           String        @id @default(uuid()) @db.Uuid
-  blankId      String        @map("blank_id") @db.Uuid
-  answerText   String        @map("answer_text") @db.Text
-  displayOrder Int           @map("display_order")
+  id           String @id @default(uuid()) @db.Uuid
+  blankId      String @map("blank_id") @db.Uuid
+  answerText   String @map("answer_text") @db.Text
+  displayOrder Int    @map("display_order")
 
-  blank        QuestionBlank @relation(fields: [blankId], references: [id], onDelete: Cascade)
+  blank QuestionBlank @relation(fields: [blankId], references: [id], onDelete: Cascade)
 
   @@unique([blankId, displayOrder])
   @@map("blank_accepted_answers")
@@ -310,17 +321,17 @@ model BlankAcceptedAnswer {
 // ─── Question Parts ───────────────────────────────────────────────────────────
 
 model QuestionPart {
-  id                 String               @id @default(uuid()) @db.Uuid
-  questionId         String               @map("question_id") @db.Uuid
-  partId             String               @map("part_id") @db.VarChar(50)
-  questionContent    String               @map("question_content") @db.Text
-  correctAnswerType  AnswerType           @map("correct_answer_type")
-  correctAnswerText  String?              @map("correct_answer_text") @db.Text
-  correctAnswerArray Json?                @map("correct_answer_array")
-  displayOrder       Int                  @map("display_order")
+  id                 String     @id @default(uuid()) @db.Uuid
+  questionId         String     @map("question_id") @db.Uuid
+  partId             String     @map("part_id") @db.VarChar(50)
+  questionContent    String     @map("question_content") @db.Text
+  correctAnswerType  AnswerType @map("correct_answer_type")
+  correctAnswerText  String?    @map("correct_answer_text") @db.Text
+  correctAnswerArray Json?      @map("correct_answer_array")
+  displayOrder       Int        @map("display_order")
 
-  question           Question             @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  acceptedAnswers    PartAcceptedAnswer[]
+  question        Question             @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  acceptedAnswers PartAcceptedAnswer[]
 
   @@unique([questionId, partId])
   @@unique([questionId, displayOrder])
@@ -328,12 +339,12 @@ model QuestionPart {
 }
 
 model PartAcceptedAnswer {
-  id           String       @id @default(uuid()) @db.Uuid
-  partId       String       @map("part_id") @db.Uuid
-  answerText   String       @map("answer_text") @db.Text
-  displayOrder Int          @map("display_order")
+  id           String @id @default(uuid()) @db.Uuid
+  partId       String @map("part_id") @db.Uuid
+  answerText   String @map("answer_text") @db.Text
+  displayOrder Int    @map("display_order")
 
-  part         QuestionPart @relation(fields: [partId], references: [id], onDelete: Cascade)
+  part QuestionPart @relation(fields: [partId], references: [id], onDelete: Cascade)
 
   @@unique([partId, displayOrder])
   @@map("part_accepted_answers")
@@ -342,12 +353,12 @@ model PartAcceptedAnswer {
 // ─── Top-level Question Accepted Answers ──────────────────────────────────────
 
 model AcceptedAnswer {
-  id           String   @id @default(uuid()) @db.Uuid
-  questionId   String   @map("question_id") @db.Uuid
-  answerText   String   @map("answer_text") @db.Text
-  displayOrder Int      @map("display_order")
+  id           String @id @default(uuid()) @db.Uuid
+  questionId   String @map("question_id") @db.Uuid
+  answerText   String @map("answer_text") @db.Text
+  displayOrder Int    @map("display_order")
 
-  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, displayOrder])
   @@map("accepted_answers")
@@ -356,30 +367,30 @@ model AcceptedAnswer {
 // ─── Answer Keys ──────────────────────────────────────────────────────────────
 
 model AnswerKey {
-  id                 String                @id @default(uuid()) @db.Uuid
-  questionId         String                @unique @map("question_id") @db.Uuid
-  exerciseNumber     String                @map("exercise_number") @db.VarChar(20)
-  answerType         AnswerType            @map("answer_type")
-  answerText         String?               @map("answer_text") @db.Text
-  answerArray        Json?                 @map("answer_array")
-  verificationStatus VerificationStatus    @default(verified) @map("verification_status")
-  notes              String?               @db.Text
-  contentOrigin      ContentOrigin         @default(textbook) @map("content_origin")
-  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                 String             @id @default(uuid()) @db.Uuid
+  questionId         String             @unique @map("question_id") @db.Uuid
+  exerciseNumber     String             @map("exercise_number") @db.VarChar(20)
+  answerType         AnswerType         @map("answer_type")
+  answerText         String?            @map("answer_text") @db.Text
+  answerArray        Json?              @map("answer_array")
+  verificationStatus VerificationStatus @default(verified) @map("verification_status")
+  notes              String?            @db.Text
+  contentOrigin      ContentOrigin      @default(textbook) @map("content_origin")
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  question           Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  sourcePages        AnswerKeySourcePage[]
+  question    Question              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  sourcePages AnswerKeySourcePage[]
 
   @@index([exerciseNumber])
   @@map("answer_keys")
 }
 
 model AnswerKeySourcePage {
-  id          String    @id @default(uuid()) @db.Uuid
-  answerKeyId String    @map("answer_key_id") @db.Uuid
-  pageNumber  Int       @map("page_number")
+  id          String @id @default(uuid()) @db.Uuid
+  answerKeyId String @map("answer_key_id") @db.Uuid
+  pageNumber  Int    @map("page_number")
 
-  answerKey   AnswerKey @relation(fields: [answerKeyId], references: [id], onDelete: Cascade)
+  answerKey AnswerKey @relation(fields: [answerKeyId], references: [id], onDelete: Cascade)
 
   @@unique([answerKeyId, pageNumber])
   @@map("answer_key_source_pages")
@@ -398,7 +409,7 @@ model Explanation {
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  question            Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@index([ruleReference])
   @@map("explanations")
@@ -414,22 +425,92 @@ model UnitValidation {
   issues      Json      @default("[]")
   importRunId String?   @map("import_run_id") @db.Uuid
 
-  unit        Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@map("unit_validation")
 }
 
 model UnresolvedItem {
-  id          String  @id @default(uuid()) @db.Uuid
-  unitId      String  @map("unit_id") @db.Uuid
-  itemId      String  @map("item_id") @db.VarChar(100)
-  description String  @db.Text
-  reason      String  @db.Text
-  sourcePages Json?   @map("source_pages")
+  id          String @id @default(uuid()) @db.Uuid
+  unitId      String @map("unit_id") @db.Uuid
+  itemId      String @map("item_id") @db.VarChar(100)
+  description String @db.Text
+  reason      String @db.Text
+  sourcePages Json?  @map("source_pages")
 
-  unit        Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@unique([unitId, itemId])
   @@map("unresolved_items")
 }
 
+// ─── User Accounts, Learning Progress & Exercise Attempts ─────────────────────
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  displayName  String   @map("display_name") @db.VarChar(100)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  progress         LearningProgress[]
+  exerciseAttempts ExerciseAttempt[]
+  questionAttempts QuestionAttemptItem[]
+
+  @@map("users")
+}
+
+model LearningProgress {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  unitId         String         @map("unit_id") @db.Uuid
+  status         LearningStatus @default(in_progress)
+  lastAccessedAt DateTime       @default(now()) @map("last_accessed_at") @db.Timestamptz(6)
+  completedAt    DateTime?      @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, unitId])
+  @@index([userId, status])
+  @@map("learning_progress")
+}
+
+model ExerciseAttempt {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  exerciseId      String   @map("exercise_id") @db.Uuid
+  totalQuestions  Int      @map("total_questions")
+  correctCount    Int      @map("correct_count")
+  scorePercentage Float    @map("score_percentage")
+  submittedAt     DateTime @default(now()) @map("submitted_at") @db.Timestamptz(6)
+
+  user     User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exercise Exercise              @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  items    QuestionAttemptItem[]
+
+  @@index([userId, exerciseId])
+  @@index([userId, submittedAt])
+  @@map("exercise_attempts")
+}
+
+model QuestionAttemptItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  attemptId     String?  @map("attempt_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  questionId    String   @map("question_id") @db.Uuid
+  studentAnswer Json     @map("student_answer")
+  isCorrect     Boolean  @map("is_correct")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  attempt  ExerciseAttempt? @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isCorrect])
+  @@index([userId, questionId])
+  @@map("question_attempt_items")
+}

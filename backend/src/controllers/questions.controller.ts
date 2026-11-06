@@ -95,6 +95,11 @@ export async function getQuestionSolution(
     const question = await prisma.question.findFirst({
       where: { questionId },
       include: {
+        exercise: {
+          select: {
+            unitId: true,
+          },
+        },
         blanks: {
           orderBy: { blankIndex: "asc" },
           include: {
@@ -171,6 +176,11 @@ export async function checkQuestionAnswer(
     const question = await prisma.question.findFirst({
       where: { questionId },
       include: {
+        exercise: {
+          select: {
+            unitId: true,
+          },
+        },
         blanks: {
           orderBy: { blankIndex: "asc" },
           include: {
@@ -206,6 +216,62 @@ export async function checkQuestionAnswer(
 
     const result = evaluateQuestion(question, answer);
 
+    let questionAttemptId: string | undefined = undefined;
+
+    if (req.user) {
+      const userId = req.user.id;
+      const unitId = question.exercise.unitId;
+
+      const txResult = await prisma.$transaction(async (tx) => {
+        const item = await tx.questionAttemptItem.create({
+          data: {
+            attemptId: null,
+            userId,
+            questionId: question.id,
+            studentAnswer: (result.studentAnswer !== undefined ? result.studentAnswer : null) as any,
+            isCorrect: result.isCorrect,
+            createdAt: new Date(),
+          },
+        });
+
+        const currentProgress = await tx.learningProgress.findUnique({
+          where: {
+            userId_unitId: {
+              userId,
+              unitId,
+            },
+          },
+        });
+
+        const targetStatus = currentProgress?.status === "completed" ? "completed" : "in_progress";
+        const now = new Date();
+
+        await tx.learningProgress.upsert({
+          where: {
+            userId_unitId: {
+              userId,
+              unitId,
+            },
+          },
+          create: {
+            userId,
+            unitId,
+            status: targetStatus,
+            lastAccessedAt: now,
+            completedAt: targetStatus === "completed" ? now : null,
+          },
+          update: {
+            status: targetStatus,
+            lastAccessedAt: now,
+          },
+        });
+
+        return item.id;
+      });
+
+      questionAttemptId = txResult;
+    }
+
     sendSuccess(res, {
       questionId: question.questionId,
       isCorrect: result.isCorrect,
@@ -214,6 +280,7 @@ export async function checkQuestionAnswer(
       expectedAnswers: result.expectedAnswers,
       explanation: result.explanation,
       ruleReference: result.ruleReference,
+      ...(questionAttemptId ? { questionAttemptId } : {}),
     });
   } catch (error) {
     next(error);

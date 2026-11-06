@@ -332,6 +332,109 @@ export async function checkExerciseAnswers(
         ? Math.round((correctCount / totalQuestions) * 1000) / 10
         : 0;
 
+    let attemptId: string | undefined = undefined;
+    let unitProgressStatus: string | undefined = undefined;
+
+    if (req.user) {
+      const userId = req.user.id;
+      const unitId = exercise.unitId;
+
+      const txResult = await prisma.$transaction(async (tx) => {
+        // 1. Create ExerciseAttempt
+        const attempt = await tx.exerciseAttempt.create({
+          data: {
+            userId,
+            exerciseId: exercise.id,
+            totalQuestions,
+            correctCount,
+            scorePercentage,
+            submittedAt: new Date(),
+          },
+        });
+
+        // 2. Create QuestionAttemptItems
+        const questionIdToUuid = new Map(exercise.questions.map((q) => [q.questionId, q.id]));
+        const attemptItemsData = results.map((r) => ({
+          attemptId: attempt.id,
+          userId,
+          questionId: questionIdToUuid.get(r.questionId) || r.questionId,
+          studentAnswer: (r.studentAnswer !== undefined ? r.studentAnswer : null) as any,
+          isCorrect: r.isCorrect,
+          createdAt: new Date(),
+        }));
+
+        if (attemptItemsData.length > 0) {
+          await tx.questionAttemptItem.createMany({
+            data: attemptItemsData,
+          });
+        }
+
+        // 3. Determine Unit completion status
+        const unitExercises = await tx.exercise.findMany({
+          where: { unitId },
+          select: { id: true },
+        });
+
+        const userAttempts = await tx.exerciseAttempt.findMany({
+          where: {
+            userId,
+            exerciseId: { in: unitExercises.map((e) => e.id) },
+          },
+          select: { exerciseId: true, scorePercentage: true },
+        });
+
+        const allExercisesPassed = unitExercises.every((ue) =>
+          userAttempts.some((ua) => ua.exerciseId === ue.id && ua.scorePercentage >= 80)
+        );
+
+        const currentProgress = await tx.learningProgress.findUnique({
+          where: {
+            userId_unitId: {
+              userId,
+              unitId,
+            },
+          },
+        });
+
+        let targetStatus: "not_started" | "in_progress" | "completed" = "in_progress";
+        if (allExercisesPassed) {
+          targetStatus = "completed";
+        } else if (currentProgress?.status === "completed") {
+          targetStatus = "completed";
+        }
+
+        const now = new Date();
+        const progress = await tx.learningProgress.upsert({
+          where: {
+            userId_unitId: {
+              userId,
+              unitId,
+            },
+          },
+          create: {
+            userId,
+            unitId,
+            status: targetStatus,
+            lastAccessedAt: now,
+            completedAt: targetStatus === "completed" ? now : null,
+          },
+          update: {
+            status: targetStatus,
+            lastAccessedAt: now,
+            ...(targetStatus === "completed" && !currentProgress?.completedAt ? { completedAt: now } : {}),
+          },
+        });
+
+        return {
+          attemptId: attempt.id,
+          unitProgressStatus: progress.status,
+        };
+      });
+
+      attemptId = txResult.attemptId;
+      unitProgressStatus = txResult.unitProgressStatus;
+    }
+
     sendSuccess(res, {
       exerciseId: exercise.exerciseId,
       exerciseNumber: exercise.exerciseNumber,
@@ -339,6 +442,7 @@ export async function checkExerciseAnswers(
       correctCount,
       scorePercentage,
       results,
+      ...(attemptId ? { attemptId, unitProgressStatus } : {}),
     });
   } catch (error) {
     next(error);
