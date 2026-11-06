@@ -248,6 +248,7 @@ export interface QuestionCheckResult {
   expectedAnswers: string[];
   explanation: string | null;
   ruleReference: string | null;
+  questionAttemptId?: string;
 }
 
 export interface ExerciseCheckResult {
@@ -257,5 +258,97 @@ export interface ExerciseCheckResult {
   correctCount: number;
   scorePercentage: number;
   results: QuestionCheckResult[];
+  attemptId?: string;
+  unitProgressStatus?: string;
+}
+
+// ─── Phase 7 Authentication & Progress Types ─────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  displayName: string;
+  createdAt?: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: AuthUser;
+}
+
+export type LearningStatus = "not_started" | "in_progress" | "completed";
+
+export interface UnitProgressSummary {
+  unitNumber: number;
+  status: LearningStatus;
+  lastAccessedAt: string;
+  completedAt: string | null;
+}
+
+export interface RecentAttempt {
+  id: string;
+  exerciseId: string;
+  exerciseNumber: string;
+  unitNumber: number;
+  unitTitle: string;
+  scorePercentage: number;
+  correctCount: number;
+  totalQuestions: number;
+  submittedAt: string;
+}
+
+export interface ProgressOverview {
+  units: {
+    completedCount: number;
+    inProgressCount: number;
+    notStartedCount: number;
+    totalUnits: number;
+    completionPercentage: number;
+  };
+  exercises: {
+    totalAttempts: number;
+    uniqueExercisesAttempted: number;
+    totalExercises: number;
+    averageScorePercentage: number;
+  };
+  questions: {
+    totalAnswered: number;
+    uniqueQuestionsAnswered: number;
+    correctUniqueQuestions: number;
+    accuracyPercentage: number;
+  };
+  recentAttempts: RecentAttempt[];
+  unitProgressMap: UnitProgressSummary[];
+}
+
+export interface UnitProgressAttempt {
+  id: string;
+  exerciseId: string;
+  exerciseNumber: string;
+  totalQuestions: number;
+  correctCount: number;
+  scorePercentage: number;
+  submittedAt: string;
+}
+
+export interface UnitProgressDetail {
+  unitNumber: number;
+  title: string;
+  status: LearningStatus;
+  lastAccessedAt: string | null;
+  completedAt: string | null;
+  attempts: UnitProgressAttempt[];
+}
+
+export interface MistakeItem {
+  questionId: string;
+  questionContent: string;
+  questionType: string;
+  exerciseId: string;
+  exerciseNumber: string;
+  unitNumber: number;
+  unitTitle: string;
+  lastStudentAnswer: unknown;
+  lastAttemptedAt: string;
 }
 

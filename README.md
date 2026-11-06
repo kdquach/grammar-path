@@ -98,6 +98,12 @@ npm run dev
    - AI-enhanced Vietnamese pedagogical explanations.
    - Clickable Rule Reference badge linking directly to the corresponding theory section modal.
 
+5. **User Accounts, Learning Progress & Mistake Review (Phase 7)**:
+   - **Authentication**: JWT-based user registration and login (`/api/v1/auth/*`) with full Guest Mode support.
+   - **Unit Progress Tracking**: Per-unit completion badges (`completed`, `in_progress`, `not_started`) with manual toggle and automatic promotion upon high exercise performance.
+   - **Learning Progress Dashboard (`/progress`)**: 4 KPI cards for completed units, practiced exercises, average score, and accuracy percentage alongside recent exercise submission history.
+   - **Interactive Mistake Review (`/mistakes`)**: Dynamic unresolved mistake queue where students can retry mistakes with instant feedback, view solutions, and clear errors from their active list.
+
 ## Sibling Data Repository
 
 - **Data Repository (Read-Only Reference):** `../grammarpath-data` (`/Users/kd.quach03/Documents/grammarpath-data`)

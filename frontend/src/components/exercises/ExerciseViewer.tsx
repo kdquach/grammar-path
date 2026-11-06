@@ -16,11 +16,13 @@ import QuestionCard from "./QuestionCard";
 interface ExerciseViewerProps {
   unitNumber: number;
   onOpenRuleReference?: (sectionId: string) => void;
+  onProgressChange?: () => void;
 }
 
 export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
   unitNumber,
   onOpenRuleReference,
+  onProgressChange,
 }) => {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [activeExerciseIndex, setActiveExerciseIndex] = useState<number>(0);
@@ -93,6 +95,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
         ...prev,
         [questionId]: result,
       }));
+      onProgressChange?.();
     } catch (err: any) {
       alert(err.message || "Failed to check answer");
     } finally {
@@ -135,6 +138,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
         correctCount: res.correctCount,
         scorePercentage: res.scorePercentage,
       });
+      onProgressChange?.();
     } catch (err: any) {
       alert(err.message || "Failed to grade entire exercise");
     } finally {

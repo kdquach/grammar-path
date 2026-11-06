@@ -12,10 +12,37 @@ import type {
   QuestionSolution,
   QuestionCheckResult,
   ExerciseCheckResult,
+  AuthUser,
+  AuthResponse,
+  LearningStatus,
+  ProgressOverview,
+  UnitProgressDetail,
+  MistakeItem,
 } from "../types/api.types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 const API_PREFIX = `${BASE_URL}/api/v1`;
+const TOKEN_KEY = "grammarpath_token";
+
+export function getStoredToken(): string | null {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredToken(token: string | null): void {
+  try {
+    if (token) {
+      localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
 
 class ApiClientError extends Error {
   code: string;
@@ -34,9 +61,11 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<{ data: T; meta?: Record<string, unknown> }> {
   const url = `${API_PREFIX}${endpoint}`;
-  const headers = {
+  const token = getStoredToken();
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
   const response = await fetch(url, {
@@ -216,6 +245,88 @@ export const api = {
         body: JSON.stringify({ answers }),
       }
     );
+    return data;
+  },
+
+  // ─── Phase 7 Authentication & Progress Methods ─────────────────────────────
+
+  /**
+   * Registers a new user account.
+   */
+  async registerUser(payload: {
+    email: string;
+    password: string;
+    displayName: string;
+  }): Promise<AuthResponse> {
+    const { data } = await request<AuthResponse>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    setStoredToken(data.token);
+    return data;
+  },
+
+  /**
+   * Logs in an existing user with email and password.
+   */
+  async loginUser(payload: {
+    email: string;
+    password: string;
+  }): Promise<AuthResponse> {
+    const { data } = await request<AuthResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    setStoredToken(data.token);
+    return data;
+  },
+
+  /**
+   * Fetches profile of the currently authenticated user.
+   */
+  async getCurrentUser(): Promise<AuthUser> {
+    const { data } = await request<AuthUser>("/auth/me");
+    return data;
+  },
+
+  /**
+   * Fetches learning dashboard statistics and recent attempts for the current user.
+   */
+  async getProgressOverview(): Promise<ProgressOverview> {
+    const { data } = await request<ProgressOverview>("/progress/overview");
+    return data;
+  },
+
+  /**
+   * Fetches unit learning progress status and attempt history for a specific unit.
+   */
+  async getUnitProgress(unitNumber: number): Promise<UnitProgressDetail> {
+    const { data } = await request<UnitProgressDetail>(`/progress/units/${unitNumber}`);
+    return data;
+  },
+
+  /**
+   * Manually updates a unit's learning status (not_started, in_progress, completed).
+   */
+  async updateUnitProgress(
+    unitNumber: number,
+    status: LearningStatus
+  ): Promise<UnitProgressDetail> {
+    const { data } = await request<UnitProgressDetail>(
+      `/progress/units/${unitNumber}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      }
+    );
+    return data;
+  },
+
+  /**
+   * Fetches all unresolved mistake items for the current user.
+   */
+  async getMistakes(): Promise<MistakeItem[]> {
+    const { data } = await request<MistakeItem[]>("/progress/mistakes");
     return data;
   },
 };

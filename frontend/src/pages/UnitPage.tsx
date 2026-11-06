@@ -7,9 +7,17 @@ import {
   PenTool,
   Loader2,
   ArrowLeft,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import api from "../api/client";
-import type { UnitDetail, UnitTheory } from "../types/api.types";
+import { useAuth } from "../context/AuthContext";
+import type {
+  UnitDetail,
+  UnitTheory,
+  UnitProgressDetail,
+  LearningStatus,
+} from "../types/api.types";
 import TheoryViewer from "../components/theory/TheoryViewer";
 import RuleReferenceModal from "../components/theory/RuleReferenceModal";
 import ExerciseViewer from "../components/exercises/ExerciseViewer";
@@ -17,11 +25,14 @@ import ExerciseViewer from "../components/exercises/ExerciseViewer";
 export const UnitPage: React.FC = () => {
   const { unitNumber: unitNumberParam } = useParams<{ unitNumber: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const unitNumber = parseInt(unitNumberParam || "1", 10);
 
   // Data state
   const [unitDetail, setUnitDetail] = useState<UnitDetail | null>(null);
   const [unitTheory, setUnitTheory] = useState<UnitTheory | null>(null);
+  const [unitProgress, setUnitProgress] = useState<UnitProgressDetail | null>(null);
+  const [isUpdatingProgress, setIsUpdatingProgress] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<"theory" | "exercises">("theory");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +71,52 @@ export const UnitPage: React.FC = () => {
     };
   }, [unitNumber]);
 
+  // Fetch unit progress for authenticated user
+  useEffect(() => {
+    if (!user || isNaN(unitNumber) || unitNumber < 1 || unitNumber > 145) {
+      setUnitProgress(null);
+      return;
+    }
+
+    let isMounted = true;
+    api
+      .getUnitProgress(unitNumber)
+      .then((progress) => {
+        if (isMounted) {
+          setUnitProgress(progress);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load unit progress:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user, unitNumber]);
+
+  const handleToggleUnitStatus = async () => {
+    if (!user) return;
+    const nextStatus: LearningStatus =
+      unitProgress?.status === "completed" ? "in_progress" : "completed";
+
+    try {
+      setIsUpdatingProgress(true);
+      const updated = await api.updateUnitProgress(unitNumber, nextStatus);
+      setUnitProgress(updated);
+    } catch (err: any) {
+      alert(err.message || "Failed to update unit progress");
+    } finally {
+      setIsUpdatingProgress(false);
+    }
+  };
+
+  const handleRefreshProgress = () => {
+    if (user) {
+      api.getUnitProgress(unitNumber).then(setUnitProgress).catch(console.error);
+    }
+  };
+
   const hasPrev = unitNumber > 1;
   const hasNext = unitNumber < 145;
 
@@ -86,7 +143,7 @@ export const UnitPage: React.FC = () => {
           <button
             onClick={() => navigate(`/units/${unitNumber - 1}`)}
             disabled={!hasPrev}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Unit {unitNumber - 1}</span>
@@ -94,7 +151,7 @@ export const UnitPage: React.FC = () => {
           <button
             onClick={() => navigate(`/units/${unitNumber + 1}`)}
             disabled={!hasNext}
-            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs"
+            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
           >
             <span>Unit {unitNumber + 1}</span>
             <ChevronRight className="w-4 h-4" />
@@ -120,11 +177,51 @@ export const UnitPage: React.FC = () => {
       ) : unitDetail && unitTheory ? (
         <>
           {/* ─── Unit Title Header ────────────────────────────────────────── */}
-          <section className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-3">
+          <section className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-brand-100 text-brand-800">
-                Unit {unitDetail.unitNumber}
-              </span>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-brand-100 text-brand-800">
+                  Unit {unitDetail.unitNumber}
+                </span>
+
+                {/* Authenticated Unit Progress Badge & Toggle Button */}
+                {user && (
+                  <div className="flex items-center gap-2">
+                    {unitProgress?.status === "completed" ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Completed</span>
+                      </span>
+                    ) : unitProgress?.status === "in_progress" ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                        <Clock className="w-3.5 h-3.5 text-blue-600" />
+                        <span>In Progress</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                        <span>Not Started</span>
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      disabled={isUpdatingProgress}
+                      onClick={handleToggleUnitStatus}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer ${
+                        unitProgress?.status === "completed"
+                          ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300"
+                          : "bg-emerald-600 text-white hover:bg-emerald-700"
+                      }`}
+                    >
+                      {isUpdatingProgress
+                        ? "Updating..."
+                        : unitProgress?.status === "completed"
+                        ? "Mark as In Progress"
+                        : "Mark as Completed"}
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Source page badges */}
               <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -155,9 +252,9 @@ export const UnitPage: React.FC = () => {
           <div className="flex border-b border-slate-200 space-x-6 text-sm font-semibold">
             <button
               onClick={() => setActiveTab("theory")}
-              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
                 activeTab === "theory"
-                  ? "border-brand-600 text-brand-700"
+                  ? "border-brand-600 text-brand-700 font-bold"
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -170,9 +267,9 @@ export const UnitPage: React.FC = () => {
 
             <button
               onClick={() => setActiveTab("exercises")}
-              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
                 activeTab === "exercises"
-                  ? "border-brand-600 text-brand-700"
+                  ? "border-brand-600 text-brand-700 font-bold"
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -195,6 +292,7 @@ export const UnitPage: React.FC = () => {
             <ExerciseViewer
               unitNumber={unitDetail.unitNumber}
               onOpenRuleReference={(ruleId) => setSelectedRuleId(ruleId)}
+              onProgressChange={handleRefreshProgress}
             />
           )}
 

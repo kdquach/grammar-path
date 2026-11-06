@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Search,
   Filter,
@@ -8,9 +8,20 @@ import {
   Layers,
   Sparkles,
   Loader2,
+  CheckCircle2,
+  Clock,
+  BarChart3,
+  ArrowUpRight,
 } from "lucide-react";
 import api from "../api/client";
-import type { Book, UnitSummary, PaginationMeta } from "../types/api.types";
+import { useAuth } from "../context/AuthContext";
+import type {
+  Book,
+  UnitSummary,
+  PaginationMeta,
+  ProgressOverview,
+  LearningStatus,
+} from "../types/api.types";
 
 const RANGE_FILTERS = [
   { label: "All Units (1–145)", from: undefined, to: undefined },
@@ -23,6 +34,7 @@ const RANGE_FILTERS = [
 
 export const CatalogPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Data state
   const [book, setBook] = useState<Book | null>(null);
@@ -33,6 +45,10 @@ export const CatalogPage: React.FC = () => {
     totalItems: 0,
     totalPages: 1,
   });
+
+  // User progress overview
+  const [overview, setOverview] = useState<ProgressOverview | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | LearningStatus>("all");
 
   // Filter state
   const [page, setPage] = useState<number>(1);
@@ -48,6 +64,18 @@ export const CatalogPage: React.FC = () => {
       .then(setBook)
       .catch((err) => console.error("Failed to load book:", err));
   }, []);
+
+  // Fetch user progress overview if authenticated
+  useEffect(() => {
+    if (!user) {
+      setOverview(null);
+      return;
+    }
+    api
+      .getProgressOverview()
+      .then(setOverview)
+      .catch((err) => console.error("Failed to load progress overview:", err));
+  }, [user]);
 
   // Fetch units when page, search, or range filter changes
   useEffect(() => {
@@ -95,8 +123,74 @@ export const CatalogPage: React.FC = () => {
     setPage(1);
   };
 
+  // Map unit progress status by unitNumber
+  const progressMap = useMemo(() => {
+    const map: Record<number, LearningStatus> = {};
+    if (overview?.unitProgressMap) {
+      for (const item of overview.unitProgressMap) {
+        map[item.unitNumber] = item.status;
+      }
+    }
+    return map;
+  }, [overview]);
+
+  // Filter displayed units by user status if statusFilter is active
+  const displayedUnits = useMemo(() => {
+    if (statusFilter === "all" || !user) return units;
+    return units.filter((u) => {
+      const status = progressMap[u.unitNumber] || "not_started";
+      return status === statusFilter;
+    });
+  }, [units, statusFilter, user, progressMap]);
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* ─── Personal Progress Summary Strip (Authenticated) ──────────────── */}
+      {user && overview && (
+        <section className="bg-gradient-to-r from-emerald-950 via-slate-900 to-brand-950 rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-emerald-500/20 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                  Personal Progress Strip
+                </span>
+                <span className="text-[11px] text-slate-400">•</span>
+                <span className="text-xs text-slate-300 font-medium">
+                  {user.displayName}
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm font-extrabold text-white mt-0.5">
+                Completed:{" "}
+                <span className="text-emerald-400">
+                  {overview.units.completedCount} / {overview.units.totalUnits} Units
+                </span>{" "}
+                ({overview.units.completionPercentage}%)
+                <span className="text-slate-500 font-normal mx-2">•</span>
+                <span className="text-slate-300 font-medium">
+                  In Progress: {overview.units.inProgressCount}
+                </span>
+                <span className="text-slate-500 font-normal mx-2">•</span>
+                <span className="text-slate-300 font-medium">
+                  Average Score: {overview.exercises.averageScorePercentage}%
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/progress"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors border border-white/20 whitespace-nowrap self-end md:self-auto cursor-pointer"
+          >
+            <BarChart3 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Dashboard</span>
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        </section>
+      )}
+
       {/* ─── Hero / Curriculum Overview ──────────────────────────────────── */}
       {book && (
         <section className="bg-gradient-to-r from-brand-900 via-brand-800 to-slate-900 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
@@ -169,7 +263,7 @@ export const CatalogPage: React.FC = () => {
           {/* Result count badge */}
           <div className="text-xs text-slate-500 font-medium self-end md:self-auto">
             Showing{" "}
-            <strong className="text-slate-800">{meta.totalItems}</strong> matching
+            <strong className="text-slate-800">{displayedUnits.length}</strong> matching
             units
           </div>
         </div>
@@ -186,9 +280,9 @@ export const CatalogPage: React.FC = () => {
               <button
                 key={filter.label}
                 onClick={() => handleRangeSelect(index)}
-                className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   isActive
-                    ? "bg-brand-600 text-white shadow-xs"
+                    ? "bg-brand-600 text-white shadow-xs font-bold"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
                 }`}
               >
@@ -197,6 +291,42 @@ export const CatalogPage: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Status filter pills (Available when logged in) */}
+        {user && overview && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pt-2 border-t border-slate-100 text-xs">
+            <span className="text-slate-400 font-medium pr-1">
+              <span>Status:</span>
+            </span>
+            {[
+              { label: "All Statuses", value: "all" },
+              {
+                label: `Completed (${overview.units.completedCount})`,
+                value: "completed",
+              },
+              {
+                label: `In Progress (${overview.units.inProgressCount})`,
+                value: "in_progress",
+              },
+              {
+                label: `Not Started (${overview.units.notStartedCount})`,
+                value: "not_started",
+              },
+            ].map((pill) => (
+              <button
+                key={pill.value}
+                onClick={() => setStatusFilter(pill.value as any)}
+                className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                  statusFilter === pill.value
+                    ? "bg-slate-800 text-white font-bold shadow-2xs"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* ─── Units Grid / Catalog ────────────────────────────────────────── */}
@@ -211,81 +341,107 @@ export const CatalogPage: React.FC = () => {
             <p className="font-semibold">{error}</p>
             <button
               onClick={() => setPage(1)}
-              className="text-xs font-medium px-3 py-1.5 bg-rose-100 rounded-md hover:bg-rose-200 transition-colors"
+              className="text-xs font-medium px-3 py-1.5 bg-rose-100 rounded-md hover:bg-rose-200 transition-colors cursor-pointer"
             >
               Retry
             </button>
           </div>
-        ) : units.length === 0 ? (
+        ) : displayedUnits.length === 0 ? (
           <div className="p-12 text-center bg-white rounded-xl border border-slate-200 text-slate-500 space-y-2">
             <Layers className="w-8 h-8 text-slate-300 mx-auto" />
             <p className="font-semibold text-slate-700">No units found</p>
             <p className="text-xs text-slate-400">
-              Try adjusting your search query or selecting "All Units (1–145)".
+              Try adjusting your search query, status filter, or range selector.
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {units.map((unit) => (
-              <div
-                key={unit.id || unit.unitNumber}
-                onClick={() => navigate(`/units/${unit.unitNumber}`)}
-                className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-md hover:border-brand-300 transition-all cursor-pointer flex flex-col justify-between group"
-              >
-                <div className="space-y-3">
-                  {/* Top Bar: Unit Number Badge & PDF pages */}
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center justify-center px-2.5 py-1 text-xs font-extrabold text-brand-800 bg-brand-100 rounded-md group-hover:bg-brand-600 group-hover:text-white transition-colors">
-                      Unit {unit.unitNumber}
-                    </span>
+            {displayedUnits.map((unit) => {
+              const unitStatus = progressMap[unit.unitNumber] || "not_started";
 
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                      {unit.theoryPdfPage && (
-                        <span className="bg-slate-100 px-1.5 py-0.5 rounded">
-                          Theory p.{unit.theoryPdfPage}
+              return (
+                <div
+                  key={unit.id || unit.unitNumber}
+                  onClick={() => navigate(`/units/${unit.unitNumber}`)}
+                  className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-md hover:border-brand-300 transition-all cursor-pointer flex flex-col justify-between group"
+                >
+                  <div className="space-y-3">
+                    {/* Top Bar: Unit Number Badge, Status Badge & PDF pages */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center justify-center px-2.5 py-1 text-xs font-extrabold text-brand-800 bg-brand-100 rounded-md group-hover:bg-brand-600 group-hover:text-white transition-colors">
+                          Unit {unit.unitNumber}
                         </span>
-                      )}
-                      {unit.exercisePdfPage && (
-                        <span className="bg-slate-100 px-1.5 py-0.5 rounded">
-                          Ex p.{unit.exercisePdfPage}
-                        </span>
-                      )}
+
+                        {user && (
+                          <div>
+                            {unitStatus === "completed" ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Completed</span>
+                              </span>
+                            ) : unitStatus === "in_progress" ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                <Clock className="w-3 h-3 text-blue-600" />
+                                <span>In Progress</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-50 text-slate-400 border border-slate-200">
+                                <span>Not Started</span>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                        {unit.theoryPdfPage && (
+                          <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                            Theory p.{unit.theoryPdfPage}
+                          </span>
+                        )}
+                        {unit.exercisePdfPage && (
+                          <span className="bg-slate-100 px-1.5 py-0.5 rounded">
+                            Ex p.{unit.exercisePdfPage}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Unit Title */}
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
+                      {unit.title}
+                    </h3>
+                  </div>
+
+                  {/* Bottom Counts Badge */}
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <div className="flex items-center gap-3">
+                      <span title="Theory sections">
+                        <strong className="text-slate-800 font-semibold">
+                          {unit.counts.theorySections}
+                        </strong>{" "}
+                        theories
+                      </span>
+                      <span>•</span>
+                      <span title="Exercises">
+                        <strong className="text-slate-800 font-semibold">
+                          {unit.counts.exercises}
+                        </strong>{" "}
+                        exercises
+                      </span>
+                      <span>•</span>
+                      <span title="Questions">
+                        <strong className="text-slate-800 font-semibold">
+                          {unit.counts.questions}
+                        </strong>{" "}
+                        questions
+                      </span>
                     </div>
                   </div>
-
-                  {/* Unit Title */}
-                  <h3 className="text-base font-bold text-slate-900 group-hover:text-brand-600 transition-colors line-clamp-2 leading-snug">
-                    {unit.title}
-                  </h3>
                 </div>
-
-                {/* Bottom Counts Badge */}
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                  <div className="flex items-center gap-3">
-                    <span title="Theory sections">
-                      <strong className="text-slate-800 font-semibold">
-                        {unit.counts.theorySections}
-                      </strong>{" "}
-                      theories
-                    </span>
-                    <span>•</span>
-                    <span title="Exercises">
-                      <strong className="text-slate-800 font-semibold">
-                        {unit.counts.exercises}
-                      </strong>{" "}
-                      exercises
-                    </span>
-                    <span>•</span>
-                    <span title="Questions">
-                      <strong className="text-slate-800 font-semibold">
-                        {unit.counts.questions}
-                      </strong>{" "}
-                      questions
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -295,7 +451,7 @@ export const CatalogPage: React.FC = () => {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
               <span>Previous</span>
@@ -309,7 +465,7 @@ export const CatalogPage: React.FC = () => {
             <button
               onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
               disabled={page >= meta.totalPages}
-              className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
             >
               <span>Next</span>
               <ChevronRight className="w-4 h-4" />
