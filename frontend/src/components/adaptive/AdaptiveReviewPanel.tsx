@@ -11,6 +11,7 @@ import {
   Loader2,
   Award,
   Lightbulb,
+  Zap,
 } from "lucide-react";
 import api from "../../api/client";
 import { useAuth } from "../../context/AuthContext";
@@ -19,8 +20,15 @@ import type {
   ReviewRecommendation,
 } from "../../types/api.types";
 import AuthModal from "../auth/AuthModal";
+import AdaptiveQuizModal from "./AdaptiveQuizModal";
 
-export const AdaptiveReviewPanel: React.FC = () => {
+interface AdaptiveReviewPanelProps {
+  onStartAdaptiveQuiz?: () => void;
+}
+
+export const AdaptiveReviewPanel: React.FC<AdaptiveReviewPanelProps> = ({
+  onStartAdaptiveQuiz,
+}) => {
   const { user } = useAuth();
   const [analytics, setAnalytics] = useState<AdaptiveAnalytics | null>(null);
   const [recommendations, setRecommendations] = useState<ReviewRecommendation[]>(
@@ -29,6 +37,15 @@ export const AdaptiveReviewPanel: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isInternalQuizOpen, setIsInternalQuizOpen] = useState<boolean>(false);
+
+  const handleOpenQuiz = () => {
+    if (onStartAdaptiveQuiz) {
+      onStartAdaptiveQuiz();
+    } else {
+      setIsInternalQuizOpen(true);
+    }
+  };
 
   const loadAdaptiveData = () => {
     if (!user) return;
@@ -55,7 +72,7 @@ export const AdaptiveReviewPanel: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="bg-linear-to-r from-indigo-50 to-brand-50 border border-indigo-100 rounded-2xl p-6 sm:p-8 shadow-xs">
+      <div className="bg-gradient-to-r from-indigo-50 to-brand-50 border border-indigo-100 rounded-2xl p-6 sm:p-8 shadow-xs">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
@@ -104,16 +121,27 @@ export const AdaptiveReviewPanel: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={loadAdaptiveData}
-          disabled={isLoading}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer self-start sm:self-auto"
-        >
-          <RefreshCw
-            className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-indigo-600" : ""}`}
-          />
-          <span>Làm mới gợi ý</span>
-        </button>
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={handleOpenQuiz}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-500 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold shadow-2xs transition-all cursor-pointer"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>⚡ Làm bài Quiz thông minh (Luyện theo điểm yếu)</span>
+          </button>
+
+          <button
+            onClick={loadAdaptiveData}
+            disabled={isLoading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-indigo-600" : ""}`}
+            />
+            <span>Làm mới gợi ý</span>
+          </button>
+        </div>
       </div>
 
       {isLoading && (
@@ -321,6 +349,11 @@ export const AdaptiveReviewPanel: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Internal Adaptive Quiz Modal if not controlled by parent */}
+      <AdaptiveQuizModal
+        isOpen={isInternalQuizOpen}
+        onClose={() => setIsInternalQuizOpen(false)}
+      />
     </div>
   );
 };

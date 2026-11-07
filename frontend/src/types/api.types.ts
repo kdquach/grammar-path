@@ -407,3 +407,52 @@ export interface AdaptiveRecommendationsResponse {
   totalRecommendations: number;
 }
 
+// ─── Phase 9.2: TOEIC Practice & Adaptive Quiz Types ─────────────────────────
+
+export interface ToeicOption {
+  key: "A" | "B" | "C" | "D";
+  text: string;
+}
+
+export interface ToeicQuestion {
+  prompt: string;
+  options: ToeicOption[];
+  correctAnswer: "A" | "B" | "C" | "D";
+  explanation: string;
+}
+
+export interface ToeicPracticeSession {
+  unitNumber: number;
+  title: string;
+  questions: ToeicQuestion[];
+}
+
+export interface QuizTargetUnit {
+  unitNumber: number;
+  title: string;
+  errorCount: number;
+}
+
+export interface AdaptiveQuizQuestion {
+  id: string;
+  questionId: string;
+  unitNumber: number;
+  unitTitle: string;
+  exerciseId: string;
+  exerciseNumber: string;
+  questionType: string;
+  instruction: string;
+  prompt: string;
+  options?: Array<{ key: string; text: string }>;
+  correctAnswer?: string;
+  explanation?: string | null;
+  contextClue?: string | null;
+}
+
+export interface AdaptiveQuizSession {
+  sessionId: string;
+  targetUnits: QuizTargetUnit[];
+  totalQuestions: number;
+  questions: AdaptiveQuizQuestion[];
+}
+

@@ -22,6 +22,8 @@ import type {
   ExplainTheoryResponse,
   AdaptiveAnalytics,
   AdaptiveRecommendationsResponse,
+  ToeicPracticeSession,
+  AdaptiveQuizSession,
 } from "../types/api.types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
@@ -360,6 +362,35 @@ export const api = {
    */
   async getAdaptiveRecommendations(): Promise<AdaptiveRecommendationsResponse> {
     const { data } = await request<AdaptiveRecommendationsResponse>("/adaptive/recommendations");
+    return data;
+  },
+
+  // ─── Phase 9.2 TOEIC Practice & Adaptive Quiz Methods ──────────────────────
+
+  /**
+   * Generates AI-powered TOEIC Part 5 practice questions for a specific unit.
+   */
+  async generateToeicPractice(
+    unitNumber: number,
+    count = 5
+  ): Promise<ToeicPracticeSession> {
+    const { data } = await request<ToeicPracticeSession>("/adaptive/toeic-practice", {
+      method: "POST",
+      body: JSON.stringify({ unitNumber, count }),
+    });
+    return data;
+  },
+
+  /**
+   * Generates a personalized remedial or diagnostic quiz session targeting weak units.
+   */
+  async generateAdaptiveQuiz(
+    questionCount = 5
+  ): Promise<AdaptiveQuizSession> {
+    const { data } = await request<AdaptiveQuizSession>("/adaptive/quiz/generate", {
+      method: "POST",
+      body: JSON.stringify({ questionCount }),
+    });
     return data;
   },
 };

@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from "express";
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { sendSuccess } from "../utils/response";
+import { AppError } from "../middleware/error-handler";
+import { generateToeicQuestionsForUnit } from "../services/toeic-generator.service";
 
 export interface WeakestUnitSummary {
   unitNumber: number;
@@ -392,6 +395,267 @@ export async function getAdaptiveRecommendations(
     sendSuccess(res, {
       recommendations,
       totalRecommendations: recommendations.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── Phase 9.2: TOEIC-Style Practice Generator ────────────────────────────────
+
+export const toeicPracticeSchema = z.object({
+  unitNumber: z.coerce
+    .number()
+    .int()
+    .min(1, "unitNumber must be between 1 and 145")
+    .max(145, "unitNumber must be between 1 and 145"),
+  count: z.coerce.number().int().min(1).max(20).optional().default(5),
+});
+
+/**
+ * POST /api/v1/adaptive/toeic-practice
+ * Generates TOEIC Part 5 multiple choice questions tailored to the requested unit's grammar point.
+ */
+export async function generateToeicPracticeHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { unitNumber, count } = toeicPracticeSchema.parse(req.body);
+
+    // Fetch the unit along with theory sections and examples
+    const unit = await prisma.unit.findFirst({
+      where: { unitNumber },
+      include: {
+        theorySections: {
+          select: {
+            sectionId: true,
+            heading: true,
+            sourceContent: true,
+          },
+          orderBy: { displayOrder: "asc" },
+        },
+        textbookExamples: {
+          select: {
+            originalText: true,
+            translationVi: true,
+          },
+          orderBy: { displayOrder: "asc" },
+          take: 8,
+        },
+      },
+    });
+
+    if (!unit) {
+      throw new AppError(404, "NOT_FOUND", `Unit ${unitNumber} not found`);
+    }
+
+    // Generate questions using AI or structured fallback
+    const questions = await generateToeicQuestionsForUnit({
+      unitNumber: unit.unitNumber,
+      title: unit.title,
+      theorySections: unit.theorySections,
+      textbookExamples: unit.textbookExamples,
+      count,
+    });
+
+    sendSuccess(res, {
+      unitNumber: unit.unitNumber,
+      title: unit.title,
+      questions,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── Phase 9.2: Adaptive Quiz Generation Engine ───────────────────────────────
+
+export const generateQuizSchema = z.object({
+  questionCount: z.coerce.number().int().min(1).max(20).optional().default(5),
+});
+
+/**
+ * POST /api/v1/adaptive/quiz/generate
+ * Analyzes user mistakes from question_attempt_items and generates a targeted remedial quiz session.
+ */
+export async function generateAdaptiveQuizHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const { questionCount } = generateQuizSchema.parse(req.body);
+
+    // Fetch all incorrect question attempts by this user
+    const mistakeItems = await prisma.questionAttemptItem.findMany({
+      where: {
+        userId,
+        isCorrect: false,
+      },
+      include: {
+        question: {
+          include: {
+            options: { orderBy: { displayOrder: "asc" } },
+            blanks: { orderBy: { blankIndex: "asc" } },
+            explanation: true,
+            exercise: {
+              include: {
+                unit: {
+                  select: { id: true, unitNumber: true, title: true },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Group errors by unit to identify weak spots
+    const unitMistakeMap = new Map<
+      number,
+      { unitId: string; unitNumber: number; title: string; count: number }
+    >();
+
+    for (const item of mistakeItems) {
+      const u = item.question.exercise.unit;
+      const existing = unitMistakeMap.get(u.unitNumber) || {
+        unitId: u.id,
+        unitNumber: u.unitNumber,
+        title: u.title,
+        count: 0,
+      };
+      existing.count += 1;
+      unitMistakeMap.set(u.unitNumber, existing);
+    }
+
+    const weakUnits = Array.from(unitMistakeMap.values()).sort(
+      (a, b) => b.count - a.count
+    );
+
+    const seenQuestionIds = new Set<string>();
+    const questions: any[] = [];
+
+    const formatAdaptiveQuestion = (q: any) => ({
+      id: q.id,
+      questionId: q.questionId,
+      unitNumber: q.exercise.unit.unitNumber,
+      unitTitle: q.exercise.unit.title,
+      exerciseId: q.exercise.id,
+      exerciseNumber: q.exercise.exerciseNumber,
+      questionType: q.exercise.questionType,
+      instruction: q.exercise.instruction,
+      prompt: q.questionContent,
+      options:
+        q.options?.map((opt: any) => ({
+          key: opt.optionKey,
+          text: opt.optionText,
+        })) || [],
+      correctAnswer:
+        q.correctAnswerText || (q.blanks?.[0]?.correctAnswerText ?? ""),
+      explanation: q.explanation?.aiExplanation || null,
+      contextClue: q.contextClue || null,
+    });
+
+    // 1. Add questions that the user previously missed
+    for (const item of mistakeItems) {
+      if (questions.length >= questionCount) break;
+      if (!seenQuestionIds.has(item.question.id)) {
+        seenQuestionIds.add(item.question.id);
+        questions.push(formatAdaptiveQuestion(item.question));
+      }
+    }
+
+    // 2. If needed, query additional questions from the user's weak units
+    if (questions.length < questionCount && weakUnits.length > 0) {
+      const weakUnitIds = weakUnits.map((u) => u.unitId);
+      const additional = await prisma.question.findMany({
+        where: {
+          exercise: { unitId: { in: weakUnitIds } },
+          id: { notIn: Array.from(seenQuestionIds) },
+          isExample: false,
+        },
+        include: {
+          options: { orderBy: { displayOrder: "asc" } },
+          blanks: { orderBy: { blankIndex: "asc" } },
+          explanation: true,
+          exercise: {
+            include: {
+              unit: { select: { id: true, unitNumber: true, title: true } },
+            },
+          },
+        },
+        take: questionCount - questions.length,
+      });
+
+      for (const q of additional) {
+        if (!seenQuestionIds.has(q.id)) {
+          seenQuestionIds.add(q.id);
+          questions.push(formatAdaptiveQuestion(q));
+        }
+      }
+    }
+
+    // 3. If still needed (e.g. new user or insufficient questions), add foundational diagnostic questions
+    let targetUnits = weakUnits.map((u) => ({
+      unitNumber: u.unitNumber,
+      title: u.title,
+      errorCount: u.count,
+    }));
+
+    if (questions.length < questionCount) {
+      const foundationalUnits = await prisma.unit.findMany({
+        where: { unitNumber: { in: [1, 2, 3] } },
+        select: { id: true, unitNumber: true, title: true },
+        orderBy: { unitNumber: "asc" },
+      });
+
+      const needed = questionCount - questions.length;
+      const diagQuestions = await prisma.question.findMany({
+        where: {
+          exercise: { unitId: { in: foundationalUnits.map((u) => u.id) } },
+          id: { notIn: Array.from(seenQuestionIds) },
+          isExample: false,
+        },
+        include: {
+          options: { orderBy: { displayOrder: "asc" } },
+          blanks: { orderBy: { blankIndex: "asc" } },
+          explanation: true,
+          exercise: {
+            include: {
+              unit: { select: { id: true, unitNumber: true, title: true } },
+            },
+          },
+        },
+        take: needed,
+      });
+
+      for (const q of diagQuestions) {
+        if (!seenQuestionIds.has(q.id)) {
+          seenQuestionIds.add(q.id);
+          questions.push(formatAdaptiveQuestion(q));
+        }
+      }
+
+      if (targetUnits.length === 0) {
+        targetUnits = foundationalUnits.map((u) => ({
+          unitNumber: u.unitNumber,
+          title: u.title,
+          errorCount: 0,
+        }));
+      }
+    }
+
+    const sessionId = `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+    sendSuccess(res, {
+      sessionId,
+      targetUnits,
+      totalQuestions: questions.length,
+      questions,
     });
   } catch (error) {
     next(error);

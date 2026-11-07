@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
+  Target,
 } from "lucide-react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -21,6 +22,8 @@ import type {
 import TheoryViewer from "../components/theory/TheoryViewer";
 import RuleReferenceModal from "../components/theory/RuleReferenceModal";
 import ExerciseViewer from "../components/exercises/ExerciseViewer";
+import ToeicPracticeModal from "../components/adaptive/ToeicPracticeModal";
+import AuthModal from "../components/auth/AuthModal";
 
 export const UnitPage: React.FC = () => {
   const { unitNumber: unitNumberParam } = useParams<{ unitNumber: string }>();
@@ -39,6 +42,8 @@ export const UnitPage: React.FC = () => {
 
   // Modal state
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
+  const [isToeicModalOpen, setIsToeicModalOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (isNaN(unitNumber) || unitNumber < 1 || unitNumber > 145) {
@@ -243,9 +248,26 @@ export const UnitPage: React.FC = () => {
               </div>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              {unitDetail.title}
-            </h1>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                {unitDetail.title}
+              </h1>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user) {
+                    setIsAuthModalOpen(true);
+                  } else {
+                    setIsToeicModalOpen(true);
+                  }
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs shadow-sm hover:shadow-md transition-all cursor-pointer shrink-0 self-start sm:self-auto border border-indigo-500/30"
+              >
+                <Target className="w-4 h-4 text-white shrink-0" />
+                <span>🎯 Luyện tập thêm dạng đề TOEIC</span>
+              </button>
+            </div>
           </section>
 
           {/* ─── Tab Switcher ─────────────────────────────────────── */}
@@ -295,6 +317,20 @@ export const UnitPage: React.FC = () => {
               onProgressChange={handleRefreshProgress}
             />
           )}
+
+          {/* TOEIC Part 5 Practice Generator Modal */}
+          <ToeicPracticeModal
+            isOpen={isToeicModalOpen}
+            onClose={() => setIsToeicModalOpen(false)}
+            unitNumber={unitDetail.unitNumber}
+            unitTitle={unitDetail.title}
+          />
+
+          {/* Guest Sign-in Modal if unauthenticated user clicks TOEIC practice */}
+          <AuthModal
+            isOpen={isAuthModalOpen}
+            onClose={() => setIsAuthModalOpen(false)}
+          />
 
           {/* Quick Rule Reference Lookup Modal */}
           <RuleReferenceModal

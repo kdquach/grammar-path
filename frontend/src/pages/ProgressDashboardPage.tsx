@@ -12,12 +12,14 @@ import {
   Loader2,
   AlertCircle,
   LogIn,
+  Zap,
 } from "lucide-react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import type { ProgressOverview } from "../types/api.types";
 import AuthModal from "../components/auth/AuthModal";
 import AdaptiveReviewPanel from "../components/adaptive/AdaptiveReviewPanel";
+import AdaptiveQuizModal from "../components/adaptive/AdaptiveQuizModal";
 
 export const ProgressDashboardPage: React.FC = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -25,6 +27,7 @@ export const ProgressDashboardPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isAdaptiveQuizOpen, setIsAdaptiveQuizOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (isAuthLoading) return;
@@ -140,10 +143,18 @@ export const ProgressDashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsAdaptiveQuizOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-2xs hover:shadow-xs transition-all cursor-pointer"
+          >
+            <Zap className="w-4 h-4 text-white" />
+            <span>⚡ Làm bài Quiz thông minh (Luyện theo điểm yếu)</span>
+          </button>
           <Link
             to="/mistakes"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-white font-bold text-xs hover:bg-amber-600 transition-colors shadow-2xs"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 text-white font-bold text-xs hover:bg-slate-900 transition-colors shadow-2xs"
           >
             <BookmarkCheck className="w-4 h-4" />
             <span>Review Mistakes</span>
@@ -304,7 +315,7 @@ export const ProgressDashboardPage: React.FC = () => {
       </div>
 
       {/* ─── Phase 9: Adaptive Review & AI Tutor Engine ───────────────────── */}
-      <AdaptiveReviewPanel />
+      <AdaptiveReviewPanel onStartAdaptiveQuiz={() => setIsAdaptiveQuizOpen(true)} />
 
       {/* ─── Recent Attempts Table ────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs space-y-4 p-6">
@@ -401,6 +412,11 @@ export const ProgressDashboardPage: React.FC = () => {
           </div>
         )}
       </div>
+      {/* Phase 9.2: Smart Adaptive Remedial Quiz Modal */}
+      <AdaptiveQuizModal
+        isOpen={isAdaptiveQuizOpen}
+        onClose={() => setIsAdaptiveQuizOpen(false)}
+      />
     </div>
   );
 };
