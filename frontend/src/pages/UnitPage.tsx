@@ -313,8 +313,10 @@ export const UnitPage: React.FC = () => {
           ) : (
             <ExerciseViewer
               unitNumber={unitDetail.unitNumber}
+              unitProgress={unitProgress}
               onOpenRuleReference={(ruleId) => setSelectedRuleId(ruleId)}
               onProgressChange={handleRefreshProgress}
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
             />
           )}
 

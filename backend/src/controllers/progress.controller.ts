@@ -281,6 +281,15 @@ export async function getUnitProgress(
             exerciseNumber: true,
           },
         },
+        items: {
+          include: {
+            question: {
+              select: {
+                questionId: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -298,6 +307,11 @@ export async function getUnitProgress(
         correctCount: a.correctCount,
         scorePercentage: a.scorePercentage,
         submittedAt: a.submittedAt,
+        items: a.items.map((it) => ({
+          questionId: it.question.questionId,
+          studentAnswer: it.studentAnswer,
+          isCorrect: it.isCorrect,
+        })),
       })),
     });
   } catch (error) {

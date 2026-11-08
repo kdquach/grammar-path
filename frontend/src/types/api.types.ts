@@ -321,6 +321,12 @@ export interface ProgressOverview {
   unitProgressMap: UnitProgressSummary[];
 }
 
+export interface AttemptItem {
+  questionId: string;
+  studentAnswer: unknown;
+  isCorrect: boolean;
+}
+
 export interface UnitProgressAttempt {
   id: string;
   exerciseId: string;
@@ -329,6 +335,7 @@ export interface UnitProgressAttempt {
   correctCount: number;
   scorePercentage: number;
   submittedAt: string;
+  items?: AttemptItem[];
 }
 
 export interface UnitProgressDetail {
