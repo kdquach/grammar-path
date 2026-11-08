@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { TheorySection, TextbookExample } from "../../types/api.types";
 import api from "../../api/client";
+import { FormattedTheoryContent } from "./FormattedTheoryContent";
 
 interface TheoryViewerProps {
   theorySections: TheorySection[];
@@ -156,9 +157,10 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
               </h3>
 
               {/* Formatted source content */}
-              <div className="bg-slate-50/70 border border-slate-200/80 rounded-lg p-4 font-mono text-xs sm:text-sm text-slate-800 whitespace-pre-wrap leading-relaxed overflow-x-auto">
-                {section.sourceContent}
-              </div>
+              <FormattedTheoryContent
+                content={section.sourceContent}
+                sectionId={section.sectionId}
+              />
 
               {/* AI Explainer Action Button */}
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">

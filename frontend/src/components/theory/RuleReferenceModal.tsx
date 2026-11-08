@@ -3,6 +3,7 @@ import { X, BookOpen, ExternalLink, HelpCircle, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../../api/client";
 import type { TheorySection } from "../../types/api.types";
+import { FormattedTheoryContent } from "./FormattedTheoryContent";
 
 interface RuleReferenceModalProps {
   sectionId: string | null;
@@ -131,9 +132,10 @@ export const RuleReferenceModal: React.FC<RuleReferenceModalProps> = ({
               </div>
 
               {/* Source Content */}
-              <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm text-slate-800 font-mono whitespace-pre-wrap leading-relaxed">
-                {section.sourceContent}
-              </div>
+              <FormattedTheoryContent
+                content={section.sourceContent}
+                sectionId={section.sectionId}
+              />
 
               {/* Linked Questions Footer */}
               {section.linkedQuestions && section.linkedQuestions.count > 0 && (
