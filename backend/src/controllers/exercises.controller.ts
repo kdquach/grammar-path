@@ -300,7 +300,13 @@ export async function checkExerciseAnswers(
       );
     }
 
-    const results = exercise.questions.map((q) => {
+    // Option B: Worked examples (isExample: true) are instructional demonstrations from Cambridge.
+    // They are not interactive test items: the learner has no input fields for them, and they are excluded from
+    // scoring (totalQuestions & correctCount) and from question_attempt_items mistake tracking.
+    const testQuestions = exercise.questions.filter((q) => !q.isExample);
+    const questionsToGrade = testQuestions.length > 0 ? testQuestions : exercise.questions;
+
+    const results = questionsToGrade.map((q) => {
       let studentAnswer = answers[q.questionId];
 
       // If studentAnswer was not provided under questionId, check if answers were keyed by partId

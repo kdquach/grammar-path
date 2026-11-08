@@ -359,3 +359,4 @@ Inside `AdaptiveReviewPanel.tsx`, learners see a dedicated section:
 | `JWT_SECRET` | Secret key for signing and verifying JWT tokens | Required | Secure default in dev |
 | `DATABASE_URL` | PostgreSQL connection string | Required | Local PostgreSQL container |
 | `VITE_API_BASE_URL` | Frontend API proxy endpoint | Optional | Relative URL `/api/v1` |
+

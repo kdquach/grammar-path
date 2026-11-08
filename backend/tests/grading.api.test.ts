@@ -133,8 +133,9 @@ describe("Stateless Answer Evaluation & Grading Engine REST APIs", () => {
   });
 
   // 6. Exercise-level grading (POST /exercises/:exerciseId/check)
-  it("6. Exercise-level grading: POST /api/v1/exercises/1.1/check -> scores all questions accurately", async () => {
-    // All 8 correct
+  // Option B: Worked examples (isExample: true) are excluded from scoring; only interactive test questions are graded.
+  it("6. Exercise-level grading: POST /api/v1/exercises/1.1/check -> scores test questions accurately, excluding worked examples", async () => {
+    // All 7 test questions correct (1.1-q2 to 1.1-q8; 1.1-q1 is an example)
     const resPerfect = await request(app)
       .post("/api/v1/exercises/1.1/check")
       .send({
@@ -152,12 +153,12 @@ describe("Stateless Answer Evaluation & Grading Engine REST APIs", () => {
 
     expect(resPerfect.status).toBe(200);
     expect(resPerfect.body.success).toBe(true);
-    expect(resPerfect.body.data.totalQuestions).toBe(8);
-    expect(resPerfect.body.data.correctCount).toBe(8);
+    expect(resPerfect.body.data.totalQuestions).toBe(7);
+    expect(resPerfect.body.data.correctCount).toBe(7);
     expect(resPerfect.body.data.scorePercentage).toBe(100);
-    expect(resPerfect.body.data.results).toHaveLength(8);
+    expect(resPerfect.body.data.results).toHaveLength(7);
 
-    // 7 correct, 1 wrong
+    // 6 correct, 1 wrong (1.1-q8 wrong)
     const resPartial = await request(app)
       .post("/api/v1/exercises/1.1/check")
       .send({
@@ -174,8 +175,32 @@ describe("Stateless Answer Evaluation & Grading Engine REST APIs", () => {
       });
 
     expect(resPartial.status).toBe(200);
-    expect(resPartial.body.data.correctCount).toBe(7);
-    expect(resPartial.body.data.scorePercentage).toBe(87.5);
+    expect(resPartial.body.data.totalQuestions).toBe(7);
+    expect(resPartial.body.data.correctCount).toBe(6);
+    expect(resPartial.body.data.scorePercentage).toBe(85.7);
+    expect(resPartial.body.data.results).toHaveLength(7);
+
+    // Option B: Worked example (1.1-q1) is omitted by student; exercise is graded on the 7 test items
+    const resOmitted = await request(app)
+      .post("/api/v1/exercises/1.1/check")
+      .send({
+        answers: {
+          // 1.1-q1 is omitted because learner has no input in UI
+          "1.1-q2": "e",
+          "1.1-q3": "g",
+          "1.1-q4": "a",
+          "1.1-q5": "d",
+          "1.1-q6": "h",
+          "1.1-q7": "b",
+          "1.1-q8": "c",
+        },
+      });
+
+    expect(resOmitted.status).toBe(200);
+    expect(resOmitted.body.data.totalQuestions).toBe(7);
+    expect(resOmitted.body.data.correctCount).toBe(7);
+    expect(resOmitted.body.data.scorePercentage).toBe(100);
+    expect(resOmitted.body.data.results).toHaveLength(7);
   });
 
   // 7. Verify statelessness: zero database write operations
