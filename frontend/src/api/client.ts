@@ -24,6 +24,7 @@ import type {
   AdaptiveRecommendationsResponse,
   ToeicPracticeSession,
   AdaptiveQuizSession,
+  DifficultyLevel,
 } from "../types/api.types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
@@ -368,28 +369,37 @@ export const api = {
   // ─── Phase 9.2 TOEIC Practice & Adaptive Quiz Methods ──────────────────────
 
   /**
-   * Generates AI-powered TOEIC Part 5 practice questions for a specific unit.
+   * Generates AI-powered TOEIC Part 5 practice questions for a specific unit with difficulty tier.
    */
   async generateToeicPractice(
     unitNumber: number,
-    count = 5
+    count = 5,
+    difficulty: DifficultyLevel = "medium"
   ): Promise<ToeicPracticeSession> {
     const { data } = await request<ToeicPracticeSession>("/adaptive/toeic-practice", {
       method: "POST",
-      body: JSON.stringify({ unitNumber, count }),
+      body: JSON.stringify({ unitNumber, count, difficulty }),
     });
     return data;
   },
 
   /**
-   * Generates a personalized remedial or diagnostic quiz session targeting weak units.
+   * Generates a personalized remedial or diagnostic quiz session targeting weak units with difficulty tier.
    */
   async generateAdaptiveQuiz(
-    questionCount = 5
+    questionCount = 5,
+    difficulty: DifficultyLevel = "medium",
+    targetUnitNumbers?: number[]
   ): Promise<AdaptiveQuizSession> {
     const { data } = await request<AdaptiveQuizSession>("/adaptive/quiz/generate", {
       method: "POST",
-      body: JSON.stringify({ questionCount }),
+      body: JSON.stringify({
+        questionCount,
+        difficulty,
+        ...(targetUnitNumbers && targetUnitNumbers.length > 0
+          ? { targetUnitNumbers }
+          : {}),
+      }),
     });
     return data;
   },

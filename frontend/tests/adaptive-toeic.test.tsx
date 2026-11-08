@@ -26,6 +26,7 @@ vi.mock("../src/api/client", () => {
     getProgressOverview: vi.fn(),
     getAdaptiveAnalytics: vi.fn(),
     getAdaptiveRecommendations: vi.fn(),
+    getTheorySection: vi.fn(),
     getCurrentUser: vi.fn(),
     loginUser: vi.fn(),
     registerUser: vi.fn(),
@@ -113,6 +114,7 @@ const mockUnitProgress: UnitProgressDetail = {
 const mockToeicSession: ToeicPracticeSession = {
   unitNumber: 1,
   title: "Present continuous (I am doing)",
+  difficulty: "medium",
   questions: [
     {
       prompt: "Ms. Patterson _______ a comprehensive quarterly financial review in Conference Room B right now.",
@@ -124,6 +126,8 @@ const mockToeicSession: ToeicPracticeSession = {
       ],
       correctAnswer: "B",
       explanation: "Dấu hiệu 'right now' diễn tả hành động đang diễn ra tại thời điểm nói. Chọn 'is conducting'.",
+      difficulty: "medium",
+      ruleReference: "1A",
     },
     {
       prompt: "The IT support team _______ a new firewall this week.",
@@ -135,12 +139,15 @@ const mockToeicSession: ToeicPracticeSession = {
       ],
       correctAnswer: "A",
       explanation: "Trạng ngữ 'this week' diễn tả tiến trình tạm thời trong hiện tại. Chọn 'is installing'.",
+      difficulty: "medium",
+      ruleReference: "1C",
     },
   ],
 };
 
 const mockAdaptiveQuizSession: AdaptiveQuizSession = {
   sessionId: "quiz_test_12345",
+  difficulty: "medium",
   targetUnits: [
     { unitNumber: 1, title: "Present continuous (I am doing)", errorCount: 3 },
   ],
@@ -165,6 +172,8 @@ const mockAdaptiveQuizSession: AdaptiveQuizSession = {
       correctAnswer: "B",
       explanation: "Diễn tả hành động đang diễn ra lúc nói: 'am trying'.",
       contextClue: "Diễn ra ngay bây giờ",
+      difficulty: "medium",
+      ruleReference: "1B",
     },
     {
       id: "q-2",
@@ -179,6 +188,8 @@ const mockAdaptiveQuizSession: AdaptiveQuizSession = {
       correctAnswer: "is having",
       explanation: "Hành động đang tiếp diễn: is having a shower.",
       contextClue: null,
+      difficulty: "medium",
+      ruleReference: "1B",
     },
   ],
 };
@@ -198,20 +209,20 @@ const mockProgressOverview: ProgressOverview = {
     averageScorePercentage: 75,
   },
   questions: {
-    totalAnswered: 40,
-    uniqueQuestionsAnswered: 35,
-    correctUniqueQuestions: 30,
-    accuracyPercentage: 75,
+    totalAnswered: 50,
+    uniqueQuestionsAnswered: 40,
+    correctUniqueQuestions: 32,
+    accuracyPercentage: 80,
   },
   recentAttempts: [],
   unitProgressMap: [],
 };
 
-describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine UI", () => {
+describe("Phase 9.2 & 9.3: TOEIC Practice, Adaptive Quiz & Rule Analytics UI", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
-    localStorage.setItem("grammarpath_token", "fake-jwt-token");
+    localStorage.setItem("grammarpath_token", "fake-jwt-token-toeic");
     localStorage.setItem("grammarpath_user", JSON.stringify(mockAuthUser));
 
     vi.mocked(api.getCurrentUser).mockResolvedValue(mockAuthUser);
@@ -238,16 +249,39 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine UI", 
       ],
       errorDistribution: [],
       weakestQuestionType: "fill_blank",
+      weakRules: [
+        {
+          ruleReference: "1A",
+          heading: "Study this example situation:",
+          unitNumber: 1,
+          unitTitle: "Present continuous (I am doing)",
+          errorCount: 3,
+          totalAttempts: 5,
+          accuracyPercentage: 40,
+        },
+      ],
     });
     vi.mocked(api.getAdaptiveRecommendations).mockResolvedValue({
-      recommendations: [],
-      totalRecommendations: 0,
+      recommendations: [
+        {
+          unitNumber: 1,
+          unitTitle: "Present continuous (I am doing)",
+          priority: "high",
+          reason: "Tỷ lệ sai cao ở Unit 1",
+          errorCount: 3,
+          accuracyPercentage: 50,
+          weakestQuestionTypes: ["fill_blank"],
+          targetRules: ["1A", "1B"],
+          suggestedActions: ["Đọc lại lý thuyết mục 1A"],
+        },
+      ],
+      totalRecommendations: 1,
     });
   });
 
   // ─── 1. TOEIC Practice on UnitPage ─────────────────────────────────────────
 
-  it("1. UnitPage: Renders '🎯 Luyện tập thêm dạng đề TOEIC' button and opens modal with questions", async () => {
+  it("1. UnitPage: Renders '🎯 Luyện tập thêm dạng đề TOEIC' button, opens modal, supports 3-tier difficulty selector, and displays rule reference badges", async () => {
     render(
       <MemoryRouter initialEntries={["/units/1"]}>
         <AuthProvider>
@@ -272,16 +306,16 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine UI", 
     // Click to open TOEIC modal
     fireEvent.click(toeicBtn);
 
-    // Verify API was called
-    expect(api.generateToeicPractice).toHaveBeenCalledWith(1, 5);
+    // Verify API was called initially with medium difficulty
+    expect(api.generateToeicPractice).toHaveBeenCalledWith(1, 5, "medium");
 
-    // Verify modal elements are displayed
+    // Verify modal elements and 3-tier difficulty selector are displayed
     await waitFor(() => {
       expect(screen.getByText(/TOEIC Part 5 Format/i)).toBeInTheDocument();
-      expect(
-        screen.getByText(/Ms. Patterson/i)
-      ).toBeInTheDocument();
-      expect(screen.getByText("is conducting")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Dễ \(Cơ bản\)/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Trung bình \(TOEIC Chuẩn\)/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Khó \(Bẫy TOEIC 700\+\)/i })).toBeInTheDocument();
+      expect(screen.getByText(/Ms. Patterson/i)).toBeInTheDocument();
     });
 
     // Select option B and check answer
@@ -291,18 +325,25 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine UI", 
     const checkBtn = screen.getByRole("button", { name: /Kiểm tra đáp án/i });
     fireEvent.click(checkBtn);
 
-    // Verify feedback is shown with explanation
+    // Verify feedback is shown with explanation AND ruleReference badge
     await waitFor(() => {
       expect(screen.getByText(/Chính xác! Đáp án đúng là \(B\)/i)).toBeInTheDocument();
       expect(
         screen.getByText(/Dấu hiệu 'right now' diễn tả hành động đang diễn ra/i)
       ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Quy tắc 1A/i })).toBeInTheDocument();
     });
+
+    // Switch difficulty to 'hard'
+    const hardBtn = screen.getByRole("button", { name: /Khó \(Bẫy TOEIC 700\+\)/i });
+    fireEvent.click(hardBtn);
+
+    expect(api.generateToeicPractice).toHaveBeenCalledWith(1, 5, "hard");
   });
 
-  // ─── 2. Adaptive Quiz on ProgressDashboardPage ──────────────────────────────
+  // ─── 2. Adaptive Quiz & Rule Analytics on ProgressDashboardPage ────────────
 
-  it("2. ProgressDashboardPage: Renders '⚡ Làm bài Quiz thông minh (Luyện theo điểm yếu)' button and triggers adaptive quiz", async () => {
+  it("2. ProgressDashboardPage: Renders 'Tiểu mục lý thuyết hay sai nhất (Weak Theory Rules)' and triggers adaptive quiz with difficulty options", async () => {
     render(
       <MemoryRouter initialEntries={["/progress"]}>
         <AuthProvider>
@@ -320,24 +361,34 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine UI", 
       ).toBeInTheDocument();
     });
 
-    // Locate the Smart Quiz button (may be present in header or adaptive panel)
+    // Verify Granular Weak Theory Sub-sections section is rendered
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Tiểu mục lý thuyết hay sai nhất \(Weak Theory Rules\)/i)
+      ).toBeInTheDocument();
+      expect(screen.getByText(/Quy tắc 1A/i)).toBeInTheDocument();
+      expect(screen.getByText(/Study this example situation:/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Mục 1A/i })).toBeInTheDocument();
+    });
+
+    // Locate the Smart Quiz button and click
     const quizButtons = screen.getAllByRole("button", {
       name: /⚡ Làm bài Quiz thông minh \(Luyện theo điểm yếu\)/i,
     });
     expect(quizButtons.length).toBeGreaterThan(0);
-
-    // Click the button
     fireEvent.click(quizButtons[0]);
 
     // Verify API call
-    expect(api.generateAdaptiveQuiz).toHaveBeenCalledWith(5);
+    expect(api.generateAdaptiveQuiz).toHaveBeenCalledWith(5, "medium");
 
-    // Verify Adaptive Quiz Modal content
+    // Verify Adaptive Quiz Modal content & difficulty selector
     await waitFor(() => {
       expect(screen.getByText(/Adaptive Learning Engine/i)).toBeInTheDocument();
       expect(
         screen.getByText(/Quiz Thông Minh — Luyện Theo Điểm Yếu/i)
       ).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Dễ \(Cơ bản\)/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Khó \(Bẫy TOEIC 700\+\)/i })).toBeInTheDocument();
       expect(
         screen.getByText(/Please don't make noise\. I _______ to concentrate\./i)
       ).toBeInTheDocument();
@@ -350,14 +401,10 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine UI", 
     const checkBtn = screen.getByRole("button", { name: /Kiểm tra đáp án/i });
     fireEvent.click(checkBtn);
 
-    // Verify explanation and accuracy
+    // Verify explanation and ruleReference badge in feedback
     await waitFor(() => {
-      expect(
-        screen.getByText(/Chính xác! Đáp án chuẩn: B/i)
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/Diễn tả hành động đang diễn ra lúc nói/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Chính xác! Đáp án chuẩn: B/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Quy tắc 1B/i })).toBeInTheDocument();
     });
   });
 });

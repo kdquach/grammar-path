@@ -121,6 +121,7 @@ describe("Frontend Authentication, Progress Dashboard & Mistake Review", () => {
       weakestUnits: [],
       errorDistribution: [],
       weakestQuestionType: null,
+      weakRules: [],
     });
     vi.mocked(api.getAdaptiveRecommendations).mockResolvedValue({
       recommendations: [],

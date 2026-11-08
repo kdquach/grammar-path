@@ -101,6 +101,17 @@ const mockAnalytics: AdaptiveAnalytics = {
     },
   ],
   weakestQuestionType: "fill_blank",
+  weakRules: [
+    {
+      ruleReference: "1A",
+      heading: "Study this example situation:",
+      unitNumber: 1,
+      unitTitle: "Present continuous (I am doing)",
+      errorCount: 3,
+      totalAttempts: 5,
+      accuracyPercentage: 40,
+    },
+  ],
 };
 
 const mockRecommendations: AdaptiveRecommendationsResponse = {

@@ -365,6 +365,8 @@ export interface ExplainTheoryResponse {
   explanation: string;
 }
 
+export type DifficultyLevel = "easy" | "medium" | "hard";
+
 export interface AdaptiveWeakUnit {
   unitNumber: number;
   unitTitle: string;
@@ -381,6 +383,16 @@ export interface AdaptiveErrorDistributionItem {
   errorRatePercentage: number;
 }
 
+export interface WeakRuleMetric {
+  ruleReference: string;
+  heading: string;
+  unitNumber: number;
+  unitTitle: string;
+  errorCount: number;
+  totalAttempts: number;
+  accuracyPercentage: number;
+}
+
 export interface AdaptiveAnalytics {
   totalEvaluated: number;
   totalCorrect: number;
@@ -389,6 +401,7 @@ export interface AdaptiveAnalytics {
   weakestUnits: AdaptiveWeakUnit[];
   errorDistribution: AdaptiveErrorDistributionItem[];
   weakestQuestionType: string | null;
+  weakRules: WeakRuleMetric[];
 }
 
 export interface ReviewRecommendation {
@@ -399,6 +412,7 @@ export interface ReviewRecommendation {
   errorCount: number;
   accuracyPercentage: number;
   weakestQuestionTypes: string[];
+  targetRules?: string[];
   suggestedActions: string[];
 }
 
@@ -419,11 +433,14 @@ export interface ToeicQuestion {
   options: ToeicOption[];
   correctAnswer: "A" | "B" | "C" | "D";
   explanation: string;
+  difficulty?: DifficultyLevel;
+  ruleReference?: string;
 }
 
 export interface ToeicPracticeSession {
   unitNumber: number;
   title: string;
+  difficulty?: DifficultyLevel;
   questions: ToeicQuestion[];
 }
 
@@ -446,11 +463,14 @@ export interface AdaptiveQuizQuestion {
   options?: Array<{ key: string; text: string }>;
   correctAnswer?: string;
   explanation?: string | null;
+  ruleReference?: string | null;
+  difficulty?: DifficultyLevel;
   contextClue?: string | null;
 }
 
 export interface AdaptiveQuizSession {
   sessionId: string;
+  difficulty?: DifficultyLevel;
   targetUnits: QuizTargetUnit[];
   totalQuestions: number;
   questions: AdaptiveQuizQuestion[];

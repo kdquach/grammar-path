@@ -123,6 +123,7 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
     expect(analyticsRes.body.data.weakestUnits).toEqual([]);
     expect(analyticsRes.body.data.errorDistribution).toEqual([]);
     expect(analyticsRes.body.data.weakestQuestionType).toBeNull();
+    expect(analyticsRes.body.data.weakRules).toEqual([]);
 
     // Recommendations for fresh user -> starters (Unit 1)
     const recRes = await request(app)
@@ -134,6 +135,7 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
     expect(recRes.body.data.recommendations.length).toBeGreaterThan(0);
     expect(recRes.body.data.recommendations[0].unitNumber).toBe(1);
     expect(recRes.body.data.recommendations[0].priority).toBeDefined();
+    expect(Array.isArray(recRes.body.data.recommendations[0].targetRules)).toBe(true);
   });
 
   it("6. Submit correct and incorrect answers, then verify adaptive analytics and prioritized recommendations", async () => {
@@ -176,6 +178,14 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
     expect(analytics.errorDistribution.length).toBeGreaterThan(0);
     expect(analytics.weakestQuestionType).toBeDefined();
 
+    // Verify granular ruleReference analytics (weakRules)
+    expect(Array.isArray(analytics.weakRules)).toBe(true);
+    expect(analytics.weakRules.length).toBeGreaterThan(0);
+    expect(analytics.weakRules[0].ruleReference).toBeDefined();
+    expect(analytics.weakRules[0].heading).toBeDefined();
+    expect(analytics.weakRules[0].errorCount).toBeGreaterThanOrEqual(1);
+    expect(analytics.weakRules[0].unitNumber).toBe(1);
+
     // Verify GET /api/v1/adaptive/recommendations prioritizes Unit 1
     const recRes = await request(app)
       .get("/api/v1/adaptive/recommendations")
@@ -190,6 +200,8 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
     expect(unit1Rec).toBeDefined();
     expect(unit1Rec.errorCount).toBe(2);
     expect(unit1Rec.reason).toContain("Unit");
+    expect(Array.isArray(unit1Rec.targetRules)).toBe(true);
+    expect(unit1Rec.targetRules.length).toBeGreaterThan(0);
     expect(unit1Rec.suggestedActions.length).toBeGreaterThan(0);
   });
 });

@@ -3,7 +3,10 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { sendSuccess } from "../utils/response";
 import { AppError } from "../middleware/error-handler";
-import { generateToeicQuestionsForUnit } from "../services/toeic-generator.service";
+import {
+  DifficultyLevel,
+  generateToeicQuestionsForUnit,
+} from "../services/toeic-generator.service";
 
 export interface WeakestUnitSummary {
   unitNumber: number;
@@ -21,6 +24,16 @@ export interface QuestionTypeErrorDistribution {
   errorRatePercentage: number;
 }
 
+export interface WeakRuleMetric {
+  ruleReference: string;
+  heading: string;
+  unitNumber: number;
+  unitTitle: string;
+  errorCount: number;
+  totalAttempts: number;
+  accuracyPercentage: number;
+}
+
 export interface ReviewRecommendation {
   unitNumber: number;
   unitTitle: string;
@@ -29,12 +42,14 @@ export interface ReviewRecommendation {
   errorCount: number;
   accuracyPercentage: number;
   weakestQuestionTypes: string[];
+  targetRules: string[];
   suggestedActions: string[];
 }
 
 /**
  * GET /api/v1/adaptive/analytics
- * Analyzes question_attempt_items for the authenticated user to determine weakest units and question types.
+ * Analyzes question_attempt_items for the authenticated user to determine weakest units, question types,
+ * and granular rule-level (explanations.rule_reference) error analytics joined with theory_sections.
  */
 export async function getAdaptiveAnalytics(
   req: Request,
@@ -44,7 +59,7 @@ export async function getAdaptiveAnalytics(
   try {
     const userId = req.user!.id;
 
-    // Fetch all question attempts submitted by this user
+    // Fetch all question attempts submitted by this user including ruleReference
     const attemptItems = await prisma.questionAttemptItem.findMany({
       where: { userId },
       include: {
@@ -52,6 +67,11 @@ export async function getAdaptiveAnalytics(
           select: {
             id: true,
             questionId: true,
+            explanation: {
+              select: {
+                ruleReference: true,
+              },
+            },
             exercise: {
               select: {
                 id: true,
@@ -104,10 +124,23 @@ export async function getAdaptiveAnalytics(
       }
     >();
 
+    // Aggregate by Rule Reference (Granular Sub-section Error Analytics)
+    const ruleMap = new Map<
+      string,
+      {
+        ruleReference: string;
+        unitNumber: number;
+        unitTitle: string;
+        totalAttempts: number;
+        errorCount: number;
+      }
+    >();
+
     for (const item of attemptItems) {
       const exercise = item.question.exercise;
       const unit = exercise.unit;
       const qType = exercise.questionType;
+      const ruleRef = item.question.explanation?.ruleReference?.trim();
 
       // Group by Unit
       if (!unitMap.has(unit.unitNumber)) {
@@ -141,6 +174,24 @@ export async function getAdaptiveAnalytics(
       t.totalAttempts += 1;
       if (!item.isCorrect) {
         t.errorCount += 1;
+      }
+
+      // Group by Granular Rule Reference
+      if (ruleRef) {
+        if (!ruleMap.has(ruleRef)) {
+          ruleMap.set(ruleRef, {
+            ruleReference: ruleRef,
+            unitNumber: unit.unitNumber,
+            unitTitle: unit.title,
+            totalAttempts: 0,
+            errorCount: 0,
+          });
+        }
+        const r = ruleMap.get(ruleRef)!;
+        r.totalAttempts += 1;
+        if (!item.isCorrect) {
+          r.errorCount += 1;
+        }
       }
     }
 
@@ -197,6 +248,55 @@ export async function getAdaptiveAnalytics(
         ? errorDistribution[0].questionType
         : null;
 
+    // Build weakRules list (Top 10 weakest theory sub-sections resolved against theory_sections)
+    const errorRules = Array.from(ruleMap.values())
+      .filter((r) => r.errorCount > 0)
+      .sort((a, b) => {
+        if (b.errorCount !== a.errorCount) {
+          return b.errorCount - a.errorCount;
+        }
+        return a.totalAttempts - b.totalAttempts;
+      })
+      .slice(0, 10);
+
+    const targetRuleRefs = errorRules.map((r) => r.ruleReference);
+    const theorySections =
+      targetRuleRefs.length > 0
+        ? await prisma.theorySection.findMany({
+            where: { sectionId: { in: targetRuleRefs } },
+            include: {
+              unit: {
+                select: { unitNumber: true, title: true },
+              },
+            },
+          })
+        : [];
+
+    const sectionMap = new Map(
+      theorySections.map((ts) => [ts.sectionId.toUpperCase(), ts])
+    );
+
+    const weakRules: WeakRuleMetric[] = errorRules.map((r) => {
+      const ts = sectionMap.get(r.ruleReference.toUpperCase());
+      const heading = ts?.heading || `Quy tắc ${r.ruleReference}`;
+      const unitNumber = ts?.unit?.unitNumber ?? r.unitNumber;
+      const unitTitle = ts?.unit?.title ?? r.unitTitle;
+      const ruleAccuracy =
+        r.totalAttempts > 0
+          ? Math.round(((r.totalAttempts - r.errorCount) / r.totalAttempts) * 1000) / 10
+          : 0;
+
+      return {
+        ruleReference: r.ruleReference,
+        heading,
+        unitNumber,
+        unitTitle,
+        errorCount: r.errorCount,
+        totalAttempts: r.totalAttempts,
+        accuracyPercentage: ruleAccuracy,
+      };
+    });
+
     sendSuccess(res, {
       totalEvaluated,
       totalCorrect,
@@ -205,6 +305,7 @@ export async function getAdaptiveAnalytics(
       weakestUnits,
       errorDistribution,
       weakestQuestionType,
+      weakRules,
     });
   } catch (error) {
     next(error);
@@ -213,7 +314,8 @@ export async function getAdaptiveAnalytics(
 
 /**
  * GET /api/v1/adaptive/recommendations
- * Produces prioritized review suggestions for the user based on error frequency and low accuracy.
+ * Produces prioritized review suggestions for the user based on error frequency, low accuracy,
+ * and identifies targetRules (e.g. ["1B", "1C"]) for each unit.
  */
 export async function getAdaptiveRecommendations(
   req: Request,
@@ -223,12 +325,17 @@ export async function getAdaptiveRecommendations(
   try {
     const userId = req.user!.id;
 
-    // 1. Fetch user attempt items
+    // 1. Fetch user attempt items with ruleReference
     const attemptItems = await prisma.questionAttemptItem.findMany({
       where: { userId },
       include: {
         question: {
           select: {
+            explanation: {
+              select: {
+                ruleReference: true,
+              },
+            },
             exercise: {
               select: {
                 questionType: true,
@@ -256,6 +363,10 @@ export async function getAdaptiveRecommendations(
             id: true,
             unitNumber: true,
             title: true,
+            theorySections: {
+              select: { sectionId: true },
+              orderBy: { displayOrder: "asc" },
+            },
           },
         },
       },
@@ -270,12 +381,14 @@ export async function getAdaptiveRecommendations(
         totalAttempts: number;
         errorCount: number;
         errorsByType: Record<string, number>;
+        errorsByRule: Record<string, number>;
       }
     >();
 
     for (const item of attemptItems) {
       const unit = item.question.exercise.unit;
       const qType = item.question.exercise.questionType;
+      const ruleRef = item.question.explanation?.ruleReference?.trim();
 
       if (!unitStats.has(unit.unitNumber)) {
         unitStats.set(unit.unitNumber, {
@@ -284,6 +397,7 @@ export async function getAdaptiveRecommendations(
           totalAttempts: 0,
           errorCount: 0,
           errorsByType: {},
+          errorsByRule: {},
         });
       }
 
@@ -292,6 +406,9 @@ export async function getAdaptiveRecommendations(
       if (!item.isCorrect) {
         stat.errorCount += 1;
         stat.errorsByType[qType] = (stat.errorsByType[qType] || 0) + 1;
+        if (ruleRef) {
+          stat.errorsByRule[ruleRef] = (stat.errorsByRule[ruleRef] || 0) + 1;
+        }
       }
     }
 
@@ -317,13 +434,20 @@ export async function getAdaptiveRecommendations(
         .sort(([, a], [, b]) => b - a)
         .map(([type]) => type);
 
+      const targetRules = Object.entries(u.errorsByRule)
+        .sort(([, a], [, b]) => b - a)
+        .map(([rule]) => rule)
+        .slice(0, 3);
+
       const typeDesc =
         topWeakestTypes.length > 0 ? ` (${topWeakestTypes.join(", ")})` : "";
+      const ruleDesc =
+        targetRules.length > 0 ? ` (Mục lý thuyết: ${targetRules.join(", ")})` : "";
 
       const reason =
         priority === "high"
-          ? `Tỷ lệ sai đáng kể với ${u.errorCount} lỗi sai ở Unit này (độ chính xác ${accuracy}%). Bạn hay gặp nhầm lẫn ở dạng bài${typeDesc}.`
-          : `Ghi nhận ${u.errorCount} lỗi sai cần củng cố để hoàn thiện chủ điểm này.`;
+          ? `Tỷ lệ sai đáng kể với ${u.errorCount} lỗi sai ở Unit này (độ chính xác ${accuracy}%). Bạn hay gặp nhầm lẫn ở dạng bài${typeDesc}${ruleDesc}.`
+          : `Ghi nhận ${u.errorCount} lỗi sai cần củng cố để hoàn thiện chủ điểm này${ruleDesc}.`;
 
       recommendations.push({
         unitNumber: u.unitNumber,
@@ -333,8 +457,9 @@ export async function getAdaptiveRecommendations(
         errorCount: u.errorCount,
         accuracyPercentage: accuracy,
         weakestQuestionTypes: topWeakestTypes,
+        targetRules,
         suggestedActions: [
-          `Đọc lại lý thuyết Unit ${u.unitNumber}: ${u.unitTitle}`,
+          `Đọc lại lý thuyết Unit ${u.unitNumber}: ${u.unitTitle}${targetRules.length > 0 ? ` (Trọng tâm: Mục ${targetRules.join(", ")})` : ""}`,
           `Nhấn '🤖 AI giảng lại bằng tiếng Việt' trong mục lý thuyết nếu cần giải thích sâu hơn`,
           `Luyện tập lại các câu hỏi bị sai trong trang Review Mistakes`,
         ],
@@ -351,6 +476,7 @@ export async function getAdaptiveRecommendations(
 
       for (const ip of inProgressUnits) {
         if (recommendations.length >= 3) break;
+        const defaultRules = ip.unit.theorySections?.slice(0, 2).map((s) => s.sectionId) || [];
         recommendations.push({
           unitNumber: ip.unit.unitNumber,
           unitTitle: ip.unit.title,
@@ -359,6 +485,7 @@ export async function getAdaptiveRecommendations(
           errorCount: 0,
           accuracyPercentage: 100,
           weakestQuestionTypes: [],
+          targetRules: defaultRules,
           suggestedActions: [
             `Luyện tập tiếp các bài tập của Unit ${ip.unit.unitNumber}`,
             `Hoàn thiện bài học để chuyển trạng thái sang đã hoàn thành`,
@@ -371,10 +498,18 @@ export async function getAdaptiveRecommendations(
     if (recommendations.length === 0) {
       const unit1 = await prisma.unit.findFirst({
         where: { unitNumber: 1 },
-        select: { unitNumber: true, title: true },
+        select: {
+          unitNumber: true,
+          title: true,
+          theorySections: {
+            select: { sectionId: true },
+            orderBy: { displayOrder: "asc" },
+          },
+        },
       });
 
       if (unit1) {
+        const defaultRules = unit1.theorySections?.slice(0, 2).map((s) => s.sectionId) || ["1A", "1B"];
         recommendations.push({
           unitNumber: unit1.unitNumber,
           unitTitle: unit1.title,
@@ -384,6 +519,7 @@ export async function getAdaptiveRecommendations(
           errorCount: 0,
           accuracyPercentage: 0,
           weakestQuestionTypes: [],
+          targetRules: defaultRules,
           suggestedActions: [
             "Đọc phần lý thuyết Unit 1",
             "Làm bài tập Exercise 1.1 để kiểm tra phản xạ ban đầu",
@@ -410,11 +546,13 @@ export const toeicPracticeSchema = z.object({
     .min(1, "unitNumber must be between 1 and 145")
     .max(145, "unitNumber must be between 1 and 145"),
   count: z.coerce.number().int().min(1).max(20).optional().default(5),
+  difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium"),
 });
 
 /**
  * POST /api/v1/adaptive/toeic-practice
- * Generates TOEIC Part 5 multiple choice questions tailored to the requested unit's grammar point.
+ * Generates TOEIC Part 5 multiple choice questions tailored to the requested unit's grammar point
+ * and requested difficulty tier ('easy' | 'medium' | 'hard').
  */
 export async function generateToeicPracticeHandler(
   req: Request,
@@ -422,7 +560,7 @@ export async function generateToeicPracticeHandler(
   next: NextFunction
 ): Promise<void> {
   try {
-    const { unitNumber, count } = toeicPracticeSchema.parse(req.body);
+    const { unitNumber, count, difficulty } = toeicPracticeSchema.parse(req.body);
 
     // Fetch the unit along with theory sections and examples
     const unit = await prisma.unit.findFirst({
@@ -451,18 +589,20 @@ export async function generateToeicPracticeHandler(
       throw new AppError(404, "NOT_FOUND", `Unit ${unitNumber} not found`);
     }
 
-    // Generate questions using AI or structured fallback
+    // Generate questions using AI or structured difficulty-specific fallback
     const questions = await generateToeicQuestionsForUnit({
       unitNumber: unit.unitNumber,
       title: unit.title,
       theorySections: unit.theorySections,
       textbookExamples: unit.textbookExamples,
       count,
+      difficulty: difficulty as DifficultyLevel,
     });
 
     sendSuccess(res, {
       unitNumber: unit.unitNumber,
       title: unit.title,
+      difficulty,
       questions,
     });
   } catch (error) {
@@ -474,11 +614,14 @@ export async function generateToeicPracticeHandler(
 
 export const generateQuizSchema = z.object({
   questionCount: z.coerce.number().int().min(1).max(20).optional().default(5),
+  difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium"),
+  targetUnitNumbers: z.array(z.coerce.number().int().min(1).max(145)).optional(),
 });
 
 /**
  * POST /api/v1/adaptive/quiz/generate
- * Analyzes user mistakes from question_attempt_items and generates a targeted remedial quiz session.
+ * Analyzes user mistakes from question_attempt_items and generates a targeted remedial quiz session
+ * at the requested difficulty tier ('easy' | 'medium' | 'hard'), with ruleReference on each question.
  */
 export async function generateAdaptiveQuizHandler(
   req: Request,
@@ -487,13 +630,18 @@ export async function generateAdaptiveQuizHandler(
 ): Promise<void> {
   try {
     const userId = req.user!.id;
-    const { questionCount } = generateQuizSchema.parse(req.body);
+    const { questionCount, difficulty, targetUnitNumbers } = generateQuizSchema.parse(
+      req.body
+    );
 
     // Fetch all incorrect question attempts by this user
     const mistakeItems = await prisma.questionAttemptItem.findMany({
       where: {
         userId,
         isCorrect: false,
+        ...(targetUnitNumbers && targetUnitNumbers.length > 0
+          ? { question: { exercise: { unit: { unitNumber: { in: targetUnitNumbers } } } } }
+          : {}),
       },
       include: {
         question: {
@@ -557,6 +705,8 @@ export async function generateAdaptiveQuizHandler(
       correctAnswer:
         q.correctAnswerText || (q.blanks?.[0]?.correctAnswerText ?? ""),
       explanation: q.explanation?.aiExplanation || null,
+      ruleReference: q.explanation?.ruleReference || `${q.exercise.unit.unitNumber}A`,
+      difficulty,
       contextClue: q.contextClue || null,
     });
 
@@ -569,32 +719,40 @@ export async function generateAdaptiveQuizHandler(
       }
     }
 
-    // 2. If needed, query additional questions from the user's weak units
-    if (questions.length < questionCount && weakUnits.length > 0) {
-      const weakUnitIds = weakUnits.map((u) => u.unitId);
-      const additional = await prisma.question.findMany({
-        where: {
-          exercise: { unitId: { in: weakUnitIds } },
-          id: { notIn: Array.from(seenQuestionIds) },
-          isExample: false,
-        },
-        include: {
-          options: { orderBy: { displayOrder: "asc" } },
-          blanks: { orderBy: { blankIndex: "asc" } },
-          explanation: true,
-          exercise: {
-            include: {
-              unit: { select: { id: true, unitNumber: true, title: true } },
+    // 2. If needed, query additional questions from the user's weak units (or requested units)
+    if (questions.length < questionCount) {
+      const queryUnitFilter =
+        targetUnitNumbers && targetUnitNumbers.length > 0
+          ? { unitNumber: { in: targetUnitNumbers } }
+          : weakUnits.length > 0
+          ? { id: { in: weakUnits.map((u) => u.unitId) } }
+          : null;
+
+      if (queryUnitFilter) {
+        const additional = await prisma.question.findMany({
+          where: {
+            exercise: { unit: queryUnitFilter },
+            id: { notIn: Array.from(seenQuestionIds) },
+            isExample: false,
+          },
+          include: {
+            options: { orderBy: { displayOrder: "asc" } },
+            blanks: { orderBy: { blankIndex: "asc" } },
+            explanation: true,
+            exercise: {
+              include: {
+                unit: { select: { id: true, unitNumber: true, title: true } },
+              },
             },
           },
-        },
-        take: questionCount - questions.length,
-      });
+          take: questionCount - questions.length,
+        });
 
-      for (const q of additional) {
-        if (!seenQuestionIds.has(q.id)) {
-          seenQuestionIds.add(q.id);
-          questions.push(formatAdaptiveQuestion(q));
+        for (const q of additional) {
+          if (!seenQuestionIds.has(q.id)) {
+            seenQuestionIds.add(q.id);
+            questions.push(formatAdaptiveQuestion(q));
+          }
         }
       }
     }
@@ -607,8 +765,13 @@ export async function generateAdaptiveQuizHandler(
     }));
 
     if (questions.length < questionCount) {
+      const fallbackTargetUnitNumbers =
+        targetUnitNumbers && targetUnitNumbers.length > 0
+          ? targetUnitNumbers
+          : [1, 2, 3];
+
       const foundationalUnits = await prisma.unit.findMany({
-        where: { unitNumber: { in: [1, 2, 3] } },
+        where: { unitNumber: { in: fallbackTargetUnitNumbers } },
         select: { id: true, unitNumber: true, title: true },
         orderBy: { unitNumber: "asc" },
       });
@@ -653,6 +816,7 @@ export async function generateAdaptiveQuizHandler(
 
     sendSuccess(res, {
       sessionId,
+      difficulty,
       targetUnits,
       totalQuestions: questions.length,
       questions,
@@ -661,4 +825,3 @@ export async function generateAdaptiveQuizHandler(
     next(error);
   }
 }
-

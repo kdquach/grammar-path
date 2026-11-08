@@ -88,6 +88,7 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
       const data = res.body.data;
       expect(data.unitNumber).toBe(1);
       expect(data.title).toContain("Present continuous");
+      expect(data.difficulty).toBe("medium");
       expect(Array.isArray(data.questions)).toBe(true);
       expect(data.questions.length).toBe(5);
 
@@ -104,6 +105,9 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
         expect(["A", "B", "C", "D"]).toContain(q.correctAnswer);
         expect(typeof q.explanation).toBe("string");
         expect(q.explanation.length).toBeGreaterThan(10);
+        expect(q.difficulty).toBe("medium");
+        expect(typeof q.ruleReference).toBe("string");
+        expect(q.ruleReference.length).toBeGreaterThan(0);
       }
     });
 
@@ -117,6 +121,28 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
       expect(res.body.success).toBe(true);
       expect(res.body.data.unitNumber).toBe(2);
       expect(res.body.data.questions.length).toBe(3);
+    });
+
+    it("5b. Supports 3-tier difficulty parameter ('easy' | 'hard')", async () => {
+      const easyRes = await request(app)
+        .post("/api/v1/adaptive/toeic-practice")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ unitNumber: 1, count: 3, difficulty: "easy" });
+
+      expect(easyRes.status).toBe(200);
+      expect(easyRes.body.data.difficulty).toBe("easy");
+      expect(easyRes.body.data.questions[0].difficulty).toBe("easy");
+      expect(easyRes.body.data.questions[0].ruleReference).toBeDefined();
+
+      const hardRes = await request(app)
+        .post("/api/v1/adaptive/toeic-practice")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ unitNumber: 1, count: 3, difficulty: "hard" });
+
+      expect(hardRes.status).toBe(200);
+      expect(hardRes.body.data.difficulty).toBe("hard");
+      expect(hardRes.body.data.questions[0].difficulty).toBe("hard");
+      expect(hardRes.body.data.questions[0].ruleReference).toBeDefined();
     });
   });
 
@@ -209,6 +235,21 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
       expect(firstQ.questionType).toBeDefined();
       expect(firstQ.prompt).toBeDefined();
       expect(firstQ.correctAnswer).toBeDefined();
+      expect(firstQ.difficulty).toBe("medium");
+      expect(firstQ.ruleReference).toBeDefined();
+    });
+
+    it("9. Supports custom difficulty ('hard') on adaptive quiz generation", async () => {
+      const quizRes = await request(app)
+        .post("/api/v1/adaptive/quiz/generate")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ questionCount: 3, difficulty: "hard" });
+
+      expect(quizRes.status).toBe(200);
+      expect(quizRes.body.success).toBe(true);
+      expect(quizRes.body.data.difficulty).toBe("hard");
+      expect(quizRes.body.data.questions[0].difficulty).toBe("hard");
+      expect(quizRes.body.data.questions[0].ruleReference).toBeDefined();
     });
   });
 });
