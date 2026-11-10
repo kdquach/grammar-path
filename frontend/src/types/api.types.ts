@@ -370,6 +370,8 @@ export interface ExplainTheoryPayload {
 
 export interface ExplainTheoryResponse {
   explanation: string;
+  source?: "ai" | "fallback";
+  model?: string;
 }
 
 export type DifficultyLevel = "easy" | "medium" | "hard";

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, LogIn, UserPlus, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 
@@ -90,9 +91,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 m-0 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
@@ -245,6 +246,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 export default AuthModal;

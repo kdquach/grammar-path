@@ -2,6 +2,7 @@ import { describe, it, expect, afterAll } from "vitest";
 import request from "supertest";
 import app from "../src/app";
 import { prisma } from "../src/lib/prisma";
+import { generateFallbackExplanation } from "../src/controllers/ai.controller";
 
 describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST APIs", () => {
   const timestamp = Date.now();
@@ -81,6 +82,38 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("3b. POST /api/v1/theory/explain-theory for Section 70C -> tailors explanation to uncountable nouns without Present Continuous boilerplate", async () => {
+    const payload = {
+      sectionId: "70C",
+      heading: "Nouns usually uncountable",
+      sourceContent:
+        "The following nouns are usually uncountable: accommodation, advice, baggage, behaviour, bread, chaos, damage, furniture, information, luck, luggage, news, permission, progress, scenery, traffic, weather, work.\n- You cannot use a/an with these nouns: some bread / a loaf of bread (not a bread); good weather (not a good weather).\n- News is uncountable, not plural: The news was very depressing. (not The news were)",
+    };
+
+    const res = await request(app)
+      .post("/api/v1/theory/explain-theory")
+      .send(payload);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.explanation).toContain("70C");
+    expect(res.body.data.explanation).not.toContain("She is studying grammar right now");
+    expect(res.body.data.explanation).not.toContain("Are you listening to me?");
+    expect(res.body.data.explanation.toLowerCase()).toMatch(
+      /uncountable|không đếm được|bread|news|advice/
+    );
+
+    if (process.env.GEMINI_API_KEY?.trim()) {
+      expect(res.body.data.source).toBe("ai");
+    }
+
+    // Even fallback explanation must reflect Section 70C rather than unrelated Present Continuous boilerplate
+    const fallback = generateFallbackExplanation(payload);
+    expect(fallback).toContain("70C");
+    expect(fallback).toContain("accommodation, advice");
+    expect(fallback).not.toContain("She is studying grammar right now");
   });
 
   // ─── 2. Adaptive Analytics & Recommendations ───────────────────────────────

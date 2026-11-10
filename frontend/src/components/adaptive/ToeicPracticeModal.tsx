@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Target,
@@ -115,10 +116,10 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
 
   const isCompleted = totalQuestions > 0 && totalChecked === totalQuestions;
 
-  return (
+  const modalContent = (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in overflow-y-auto"
+        className="fixed inset-0 z-50 m-0 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
@@ -541,6 +542,10 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
       />
     </>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 export default ToeicPracticeModal;

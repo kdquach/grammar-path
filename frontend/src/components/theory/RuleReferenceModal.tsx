@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, BookOpen, ExternalLink, HelpCircle, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import api from "../../api/client";
@@ -50,9 +51,9 @@ export const RuleReferenceModal: React.FC<RuleReferenceModalProps> = ({
 
   if (!sectionId) return null;
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-[60] m-0 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-labelledby="rule-modal-title"
@@ -163,6 +164,10 @@ export const RuleReferenceModal: React.FC<RuleReferenceModalProps> = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 export default RuleReferenceModal;

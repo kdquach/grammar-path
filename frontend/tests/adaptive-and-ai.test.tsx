@@ -189,13 +189,31 @@ describe("Phase 9: Adaptive Learning, AI Theory Explainer & Review Recommendatio
       })
     );
 
-    // Verify modal elements displayed
+    // Verify modal elements displayed and portaled directly to document.body (outside space-y-10)
     await waitFor(() => {
+      const dialog = screen.getByRole("dialog");
+      expect(dialog.parentElement).toBe(document.body);
+      expect(dialog.className).toContain("m-0");
       expect(screen.getByText(/Gia sư AI — Mục 1A/i)).toBeInTheDocument();
       expect(screen.getByText(/🎯 Điểm cốt lõi: Hiện tại tiếp diễn/i)).toBeInTheDocument();
       expect(
         screen.getByText(/Quy tắc này dùng để diễn đạt hành động đang xảy ra tại thời điểm nói./i)
       ).toBeInTheDocument();
+    });
+
+    // Test regenerate button ("Giảng lại mới") and inline code rendering
+    vi.mocked(api.explainTheory).mockResolvedValueOnce({
+      explanation:
+        "## 🤖 Gia sư AI GrammarPath — Giải thích Mục 1A\n- Dùng `driving` để chỉ hành động đang diễn ra.",
+      source: "ai",
+      model: "gemini-3-flash-preview",
+    });
+    const regenerateBtn = screen.getByRole("button", { name: /Giảng lại mới/i });
+    fireEvent.click(regenerateBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("driving")).toBeInTheDocument();
+      expect(screen.getByText(/AI trực tiếp \(gemini-3-flash-preview\)/i)).toBeInTheDocument();
     });
 
     // Test custom question input

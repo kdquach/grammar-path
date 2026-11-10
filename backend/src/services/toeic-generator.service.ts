@@ -1,3 +1,5 @@
+import { generateGeminiText } from "../lib/gemini";
+
 export type DifficultyLevel = "easy" | "medium" | "hard";
 
 export interface ToeicOption {
@@ -806,9 +808,7 @@ export async function generateToeicQuestionsForUnit(
     count = 5,
     difficulty = "medium",
   } = options;
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey || apiKey.trim() === "") {
+  if (!process.env.GEMINI_API_KEY?.trim()) {
     return generateDynamicFallbackToeicQuestions(
       unitNumber,
       title,
@@ -879,67 +879,44 @@ STRICT REQUIREMENTS FOR EACH QUESTION:
   ]
 }`;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const aiResult = await generateGeminiText({
+      prompt: promptText,
+      timeoutMs: 18000,
+      responseMimeType: "application/json",
+      temperature: 0.7,
+    });
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: promptText }],
-            },
-          ],
-        }),
-        signal: controller.signal,
-      }
-    );
+    const rawAiText = aiResult?.text;
+    if (rawAiText && rawAiText.length > 0) {
+      // Strip markdown backticks if returned (e.g. ```json ... ```)
+      const cleanedJson = rawAiText
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .trim();
 
-    clearTimeout(timeoutId);
-
-    if (response.ok) {
-      const data = (await response.json()) as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string }>;
-          };
-        }>;
-      };
-
-      const rawAiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawAiText && rawAiText.trim().length > 0) {
-        // Strip markdown backticks if returned (e.g. ```json ... ```)
-        const cleanedJson = rawAiText
-          .replace(/```json/gi, "")
-          .replace(/```/g, "")
-          .trim();
-
-        const parsed = JSON.parse(cleanedJson) as { questions?: ToeicQuestion[] };
-        if (
-          parsed &&
-          Array.isArray(parsed.questions) &&
-          parsed.questions.length >= count &&
-          parsed.questions.every(
-            (q) =>
-              q.prompt &&
-              Array.isArray(q.options) &&
-              q.options.length === 4 &&
-              ["A", "B", "C", "D"].includes(q.correctAnswer) &&
-              q.explanation
-          )
-        ) {
-          return parsed.questions.slice(0, count).map((q, idx) => ({
-            ...q,
-            difficulty: q.difficulty || difficulty,
-            ruleReference:
-              q.ruleReference ||
-              theorySections[idx % (theorySections.length || 1)]?.sectionId ||
-              `${unitNumber}A`,
-          }));
-        }
+      const parsed = JSON.parse(cleanedJson) as { questions?: ToeicQuestion[] };
+      if (
+        parsed &&
+        Array.isArray(parsed.questions) &&
+        parsed.questions.length >= count &&
+        parsed.questions.every(
+          (q) =>
+            q.prompt &&
+            q.prompt.includes("_______") &&
+            Array.isArray(q.options) &&
+            q.options.length === 4 &&
+            ["A", "B", "C", "D"].includes(q.correctAnswer) &&
+            q.explanation
+        )
+      ) {
+        return parsed.questions.slice(0, count).map((q, idx) => ({
+          ...q,
+          difficulty,
+          ruleReference:
+            q.ruleReference ||
+            theorySections[idx % (theorySections.length || 1)]?.sectionId ||
+            `${unitNumber}A`,
+        }));
       }
     }
 
