@@ -145,12 +145,51 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
       // Click to toggle crossed-out
       fireEvent.click(hungryBtn);
       expect(hungryBtn).toHaveClass("line-through");
+      expect(screen.getByText("2 left")).toBeInTheDocument();
 
       // Reset button appears
       const resetBtn = screen.getByText(/Reset marks/i);
       expect(resetBtn).toBeInTheDocument();
       fireEvent.click(resetBtn);
       expect(hungryBtn).not.toHaveClass("line-through");
+    });
+
+    it("supports sticky pinning, pin toggle, and collapse/expand controls", () => {
+      const { rerender } = render(
+        <WordBankBar items={mockWordBank} sticky resetVersion={0} />
+      );
+
+      const bar = screen.getByTestId("word-bank-bar");
+      expect(bar).toHaveClass("sticky");
+      expect(bar).toHaveClass("top-14");
+      expect(bar).toHaveClass("md:top-3");
+
+      // Unpin toggles sticky positioning off
+      const pinBtn = screen.getByRole("button", { name: /Pinned/i });
+      expect(pinBtn).toHaveAttribute("aria-pressed", "true");
+      fireEvent.click(pinBtn);
+      expect(bar).not.toHaveClass("sticky");
+      expect(screen.getByRole("button", { name: /^Pin$/i })).toHaveAttribute(
+        "aria-pressed",
+        "false"
+      );
+
+      // Mark a word, then collapse & expand
+      const hungryBtn = screen.getByText("hungry").closest("button")!;
+      fireEvent.click(hungryBtn);
+      expect(hungryBtn).toHaveClass("line-through");
+
+      const hideBtn = screen.getByRole("button", { name: /Hide/i });
+      fireEvent.click(hideBtn);
+      expect(screen.queryByText("hungry")).not.toBeInTheDocument();
+
+      const showBtn = screen.getByRole("button", { name: /Show/i });
+      fireEvent.click(showBtn);
+      expect(screen.getByText("hungry").closest("button")!).toHaveClass("line-through");
+
+      // Incrementing resetVersion clears crossed-out marks
+      rerender(<WordBankBar items={mockWordBank} sticky resetVersion={1} />);
+      expect(screen.getByText("hungry").closest("button")!).not.toHaveClass("line-through");
     });
   });
 
@@ -615,6 +654,32 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
       );
       expect(screen.queryByText("2A")).not.toBeInTheDocument();
       expect(screen.getByText("2 A man was sitting next to me.")).toBeInTheDocument();
+    });
+
+    it("mounts sticky WordBankBar directly in the questions dock outside the header section and resets marks on Reset Exercise", async () => {
+      vi.mocked(api.getUnitExercises).mockResolvedValue([mockExercise]);
+
+      render(<ExerciseViewer unitNumber={1} onOpenRuleReference={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("word-bank-bar")).toBeInTheDocument();
+      });
+
+      const wordBankBar = screen.getByTestId("word-bank-bar");
+      // Sticky dock is placed in the questions container, NOT trapped inside the top <section>
+      expect(wordBankBar.closest("section")).toBeNull();
+      expect(wordBankBar).toHaveClass("sticky");
+      expect(wordBankBar.parentElement).toContainElement(
+        screen.getByText("Worked Example")
+      );
+
+      // Cross out a word, then Reset Exercise should clear the mark too
+      const hungryBtn = screen.getByText("hungry").closest("button")!;
+      fireEvent.click(hungryBtn);
+      expect(hungryBtn).toHaveClass("line-through");
+
+      fireEvent.click(screen.getByRole("button", { name: /Reset Exercise/i }));
+      expect(hungryBtn).not.toHaveClass("line-through");
     });
   });
 });

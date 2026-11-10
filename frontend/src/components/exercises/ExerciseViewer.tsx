@@ -63,6 +63,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
   const [isRevealingAll, setIsRevealingAll] = useState<boolean>(false);
   const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
   const [revealingQuestionId, setRevealingQuestionId] = useState<string | null>(null);
+  const [wordBankResetVersion, setWordBankResetVersion] = useState<number>(0);
 
   // Build map of latest attempts for each exercise in this unit
   const latestAttemptsByExerciseId = useMemo(() => {
@@ -259,6 +260,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
     setResults(nextResults);
     setExerciseScore(null);
     setIsRestoredAttempt(false);
+    setWordBankResetVersion((v) => v + 1);
   };
 
   if (isLoading) {
@@ -398,13 +400,6 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
                   <HelpCircle className="w-4 h-4 text-blue-600" /> Context Notes
                 </span>
                 <p className="italic">{activeExercise.visualContextDescription}</p>
-              </div>
-            )}
-
-            {/* Interactive Word Bank Bar */}
-            {activeExercise.wordBankItems && activeExercise.wordBankItems.length > 0 && (
-              <div className="pt-2">
-                <WordBankBar items={activeExercise.wordBankItems} />
               </div>
             )}
           </section>
@@ -547,8 +542,17 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
             </button>
           </div>
 
-          {/* ─── Questions List ────────────────────────────────────────────── */}
+          {/* ─── Questions List (with Sticky Word Bank Dock) ─────────────────────── */}
           <div className="space-y-4">
+            {activeExercise.wordBankItems && activeExercise.wordBankItems.length > 0 && (
+              <WordBankBar
+                key={activeExercise.exerciseId}
+                items={activeExercise.wordBankItems}
+                sticky
+                resetVersion={wordBankResetVersion}
+              />
+            )}
+
             {activeExercise.questions.map((question, qIdx) => (
               <QuestionCard
                 key={question.questionId}
