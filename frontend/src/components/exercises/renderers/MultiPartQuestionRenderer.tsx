@@ -1,5 +1,6 @@
 import React from "react";
 import { Question } from "../../../types/api.types";
+import QuestionPromptText from "../QuestionPromptText";
 
 interface MultiPartQuestionRendererProps {
   question: Question;
@@ -26,9 +27,7 @@ export const MultiPartQuestionRenderer: React.FC<MultiPartQuestionRendererProps>
   return (
     <div className="space-y-4">
       {question.questionContent && (
-        <p className="text-sm sm:text-base text-slate-800 font-medium leading-relaxed">
-          {question.questionContent}
-        </p>
+        <QuestionPromptText content={question.questionContent} />
       )}
 
       {question.contextClue && (

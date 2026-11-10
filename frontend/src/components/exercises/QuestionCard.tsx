@@ -6,6 +6,40 @@ import MultiPartQuestionRenderer from "./renderers/MultiPartQuestionRenderer";
 import FillBlankQuestionRenderer from "./renderers/FillBlankQuestionRenderer";
 import SentenceQuestionRenderer from "./renderers/SentenceQuestionRenderer";
 import QuestionFeedbackPanel, { FeedbackData } from "./QuestionFeedbackPanel";
+import QuestionPromptText from "./QuestionPromptText";
+
+export function isSplitBlankSlashOptionQuestion(question: Question): boolean {
+  const options = question.options || [];
+  const blanks = question.blanks || [];
+  return (
+    options.length > 1 &&
+    blanks.length > 1 &&
+    options.every(
+      (opt) => opt.optionText.includes(" / ") && !opt.optionText.includes("...")
+    )
+  );
+}
+
+export function isMultiSelectExercise(
+  exerciseInstruction?: string,
+  questionId?: string
+): boolean {
+  if (
+    exerciseInstruction &&
+    /\btwo alternatives are possible\b|\btick the sentences which are true\b|\bat least one is true\b/i.test(
+      exerciseInstruction
+    )
+  ) {
+    return true;
+  }
+  if (
+    questionId &&
+    (questionId.startsWith("17.2-") || questionId.startsWith("24.1-"))
+  ) {
+    return true;
+  }
+  return false;
+}
 
 interface QuestionCardProps {
   question: Question;
@@ -18,6 +52,8 @@ interface QuestionCardProps {
   isChecking?: boolean;
   isLoadingSolution?: boolean;
   onOpenRuleReference?: (sectionId: string) => void;
+  exerciseInstruction?: string;
+  allowMultiple?: boolean;
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -31,6 +67,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   isChecking = false,
   isLoadingSolution = false,
   onOpenRuleReference,
+  exerciseInstruction,
+  allowMultiple,
 }) => {
   // Convert any result (check result or full solution) to unified FeedbackData
   const feedback: FeedbackData | null = React.useMemo(() => {
@@ -104,9 +142,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
         <div className="space-y-2">
           {question.questionContent && (
-            <p className="text-sm sm:text-base font-medium text-slate-800">
-              {question.questionContent}
-            </p>
+            <QuestionPromptText content={question.questionContent} />
           )}
 
           {question.contextClue && (
@@ -138,9 +174,15 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   }
 
   // ─── 2. Interactive Test Question Card ─────────────────────────────────
-  const hasOptions = question.options && question.options.length > 0;
+  const isSplitSlashOptions = isSplitBlankSlashOptionQuestion(question);
+  const hasOptions =
+    question.options && question.options.length > 0 && !isSplitSlashOptions;
   const hasParts = question.parts && question.parts.length > 0;
   const hasBlanks = question.blanks && question.blanks.length > 0;
+  const resolvedAllowMultiple =
+    allowMultiple !== undefined
+      ? allowMultiple
+      : isMultiSelectExercise(exerciseInstruction, question.questionId);
 
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4 hover:border-slate-300 transition-colors">
@@ -167,6 +209,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             question={question}
             value={value}
             onChange={onChange}
+            allowMultiple={resolvedAllowMultiple}
           />
         ) : hasParts ? (
           <MultiPartQuestionRenderer

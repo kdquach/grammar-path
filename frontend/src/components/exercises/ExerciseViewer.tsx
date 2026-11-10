@@ -562,6 +562,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
                 isChecking={checkingQuestionId === question.questionId}
                 isLoadingSolution={revealingQuestionId === question.questionId}
                 onOpenRuleReference={onOpenRuleReference}
+                exerciseInstruction={activeExercise.instruction}
               />
             ))}
           </div>

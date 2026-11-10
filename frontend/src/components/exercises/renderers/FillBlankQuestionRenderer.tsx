@@ -1,5 +1,6 @@
 import React from "react";
 import { Question } from "../../../types/api.types";
+import QuestionPromptText from "../QuestionPromptText";
 
 interface FillBlankQuestionRendererProps {
   question: Question;
@@ -30,9 +31,7 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
       <div className="space-y-3">
         <div className="flex flex-wrap items-baseline gap-2">
           {question.questionContent && (
-            <p className="text-sm sm:text-base text-slate-800 font-medium leading-relaxed">
-              {question.questionContent}
-            </p>
+            <QuestionPromptText content={question.questionContent} />
           )}
 
           {question.contextClue && (
@@ -63,6 +62,14 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
     ? [value]
     : [];
 
+  const options = question.options || [];
+  const hasPerBlankSlashHints =
+    options.length === blanks.length &&
+    options.length > 1 &&
+    options.every(
+      (opt) => opt.optionText.includes(" / ") && !opt.optionText.includes("...")
+    );
+
   const handleBlankChange = (index: number, text: string) => {
     const next = [...currentArray];
     while (next.length < blanks.length) {
@@ -76,9 +83,7 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
     <div className="space-y-4">
       <div className="flex flex-wrap items-baseline gap-2">
         {question.questionContent && (
-          <p className="text-sm sm:text-base text-slate-800 font-medium leading-relaxed">
-            {question.questionContent}
-          </p>
+          <QuestionPromptText content={question.questionContent} />
         )}
 
         {question.contextClue && (
@@ -91,6 +96,12 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
         {blanks.map((blank, index) => {
           const val = currentArray[index] || "";
+          const pairChoices = hasPerBlankSlashHints
+            ? options[index]?.optionText
+                .split(" / ")
+                .map((s) => s.trim())
+                .filter(Boolean) || []
+            : [];
 
           return (
             <div
@@ -100,6 +111,28 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
               <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
                 Blank #{blank.blankIndex ?? index + 1}
               </label>
+              {pairChoices.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pb-1">
+                  {pairChoices.map((choice) => {
+                    const isChoiceSelected = val === choice;
+                    return (
+                      <button
+                        key={choice}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => handleBlankChange(index, choice)}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors cursor-pointer ${
+                          isChoiceSelected
+                            ? "bg-brand-600 border-brand-600 text-white"
+                            : "bg-white border-slate-300 text-slate-700 hover:border-brand-400 hover:bg-brand-50"
+                        } ${disabled ? "opacity-70 cursor-not-allowed" : ""}`}
+                      >
+                        {choice}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               <input
                 type="text"
                 disabled={disabled}

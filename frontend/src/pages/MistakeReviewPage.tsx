@@ -15,6 +15,7 @@ import { useAuth } from "../context/AuthContext";
 import type { MistakeItem, QuestionSolution, QuestionCheckResult } from "../types/api.types";
 import AuthModal from "../components/auth/AuthModal";
 import AdaptiveReviewPanel from "../components/adaptive/AdaptiveReviewPanel";
+import QuestionPromptText from "../components/exercises/QuestionPromptText";
 
 export const MistakeReviewPage: React.FC = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -279,9 +280,10 @@ export const MistakeReviewPage: React.FC = () => {
 
                 {/* Question Content */}
                 <div className="space-y-2">
-                  <p className="text-sm sm:text-base font-bold text-slate-900 leading-relaxed">
-                    {item.questionContent}
-                  </p>
+                  <QuestionPromptText
+                    content={item.questionContent}
+                    className="text-sm sm:text-base font-bold text-slate-900 leading-relaxed"
+                  />
 
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                     <span className="font-semibold">Your previous answer:</span>

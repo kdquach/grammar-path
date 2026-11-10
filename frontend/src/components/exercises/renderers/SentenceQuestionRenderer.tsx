@@ -1,6 +1,7 @@
 import React from "react";
 import { Image as ImageIcon } from "lucide-react";
 import { Question } from "../../../types/api.types";
+import QuestionPromptText from "../QuestionPromptText";
 
 interface SentenceQuestionRendererProps {
   question: Question;
@@ -31,9 +32,7 @@ export const SentenceQuestionRenderer: React.FC<SentenceQuestionRendererProps> =
       {/* Prompt and Context Clue */}
       <div className="flex flex-wrap items-baseline gap-2">
         {question.questionContent && (
-          <p className="text-sm sm:text-base text-slate-800 font-medium leading-relaxed">
-            {question.questionContent}
-          </p>
+          <QuestionPromptText content={question.questionContent} />
         )}
 
         {question.contextClue && (

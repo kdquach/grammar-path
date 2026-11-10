@@ -468,5 +468,153 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
         expect(screen.getAllByText("Cambridge Answer Key").length).toBeGreaterThan(0);
       });
     });
+
+    it("supports multi-select checkboxes on 17.2/24.1-style exercises and split-blank slash hints on 86.4-q9", async () => {
+      const multiSelectExercise: Exercise = {
+        id: "ex-17-2",
+        exerciseId: "17.2",
+        exerciseNumber: "17.2",
+        questionType: "multiple_choice",
+        instruction:
+          "Which alternatives are correct? Sometimes two alternatives are possible, sometimes only one.",
+        hasVisualContext: false,
+        displayOrder: 1,
+        wordBankItems: [],
+        questions: [
+          {
+            id: "q-17-3",
+            questionId: "17.2-q3",
+            questionContent: "I need a stamp for this letter. [_____] one?",
+            isExample: false,
+            hasVisualContext: false,
+            displayOrder: 1,
+            options: [
+              { optionKey: "A", optionText: "Do you have", displayOrder: 1 },
+              { optionKey: "B", optionText: "Are you having", displayOrder: 2 },
+              { optionKey: "C", optionText: "Have you got", displayOrder: 3 },
+            ],
+            blanks: [],
+            parts: [],
+          },
+          {
+            id: "q-86-9",
+            questionId: "86.4-q9",
+            questionContent:
+              "'Who were you talking to just now?' '[blank]. I wasn't talking to [blank].'",
+            isExample: false,
+            hasVisualContext: false,
+            displayOrder: 2,
+            options: [
+              { optionKey: "a", optionText: "No-one / Anyone", displayOrder: 1 },
+              { optionKey: "b", optionText: "no-one / anyone", displayOrder: 2 },
+            ],
+            blanks: [{ blankIndex: 1 }, { blankIndex: 2 }],
+            parts: [],
+          },
+        ],
+      };
+
+      vi.mocked(api.getUnitExercises).mockResolvedValue([multiSelectExercise]);
+      vi.mocked(api.checkQuestionAnswer).mockResolvedValue({
+        questionId: "17.2-q3",
+        isCorrect: true,
+        studentAnswer: ["A", "C"],
+        correctAnswers: ["A or C", "A and C"],
+        expectedAnswers: ["A or C", "A and C"],
+        explanation: null,
+        ruleReference: null,
+      });
+
+      render(<ExerciseViewer unitNumber={17} onOpenRuleReference={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Multiple options may be correct/i)).toBeInTheDocument();
+      });
+
+      // Toggle C then A -> canonical option order ["A", "C"]
+      fireEvent.click(screen.getByText("Have you got").closest("button")!);
+      fireEvent.click(screen.getByText("Do you have").closest("button")!);
+
+      const checkButtons = screen.getAllByText("Check Answer");
+      fireEvent.click(checkButtons[0]);
+
+      await waitFor(() => {
+        expect(api.checkQuestionAnswer).toHaveBeenCalledWith("17.2-q3", ["A", "C"]);
+      });
+
+      // 86.4-q9 should render Blank #1 & Blank #2 with clickable slash choice pills, NOT broken OptionQuestionRenderer
+      expect(screen.getByText("Blank #1")).toBeInTheDocument();
+      expect(screen.getByText("Blank #2")).toBeInTheDocument();
+      expect(screen.queryByText("No-one / Anyone")).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "No-one" }));
+      fireEvent.click(screen.getByRole("button", { name: "anyone" }));
+      fireEvent.click(checkButtons[1]);
+
+      await waitFor(() => {
+        expect(api.checkQuestionAnswer).toHaveBeenCalledWith("86.4-q9", [
+          "No-one",
+          "anyone",
+        ]);
+      });
+    });
+
+    it("OptionQuestionRenderer safely handles array value in single-select mode without throwing", () => {
+      const onChange = vi.fn();
+      render(
+        <OptionQuestionRenderer
+          question={mockOptionQuestion}
+          value={["b"]}
+          onChange={onChange}
+        />
+      );
+      const optB = screen.getByText("Do you know where she is?").closest("button")!;
+      expect(optB).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("formats textbook sub-item prefixes like '4 a' into a compact '4a' pill without breaking normal English sentences", () => {
+      const subItemQuestion: Question = {
+        id: "q-70-4a",
+        questionId: "70.1-q4a",
+        questionContent:
+          "4 a I was in a hurry this morning. I didn't have [time / a time] for breakfast.",
+        isExample: false,
+        hasVisualContext: false,
+        displayOrder: 6,
+        options: [
+          { optionKey: "a", optionText: "time", displayOrder: 1 },
+          { optionKey: "b", optionText: "a time", displayOrder: 2 },
+        ],
+        blanks: [{ blankIndex: 1 }],
+        parts: [],
+      };
+
+      const { rerender } = render(
+        <OptionQuestionRenderer
+          question={subItemQuestion}
+          value={undefined}
+          onChange={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText("4a")).toBeInTheDocument();
+      expect(
+        screen.getByText(/I was in a hurry this morning\./)
+      ).toBeInTheDocument();
+
+      // Normal numbered English sentence starting with uppercase article 'A' stays untouched
+      rerender(
+        <OptionQuestionRenderer
+          question={{
+            ...subItemQuestion,
+            questionContent: "2 A man was sitting next to me.",
+          }}
+          value={undefined}
+          onChange={vi.fn()}
+        />
+      );
+      expect(screen.queryByText("2A")).not.toBeInTheDocument();
+      expect(screen.getByText("2 A man was sitting next to me.")).toBeInTheDocument();
+    });
   });
 });

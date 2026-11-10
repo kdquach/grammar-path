@@ -252,5 +252,156 @@ describe("Stateless Answer Evaluation & Grading Engine REST APIs", () => {
     expect(resBadBody.status).toBe(400);
     expect(resBadBody.body.error.code).toBe("VALIDATION_ERROR");
   });
+
+  // 9. Option questions that also carry auxiliary blank rows (e.g., Unit 70 Exercise 70.1)
+  it("9. Option + auxiliary single-blank grading: POST /api/v1/questions/70.1-q2a and 70.1-q2b -> accepts optionKey and optionText while rejecting wrong options", async () => {
+    const q2aKeyRight = await request(app)
+      .post("/api/v1/questions/70.1-q2a/check")
+      .send({ answer: "b" });
+    expect(q2aKeyRight.status).toBe(200);
+    expect(q2aKeyRight.body.data.isCorrect).toBe(true);
+    expect(q2aKeyRight.body.data.expectedAnswers).toContain("a paper");
+    expect(q2aKeyRight.body.data.expectedAnswers).toContain("b");
+
+    const q2aTextRight = await request(app)
+      .post("/api/v1/questions/70.1-q2a/check")
+      .send({ answer: "a paper" });
+    expect(q2aTextRight.status).toBe(200);
+    expect(q2aTextRight.body.data.isCorrect).toBe(true);
+
+    const q2aWrong = await request(app)
+      .post("/api/v1/questions/70.1-q2a/check")
+      .send({ answer: "a" });
+    expect(q2aWrong.status).toBe(200);
+    expect(q2aWrong.body.data.isCorrect).toBe(false);
+
+    const q2bKeyRight = await request(app)
+      .post("/api/v1/questions/70.1-q2b/check")
+      .send({ answer: "a" });
+    expect(q2bKeyRight.status).toBe(200);
+    expect(q2bKeyRight.body.data.isCorrect).toBe(true);
+
+    const q2bWrong = await request(app)
+      .post("/api/v1/questions/70.1-q2b/check")
+      .send({ answer: "b" });
+    expect(q2bWrong.status).toBe(200);
+    expect(q2bWrong.body.data.isCorrect).toBe(false);
+
+    // Reverse key/text cases (46.1-q1, 50.1-q2, 12.1-q2)
+    const ex46Text = await request(app)
+      .post("/api/v1/questions/46.1-q1/check")
+      .send({ answer: "Sarah is having her hair cut." });
+    expect(ex46Text.status).toBe(200);
+    expect(ex46Text.body.data.isCorrect).toBe(true);
+
+    const ex50Key = await request(app)
+      .post("/api/v1/questions/50.1-q2/check")
+      .send({ answer: "c" });
+    expect(ex50Key.status).toBe(200);
+    expect(ex50Key.body.data.isCorrect).toBe(true);
+  });
+
+  // 10. Multi-blank combined options (32.1-q7, 98.2-q10), split-slash blank anomaly (86.4-q9), and multi-part + blank alignment (10.1-q1, 13.3-q10)
+  it("10. Combined multi-blank options, split-slash blanks, and multi-part questions with duplicate blanks grade accurately", async () => {
+    const q32Key = await request(app)
+      .post("/api/v1/questions/32.1-q7/check")
+      .send({ answer: "a" });
+    expect(q32Key.status).toBe(200);
+    expect(q32Key.body.data.isCorrect).toBe(true);
+
+    const q32Arr = await request(app)
+      .post("/api/v1/questions/32.1-q7/check")
+      .send({ answer: ["must", "mustn't"] });
+    expect(q32Arr.status).toBe(200);
+    expect(q32Arr.body.data.isCorrect).toBe(true);
+
+    const q32Wrong = await request(app)
+      .post("/api/v1/questions/32.1-q7/check")
+      .send({ answer: "b" });
+    expect(q32Wrong.status).toBe(200);
+    expect(q32Wrong.body.data.isCorrect).toBe(false);
+
+    const q98Key = await request(app)
+      .post("/api/v1/questions/98.2-q10/check")
+      .send({ answer: "a" });
+    expect(q98Key.status).toBe(200);
+    expect(q98Key.body.data.isCorrect).toBe(true);
+
+    // 86.4-q9 split-blank slash hints
+    const q86Arr = await request(app)
+      .post("/api/v1/questions/86.4-q9/check")
+      .send({ answer: ["No-one", "anyone"] });
+    expect(q86Arr.status).toBe(200);
+    expect(q86Arr.body.data.isCorrect).toBe(true);
+
+    const q86Str = await request(app)
+      .post("/api/v1/questions/86.4-q9/check")
+      .send({ answer: "No-one ... anyone" });
+    expect(q86Str.status).toBe(200);
+    expect(q86Str.body.data.isCorrect).toBe(true);
+
+    const q86Wrong = await request(app)
+      .post("/api/v1/questions/86.4-q9/check")
+      .send({ answer: ["Anyone", "no-one"] });
+    expect(q86Wrong.status).toBe(200);
+    expect(q86Wrong.body.data.isCorrect).toBe(false);
+
+    // 10.1-q1 & 13.3-q10 parts + blanks priority
+    const q10Parts = await request(app)
+      .post("/api/v1/questions/10.1-q1/check")
+      .send({
+        answer: {
+          "10.1-q1.1": "has been reading",
+          "10.1-q1.2": "has read",
+        },
+      });
+    expect(q10Parts.status).toBe(200);
+    expect(q10Parts.body.data.isCorrect).toBe(true);
+
+    const q13Parts = await request(app)
+      .post("/api/v1/questions/13.3-q10/check")
+      .send({
+        answer: {
+          "13.3-q10.1": "'s broken",
+          "13.3-q10.2": "did that happen",
+          "13.3-q10.3": "he fell",
+        },
+      });
+    expect(q13Parts.status).toBe(200);
+    expect(q13Parts.body.data.isCorrect).toBe(true);
+  });
+
+  // 11. Multi-select option exercises (17.2 & 24.1)
+  it("11. Multi-select option grading: evaluates unordered multi-option arrays and rejects incomplete subsets", async () => {
+    const q17Right = await request(app)
+      .post("/api/v1/questions/17.2-q3/check")
+      .send({ answer: ["C", "A"] });
+    expect(q17Right.status).toBe(200);
+    expect(q17Right.body.data.isCorrect).toBe(true);
+
+    const q17Partial = await request(app)
+      .post("/api/v1/questions/17.2-q3/check")
+      .send({ answer: ["A"] });
+    expect(q17Partial.status).toBe(200);
+    expect(q17Partial.body.data.isCorrect).toBe(false);
+
+    const q24Right = await request(app)
+      .post("/api/v1/questions/24.1-q3/check")
+      .send({ answer: ["c", "a"] });
+    expect(q24Right.status).toBe(200);
+    expect(q24Right.body.data.isCorrect).toBe(true);
+
+    const q24CommaString = await request(app)
+      .post("/api/v1/questions/24.1-q3/check")
+      .send({ answer: "c, a" });
+    expect(q24CommaString.status).toBe(200);
+    expect(q24CommaString.body.data.isCorrect).toBe(true);
+
+    const q24SingleInMultiEx = await request(app)
+      .post("/api/v1/questions/24.1-q2/check")
+      .send({ answer: ["b"] });
+    expect(q24SingleInMultiEx.status).toBe(200);
+    expect(q24SingleInMultiEx.body.data.isCorrect).toBe(true);
+  });
 });
 

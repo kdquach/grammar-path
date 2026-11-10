@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Zap,
@@ -20,6 +21,7 @@ import type {
   DifficultyLevel,
 } from "../../types/api.types";
 import RuleReferenceModal from "../theory/RuleReferenceModal";
+import QuestionPromptText from "../exercises/QuestionPromptText";
 
 interface AdaptiveQuizModalProps {
   isOpen: boolean;
@@ -134,10 +136,10 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
   const correctCount = Object.values(isCorrectMap).filter(Boolean).length;
   const isCompleted = totalQuestions > 0 && totalChecked === totalQuestions;
 
-  return (
+  const modalContent = (
     <>
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in overflow-y-auto"
+        className="fixed inset-0 z-50 m-0 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
         }}
@@ -360,9 +362,10 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
                     </p>
                   )}
 
-                  <p className="text-base sm:text-lg font-semibold text-slate-900 leading-relaxed">
-                    {currentQ.prompt}
-                  </p>
+                  <QuestionPromptText
+                    content={currentQ.prompt}
+                    className="text-base sm:text-lg font-semibold text-slate-900 leading-relaxed"
+                  />
 
                   {currentQ.contextClue && (
                     <p className="text-xs font-medium text-slate-500 bg-white/70 p-2 rounded-lg border border-slate-200">
@@ -604,6 +607,10 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
       />
     </>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 export default AdaptiveQuizModal;
