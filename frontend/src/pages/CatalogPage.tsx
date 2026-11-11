@@ -12,6 +12,8 @@ import {
   Clock,
   BarChart3,
   ArrowUpRight,
+  Compass,
+  ArrowRight,
 } from "lucide-react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -279,6 +281,17 @@ export const CatalogPage: React.FC = () => {
                 </strong>
                 <span>Practice Questions</span>
               </div>
+            </div>
+
+            <div className="pt-3 flex flex-wrap items-center gap-3">
+              <Link
+                to="/roadmap"
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs sm:text-sm shadow-md transition-colors"
+              >
+                <Compass className="w-4 h-4" />
+                <span>Người mất gốc? Xem Lộ trình Luyện TOEIC (5 giai đoạn)</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         </section>

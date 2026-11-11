@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   GraduationCap,
   Layers,
+  Compass,
   ArrowRight,
   BarChart3,
   BookmarkCheck,
@@ -48,6 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
 
   const isCatalog = location.pathname === "/";
+  const isRoadmap = location.pathname === "/roadmap";
   const isProgress = location.pathname === "/progress";
   const isMistakes = location.pathname === "/mistakes";
 
@@ -282,6 +284,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!collapsed && (
             <span className="text-[11px] font-medium text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded-md">
               145
+            </span>
+          )}
+        </Link>
+
+        {/* TOEIC Foundation Roadmap */}
+        <Link
+          to="/roadmap"
+          onClick={onCloseMobileMenu}
+          title="Lộ trình TOEIC (Từ mất gốc)"
+          className={`flex items-center transition-all ${
+            collapsed
+              ? "w-11 h-11 mx-auto justify-center rounded-xl"
+              : "justify-between px-3 py-2.5 text-xs font-semibold rounded-xl"
+          } ${
+            isRoadmap
+              ? "bg-brand-50 text-brand-700 font-bold shadow-sm"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <Compass
+              className={`w-4 h-4 shrink-0 ${isRoadmap ? "text-brand-600" : "text-slate-400"}`}
+            />
+            {!collapsed && <span>Lộ trình TOEIC</span>}
+          </div>
+          {!collapsed && (
+            <span
+              className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wide ${
+                isRoadmap
+                  ? "bg-brand-600 text-white"
+                  : "bg-amber-100 text-amber-800"
+              }`}
+            >
+              Mất gốc
             </span>
           )}
         </Link>

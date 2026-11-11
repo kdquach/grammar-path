@@ -13,6 +13,7 @@ import {
   AlertCircle,
   LogIn,
   Zap,
+  Compass,
 } from "lucide-react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -158,6 +159,13 @@ export const ProgressDashboardPage: React.FC = () => {
           >
             <BookmarkCheck className="w-4 h-4" />
             <span>Review Mistakes</span>
+          </Link>
+          <Link
+            to="/roadmap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-50 border border-brand-200 text-brand-700 font-bold text-xs hover:bg-brand-100 transition-colors shadow-sm"
+          >
+            <Compass className="w-4 h-4" />
+            <span>Lộ trình TOEIC</span>
           </Link>
           <Link
             to="/"
