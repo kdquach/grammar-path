@@ -24,7 +24,7 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({
   sticky = false,
   resetVersion = 0,
 }) => {
-  const [usedWords, setUsedWords] = useState<Set<string>>(new Set());
+  const [usedItemKeys, setUsedItemKeys] = useState<Set<string>>(new Set());
   const [copiedWord, setCopiedWord] = useState<string | null>(null);
   const [isPinned, setIsPinned] = useState<boolean>(sticky);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
@@ -39,7 +39,7 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({
 
   useEffect(() => {
     if (resetVersion > 0) {
-      setUsedWords(new Set());
+      setUsedItemKeys(new Set());
       setCopiedWord(null);
     }
   }, [resetVersion]);
@@ -81,14 +81,17 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({
     return null;
   }
 
-  const handleWordClick = (word: string) => {
-    // Toggle crossed-out / used state
-    setUsedWords((prev) => {
+  const getItemKey = (item: WordBankItem, index: number) =>
+    item.id ? `${item.id}-${index}` : `word-${index}-${item.word}`;
+
+  const handleWordClick = (itemKey: string, word: string) => {
+    // Toggle crossed-out / used state per chip instance (handles duplicate words independently)
+    setUsedItemKeys((prev) => {
       const next = new Set(prev);
-      if (next.has(word)) {
-        next.delete(word);
+      if (next.has(itemKey)) {
+        next.delete(itemKey);
       } else {
-        next.add(word);
+        next.add(itemKey);
       }
       return next;
     });
@@ -109,10 +112,10 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({
   };
 
   const handleReset = () => {
-    setUsedWords(new Set());
+    setUsedItemKeys(new Set());
   };
 
-  const remainingCount = Math.max(0, items.length - usedWords.size);
+  const remainingCount = Math.max(0, items.length - usedItemKeys.size);
 
   return (
     <div
@@ -134,7 +137,7 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({
           <span className="px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-mono">
             {items.length} words
           </span>
-          {usedWords.size > 0 && (
+          {usedItemKeys.size > 0 && (
             <span className="px-1.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200 text-[10px] font-mono">
               {remainingCount} left
             </span>
@@ -148,7 +151,7 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({
             </span>
           )}
 
-          {usedWords.size > 0 && (
+          {usedItemKeys.size > 0 && (
             <button
               type="button"
               onClick={handleReset}
@@ -156,7 +159,7 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({
               title="Reset crossed-out words"
             >
               <RotateCcw className="w-3 h-3" />
-              Reset marks ({usedWords.size})
+              Reset marks ({usedItemKeys.size})
             </button>
           )}
 
@@ -222,14 +225,15 @@ export const WordBankBar: React.FC<WordBankBarProps> = ({
 
       {!isCollapsed && (
         <div className="flex flex-wrap gap-1.5 sm:gap-2 max-h-32 sm:max-h-40 overflow-y-auto pt-0.5 pr-0.5">
-          {items.map((item) => {
-            const isUsed = usedWords.has(item.word);
+          {items.map((item, index) => {
+            const itemKey = getItemKey(item, index);
+            const isUsed = usedItemKeys.has(itemKey);
             return (
               <button
-                key={item.id || item.word}
+                key={itemKey}
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
-                onClick={() => handleWordClick(item.word)}
+                onClick={() => handleWordClick(itemKey, item.word)}
                 className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
                   isUsed
                     ? "bg-slate-200/70 border-slate-300 text-slate-400 line-through opacity-75 shadow-none"

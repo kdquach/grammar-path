@@ -191,6 +191,34 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
       rerender(<WordBankBar items={mockWordBank} sticky resetVersion={1} />);
       expect(screen.getByText("hungry").closest("button")!).not.toHaveClass("line-through");
     });
+
+    it("tracks duplicate word bank entries independently when clicked", () => {
+      const duplicateItems: WordBankItem[] = [
+        { id: "wb-exp-1", word: "experience", displayOrder: 1 },
+        { id: "wb-exp-2", word: "experience", displayOrder: 2 },
+        { id: "wb-adv", word: "advice", displayOrder: 3 },
+      ];
+
+      render(<WordBankBar items={duplicateItems} />);
+
+      const expButtons = screen
+        .getAllByText("experience")
+        .map((el) => el.closest("button")!);
+      expect(expButtons).toHaveLength(2);
+
+      fireEvent.click(expButtons[0]);
+
+      expect(expButtons[0]).toHaveClass("line-through");
+      expect(expButtons[1]).not.toHaveClass("line-through");
+      expect(screen.getByText("2 left")).toBeInTheDocument();
+      expect(screen.getByText(/Reset marks \(1\)/i)).toBeInTheDocument();
+
+      // Clicking the second duplicate marks it separately
+      fireEvent.click(expButtons[1]);
+      expect(expButtons[1]).toHaveClass("line-through");
+      expect(screen.getByText("1 left")).toBeInTheDocument();
+      expect(screen.getByText(/Reset marks \(2\)/i)).toBeInTheDocument();
+    });
   });
 
   // 2. Individual Question Renderers Tests
