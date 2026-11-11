@@ -18,13 +18,26 @@ export const includeAnswersQuerySchema = z.object({
 });
 
 export const exerciseIdParamSchema = z.object({
-  exerciseId: z.string().trim().min(1, "exerciseId cannot be empty"),
+  exerciseId: z
+    .string()
+    .trim()
+    .min(1, "exerciseId cannot be empty")
+    .max(50, "exerciseId must be 50 characters or less"),
 });
 
 export const checkExerciseBodySchema = z.object({
-  answers: z.record(
-    z.union([z.string(), z.array(z.string()), z.record(z.string())])
-  ),
+  answers: z
+    .record(
+      z.string().max(50),
+      z.union([
+        z.string().max(1000, "Answer text exceeds maximum length"),
+        z.array(z.string().max(1000)).max(20),
+        z.record(z.string().max(50), z.string().max(1000)),
+      ])
+    )
+    .refine((obj) => Object.keys(obj).length <= 100, {
+      message: "Too many answers in submission",
+    }),
 });
 
 export async function getUnitExercises(

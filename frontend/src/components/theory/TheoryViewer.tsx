@@ -23,12 +23,14 @@ interface TheoryViewerProps {
   theorySections: TheorySection[];
   textbookExamples: TextbookExample[];
   onOpenRuleModal?: (sectionId: string) => void;
+  onRequireAuth?: () => void;
 }
 
 export const TheoryViewer: React.FC<TheoryViewerProps> = ({
   theorySections,
   textbookExamples,
   onOpenRuleModal,
+  onRequireAuth,
 }) => {
   // Global translation visibility state
   const [showAllTranslations, setShowAllTranslations] = useState<boolean>(true);
@@ -75,6 +77,11 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
   };
 
   const handleOpenAiModal = (section: TheorySection) => {
+    if (onRequireAuth) {
+      onRequireAuth();
+      return;
+    }
+
     setActiveAiSection(section);
     setIsAiModalOpen(true);
     setUserQuestion("");
@@ -105,7 +112,23 @@ export const TheoryViewer: React.FC<TheoryViewerProps> = ({
         setIsAiLoading(false);
       })
       .catch((err) => {
-        setAiError(err.message || "Không thể tải giải thích từ AI lúc này. Vui lòng thử lại!");
+        if (err?.code === "UNAUTHORIZED") {
+          setAiError(
+            "Phiên đăng nhập đã hết hạn hoặc bạn chưa đăng nhập. Vui lòng đăng nhập để sử dụng Gia sư AI."
+          );
+        } else if (err?.code === "AI_PROVIDER_UNAVAILABLE") {
+          setAiError(
+            "Dịch vụ Gia sư AI hiện đang tạm gián đoạn. Vui lòng thử lại sau."
+          );
+        } else if (err?.code === "RATE_LIMIT_EXCEEDED") {
+          setAiError(
+            "Bạn đã gửi quá nhiều yêu cầu AI trong thời gian ngắn. Vui lòng đợi một lát rồi thử lại."
+          );
+        } else {
+          setAiError(
+            err?.message || "Không thể tải giải thích từ AI lúc này. Vui lòng thử lại!"
+          );
+        }
         setIsAiLoading(false);
       });
   };

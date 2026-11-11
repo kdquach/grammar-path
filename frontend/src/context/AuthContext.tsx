@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import api, { getStoredToken, setStoredToken } from "../api/client";
+import { onUnauthorized } from "../api/authEvents";
+import { useToast } from "./ToastContext";
 import type { AuthUser } from "../types/api.types";
 
 export interface AuthContextType {
@@ -21,9 +23,28 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const toast = useToast();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setTokenState] = useState<string | null>(getStoredToken());
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const notifiedExpiredRef = useRef<boolean>(false);
+
+  // Listen for unauthorized/expired session events from API client
+  useEffect(() => {
+    const unsubscribe = onUnauthorized(() => {
+      setStoredToken(null);
+      setUser(null);
+      setTokenState(null);
+      setIsLoading(false);
+
+      if (!notifiedExpiredRef.current) {
+        notifiedExpiredRef.current = true;
+        toast.warning("Your session has expired. Please sign in again.");
+      }
+    });
+
+    return unsubscribe;
+  }, [toast]);
 
   // Restore authenticated session from localStorage token on mount
   useEffect(() => {
@@ -35,6 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         .getCurrentUser()
         .then((currentUser) => {
           if (isMounted) {
+            notifiedExpiredRef.current = false;
             setUser(currentUser);
             setTokenState(existingToken);
             setIsLoading(false);
@@ -59,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const login = async (payload: { email: string; password: string }) => {
     const res = await api.loginUser(payload);
+    notifiedExpiredRef.current = false;
     setUser(res.user);
     setTokenState(res.token);
   };
@@ -69,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     displayName: string;
   }) => {
     const res = await api.registerUser(payload);
+    notifiedExpiredRef.current = false;
     setUser(res.user);
     setTokenState(res.token);
   };

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import type {
   UnitDetail,
   UnitTheory,
@@ -29,6 +30,7 @@ export const UnitPage: React.FC = () => {
   const { unitNumber: unitNumberParam } = useParams<{ unitNumber: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
   const unitNumber = parseInt(unitNumberParam || "1", 10);
 
   // Data state
@@ -110,7 +112,7 @@ export const UnitPage: React.FC = () => {
       const updated = await api.updateUnitProgress(unitNumber, nextStatus);
       setUnitProgress(updated);
     } catch (err: any) {
-      alert(err.message || "Failed to update unit progress");
+      toast.error(err?.message || "Failed to update unit progress");
     } finally {
       setIsUpdatingProgress(false);
     }
@@ -309,6 +311,14 @@ export const UnitPage: React.FC = () => {
               theorySections={unitTheory.theorySections}
               textbookExamples={unitTheory.textbookExamples}
               onOpenRuleModal={(ruleId) => setSelectedRuleId(ruleId)}
+              onRequireAuth={
+                !user
+                  ? () => {
+                      toast.info("Please sign in to use AI Tutor explanations.");
+                      setIsAuthModalOpen(true);
+                    }
+                  : undefined
+              }
             />
           ) : (
             <ExerciseViewer

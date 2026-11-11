@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
+import { Prisma } from "@prisma/client";
 import { sendError } from "../utils/response";
 
 export class AppError extends Error {
@@ -39,9 +40,59 @@ export class AppError extends Error {
     return new AppError(409, code, message);
   }
 
+  static tooManyRequests(
+    message = "Too many requests",
+    code = "RATE_LIMIT_EXCEEDED"
+  ): AppError {
+    return new AppError(429, code, message);
+  }
+
   static internal(message = "Internal server error", code = "INTERNAL_SERVER_ERROR"): AppError {
     return new AppError(500, code, message);
   }
+
+  static serviceUnavailable(
+    message = "Service temporarily unavailable",
+    code = "SERVICE_UNAVAILABLE"
+  ): AppError {
+    return new AppError(503, code, message);
+  }
+}
+
+function isProductionEnv(): boolean {
+  return process.env.NODE_ENV === "production";
+}
+
+function isJsonSyntaxError(err: unknown): boolean {
+  return (
+    err instanceof SyntaxError &&
+    ("body" in err || (err as { type?: string }).type === "entity.parse.failed")
+  );
+}
+
+function isPayloadTooLargeError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const candidate = err as { type?: string; status?: number; statusCode?: number };
+  return (
+    candidate.type === "entity.too.large" ||
+    candidate.status === 413 ||
+    candidate.statusCode === 413
+  );
+}
+
+function isPrismaKnownError(err: unknown): err is { code: string; name?: string } {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return true;
+  }
+  if (err && typeof err === "object") {
+    const candidate = err as { name?: string; code?: unknown };
+    return (
+      candidate.name === "PrismaClientKnownRequestError" &&
+      typeof candidate.code === "string" &&
+      /^P\d{4}$/.test(candidate.code)
+    );
+  }
+  return false;
 }
 
 export const errorHandler: ErrorRequestHandler = (
@@ -51,18 +102,62 @@ export const errorHandler: ErrorRequestHandler = (
   _next: NextFunction
 ): void => {
   if (err instanceof ZodError) {
-    const message = err.errors.map((e) => `${e.path.join(".") || "value"}: ${e.message}`).join(", ");
-    sendError(res, "VALIDATION_ERROR", message, 400, err.errors);
+    const message = err.errors
+      .map((e) => `${e.path.join(".") || "value"}: ${e.message}`)
+      .join(", ");
+    const safeDetails = isProductionEnv()
+      ? err.errors.map((e) => ({
+          path: e.path.join("."),
+          message: e.message,
+        }))
+      : err.errors;
+    sendError(res, "VALIDATION_ERROR", message, 400, safeDetails);
+    return;
+  }
+
+  if (isPayloadTooLargeError(err)) {
+    sendError(
+      res,
+      "PAYLOAD_TOO_LARGE",
+      "Request payload exceeds maximum allowed size",
+      413
+    );
+    return;
+  }
+
+  if (isJsonSyntaxError(err)) {
+    sendError(res, "INVALID_JSON", "Malformed JSON request body", 400);
     return;
   }
 
   if (err instanceof AppError) {
-    sendError(res, err.code, err.message, err.statusCode, err.details);
+    sendError(
+      res,
+      err.code,
+      err.message,
+      err.statusCode,
+      isProductionEnv() && err.statusCode >= 500 ? undefined : err.details
+    );
     return;
   }
 
-  const errorMessage = err instanceof Error ? err.message : "Internal server error";
-  console.error("Unhandled error:", err);
-  sendError(res, "INTERNAL_SERVER_ERROR", errorMessage, 500);
-};
+  if (isPrismaKnownError(err)) {
+    if (err.code === "P2002") {
+      sendError(res, "CONFLICT", "Resource already exists", 409);
+      return;
+    }
+    if (err.code === "P2025") {
+      sendError(res, "NOT_FOUND", "Requested resource not found", 404);
+      return;
+    }
+  }
 
+  const rawMessage = err instanceof Error ? err.message : "Unknown internal error";
+  console.error("[GrammarPath API] Unhandled error:", rawMessage);
+
+  const clientMessage = isProductionEnv()
+    ? "Internal server error"
+    : rawMessage || "Internal server error";
+
+  sendError(res, "INTERNAL_SERVER_ERROR", clientMessage, 500);
+};

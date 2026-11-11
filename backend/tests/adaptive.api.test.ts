@@ -34,103 +34,25 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
     await prisma.$disconnect();
   });
 
-  // ─── 1. AI Theory Explainer ────────────────────────────────────────────────
+  // ─── 1. Authentication Setup & Auth Guard ──────────────────────────────────
 
-  it("1. POST /api/v1/theory/explain-theory -> returns friendly pedagogical Vietnamese explanation (200)", async () => {
+  it("0. Auth Guard: POST /api/v1/theory/explain-theory rejects unauthenticated requests (401)", async () => {
     const res = await request(app)
       .post("/api/v1/theory/explain-theory")
       .send({
         sectionId: "1A",
         heading: "Study this example situation:",
-        sourceContent:
-          "Sarah is in her car. She is on her way to work. She is driving to work. This means: she is driving now, at the time of speaking. The action is not finished.",
+        sourceContent: "Sarah is in her car. She is driving to work.",
       });
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data).toBeDefined();
-    expect(typeof res.body.data.explanation).toBe("string");
-    expect(res.body.data.explanation.length).toBeGreaterThan(50);
-    // Should mention section or heading or vietnamese grammar keywords
-    expect(res.body.data.explanation).toContain("1A");
-  });
-
-  it("2. POST /api/v1/theory/explain-theory with userQuestion -> personalizes explanation addressing student question", async () => {
-    const res = await request(app)
-      .post("/api/v1/theory/explain-theory")
-      .send({
-        sectionId: "1B",
-        heading: "I am doing something = I'm in the middle of doing it",
-        sourceContent:
-          "Please don't make so much noise. I'm trying to work. Where is Mark? He's having a shower.",
-        userQuestion: "Tại sao lại dùng 'trying' mà không dùng 'try'?",
-      });
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(typeof res.body.data.explanation).toBe("string");
-    expect(res.body.data.explanation).toContain("trying");
-  });
-
-  it("3. POST /api/v1/theory/explain-theory validation error -> rejects empty or missing required fields with 400", async () => {
-    const res = await request(app)
-      .post("/api/v1/theory/explain-theory")
-      .send({
-        heading: "Missing sectionId",
-      });
-
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
     expect(res.body.success).toBe(false);
-    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+    expect(res.body.error.code).toBe("UNAUTHORIZED");
   });
 
-  it("3b. POST /api/v1/theory/explain-theory for Section 70C -> tailors explanation to uncountable nouns without Present Continuous boilerplate", async () => {
-    const payload = {
-      sectionId: "70C",
-      heading: "Nouns usually uncountable",
-      sourceContent:
-        "The following nouns are usually uncountable: accommodation, advice, baggage, behaviour, bread, chaos, damage, furniture, information, luck, luggage, news, permission, progress, scenery, traffic, weather, work.\n- You cannot use a/an with these nouns: some bread / a loaf of bread (not a bread); good weather (not a good weather).\n- News is uncountable, not plural: The news was very depressing. (not The news were)",
-    };
+  // ─── 2. Adaptive Analytics Setup (Registers Learner + Empty State) ────────
 
-    const res = await request(app)
-      .post("/api/v1/theory/explain-theory")
-      .send(payload);
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.explanation).toContain("70C");
-    expect(res.body.data.explanation).not.toContain("She is studying grammar right now");
-    expect(res.body.data.explanation).not.toContain("Are you listening to me?");
-    expect(res.body.data.explanation.toLowerCase()).toMatch(
-      /uncountable|không đếm được|bread|news|advice/
-    );
-
-    if (process.env.GEMINI_API_KEY?.trim()) {
-      expect(res.body.data.source).toBe("ai");
-    }
-
-    // Even fallback explanation must reflect Section 70C rather than unrelated Present Continuous boilerplate
-    const fallback = generateFallbackExplanation(payload);
-    expect(fallback).toContain("70C");
-    expect(fallback).toContain("accommodation, advice");
-    expect(fallback).not.toContain("She is studying grammar right now");
-  });
-
-  // ─── 2. Adaptive Analytics & Recommendations ───────────────────────────────
-
-  it("4. Auth Guard: GET /api/v1/adaptive/analytics and /recommendations require authentication (401)", async () => {
-    const analyticsRes = await request(app).get("/api/v1/adaptive/analytics");
-    expect(analyticsRes.status).toBe(401);
-    expect(analyticsRes.body.success).toBe(false);
-    expect(analyticsRes.body.error.code).toBe("UNAUTHORIZED");
-
-    const recRes = await request(app).get("/api/v1/adaptive/recommendations");
-    expect(recRes.status).toBe(401);
-    expect(recRes.body.success).toBe(false);
-    expect(recRes.body.error.code).toBe("UNAUTHORIZED");
-  });
-
-  it("5. Register test user and verify empty state analytics & initial recommendations", async () => {
+  it("1. Register test user and verify empty state analytics & initial recommendations", async () => {
     const registerRes = await request(app)
       .post("/api/v1/auth/register")
       .send({
@@ -169,6 +91,76 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
     expect(recRes.body.data.recommendations[0].unitNumber).toBe(1);
     expect(recRes.body.data.recommendations[0].priority).toBeDefined();
     expect(Array.isArray(recRes.body.data.recommendations[0].targetRules)).toBe(true);
+  });
+
+  // ─── 3. AI Theory Explainer (Authenticated) ───────────────────────────────
+
+  it("2. POST /api/v1/theory/explain-theory -> returns AI explanation (200) or fail-closed 503 when Gemini unavailable", async () => {
+    const res = await request(app)
+      .post("/api/v1/theory/explain-theory")
+      .set("Authorization", `Bearer ${authToken}`)
+      .send({
+        sectionId: "1A",
+        heading: "Study this example situation:",
+        sourceContent:
+          "Sarah is in her car. She is on her way to work. She is driving to work. This means: she is driving now, at the time of speaking. The action is not finished.",
+      });
+
+    if (process.env.GEMINI_API_KEY?.trim()) {
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toBeDefined();
+      expect(res.body.data.source).toBe("ai");
+      expect(typeof res.body.data.explanation).toBe("string");
+      expect(res.body.data.explanation.length).toBeGreaterThan(50);
+      expect(res.body.data.explanation).toContain("1A");
+    } else {
+      expect(res.status).toBe(503);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error.code).toBe("AI_PROVIDER_UNAVAILABLE");
+    }
+  });
+
+  it("3. POST /api/v1/theory/explain-theory validation error -> rejects empty or missing required fields with 400", async () => {
+    const res = await request(app)
+      .post("/api/v1/theory/explain-theory")
+      .set("Authorization", `Bearer ${authToken}`)
+      .send({
+        heading: "Missing sectionId",
+      });
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("3b. generateFallbackExplanation helper reflects Section 70C without Present Continuous boilerplate", () => {
+    const payload = {
+      sectionId: "70C",
+      heading: "Nouns usually uncountable",
+      sourceContent:
+        "The following nouns are usually uncountable: accommodation, advice, baggage, behaviour, bread, chaos, damage, furniture, information, luck, luggage, news, permission, progress, scenery, traffic, weather, work.\n- You cannot use a/an with these nouns: some bread / a loaf of bread (not a bread); good weather (not a good weather).\n- News is uncountable, not plural: The news was very depressing. (not The news were)",
+    };
+
+    const fallback = generateFallbackExplanation(payload);
+    expect(fallback).toContain("70C");
+    expect(fallback).toContain("accommodation, advice");
+    expect(fallback).not.toContain("She is studying grammar right now");
+    expect(fallback).not.toContain("Are you listening to me?");
+  });
+
+  // ─── 4. Adaptive Analytics & Recommendations Auth Guard ───────────────────
+
+  it("4. Auth Guard: GET /api/v1/adaptive/analytics and /recommendations require authentication (401)", async () => {
+    const analyticsRes = await request(app).get("/api/v1/adaptive/analytics");
+    expect(analyticsRes.status).toBe(401);
+    expect(analyticsRes.body.success).toBe(false);
+    expect(analyticsRes.body.error.code).toBe("UNAUTHORIZED");
+
+    const recRes = await request(app).get("/api/v1/adaptive/recommendations");
+    expect(recRes.status).toBe(401);
+    expect(recRes.body.success).toBe(false);
+    expect(recRes.body.error.code).toBe("UNAUTHORIZED");
   });
 
   it("6. Submit correct and incorrect answers, then verify adaptive analytics and prioritized recommendations", async () => {

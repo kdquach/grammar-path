@@ -615,7 +615,10 @@ export async function generateToeicPracticeHandler(
 export const generateQuizSchema = z.object({
   questionCount: z.coerce.number().int().min(1).max(20).optional().default(5),
   difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium"),
-  targetUnitNumbers: z.array(z.coerce.number().int().min(1).max(145)).optional(),
+  targetUnitNumbers: z
+    .array(z.coerce.number().int().min(1).max(145))
+    .max(145, "targetUnitNumbers cannot exceed 145 units")
+    .optional(),
 });
 
 /**

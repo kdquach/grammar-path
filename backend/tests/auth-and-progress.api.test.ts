@@ -81,7 +81,7 @@ describe("User Authentication, Learning Progress, Exercise Attempts & Mistake Re
     expect(dupRes.body.success).toBe(false);
     expect(dupRes.body.error.code).toBe("CONFLICT");
 
-    // Password < 6 chars should fail with 400 VALIDATION_ERROR
+    // Password < 8 chars should fail with 400 VALIDATION_ERROR
     const shortPwdRes = await request(app)
       .post("/api/v1/auth/register")
       .send({

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
+import { aiRateLimiter } from "../middleware/rate-limit";
 import {
   getAdaptiveAnalytics,
   getAdaptiveRecommendations,
@@ -15,10 +16,20 @@ router.get("/adaptive/analytics", requireAuth, getAdaptiveAnalytics);
 // GET /api/v1/adaptive/recommendations (requireAuth)
 router.get("/adaptive/recommendations", requireAuth, getAdaptiveRecommendations);
 
-// POST /api/v1/adaptive/toeic-practice (requireAuth)
-router.post("/adaptive/toeic-practice", requireAuth, generateToeicPracticeHandler);
+// POST /api/v1/adaptive/toeic-practice (requireAuth + AI rate limit)
+router.post(
+  "/adaptive/toeic-practice",
+  requireAuth,
+  aiRateLimiter,
+  generateToeicPracticeHandler
+);
 
-// POST /api/v1/adaptive/quiz/generate (requireAuth)
-router.post("/adaptive/quiz/generate", requireAuth, generateAdaptiveQuizHandler);
+// POST /api/v1/adaptive/quiz/generate (requireAuth + AI rate limit)
+router.post(
+  "/adaptive/quiz/generate",
+  requireAuth,
+  aiRateLimiter,
+  generateAdaptiveQuizHandler
+);
 
 export default router;

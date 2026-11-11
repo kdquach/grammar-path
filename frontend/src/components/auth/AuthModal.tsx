@@ -53,8 +53,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         setErrorMessage("Please enter a display name.");
         return;
       }
-      if (password.length < 6) {
-        setErrorMessage("Password must be at least 6 characters.");
+      if (password.length < 8) {
+        setErrorMessage("Password must be at least 8 characters.");
         return;
       }
 
@@ -219,7 +219,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <input
               id="password"
               type="password"
-              placeholder={mode === "register" ? "At least 6 characters" : "••••••••"}
+              placeholder={mode === "register" ? "At least 8 characters" : "••••••••"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-slate-900"

@@ -7,14 +7,21 @@ import { sendSuccess } from "../utils/response";
 import { signJwtToken } from "../utils/jwt";
 
 const registerBodySchema = z.object({
-  email: z.string().trim().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  displayName: z.string().trim().min(1, "Display name cannot be empty").max(100, "Display name too long"),
+  email: z.string().trim().email("Invalid email address").max(255, "Email too long"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, "Password too long"),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, "Display name cannot be empty")
+    .max(100, "Display name too long"),
 });
 
 const loginBodySchema = z.object({
-  email: z.string().trim().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
+  email: z.string().trim().email("Invalid email address").max(255, "Email too long"),
+  password: z.string().min(1, "Password is required").max(128, "Password too long"),
 });
 
 export async function register(

@@ -1,17 +1,32 @@
 import dotenv from "dotenv";
 dotenv.config();
 
-import app from "./app";
+import { validateEnv, AppEnvConfig } from "./config/env";
 import prisma from "./lib/prisma";
 
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 4000;
+let env: AppEnvConfig;
+try {
+  env = validateEnv(process.env);
+} catch (error) {
+  const message =
+    error instanceof Error ? error.message : "Invalid environment configuration";
+  console.error(`[GrammarPath API] Startup aborted: ${message}`);
+  process.exit(1);
+}
 
-const server = app.listen(PORT, () => {
-  console.log(`[GrammarPath API] Server listening on http://localhost:${PORT}`);
-  console.log(`[GrammarPath API] Environment: ${process.env.NODE_ENV || "development"}`);
+// Import app only after environment validation succeeds
+import { createApp } from "./app";
+
+const app = createApp(env);
+
+const server = app.listen(env.port, () => {
+  console.log(`[GrammarPath API] Server listening on http://localhost:${env.port}`);
+  console.log(`[GrammarPath API] Environment: ${env.nodeEnv}`);
+  console.log(
+    `[GrammarPath API] CORS allowlist count: ${env.corsOrigins.length}, Body limit: ${env.bodyLimit}, Trust proxy: ${env.trustProxy}`
+  );
 });
 
-// Graceful shutdown
 const shutdown = async (signal: string) => {
   console.log(`[GrammarPath API] Received ${signal}. Shutting down gracefully...`);
   server.close(async () => {
@@ -23,4 +38,3 @@ const shutdown = async (signal: string) => {
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
-

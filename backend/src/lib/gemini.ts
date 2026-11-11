@@ -15,6 +15,17 @@ export interface GeminiGenerateResult {
   model: string;
 }
 
+export type GeminiDetailedResult =
+  | {
+      ok: true;
+      text: string;
+      model: string;
+    }
+  | {
+      ok: false;
+      reason: "missing_api_key" | "upstream_error" | "empty_response";
+    };
+
 const DEFAULT_MODEL_CANDIDATES: GeminiModelCandidate[] = [
   {
     name: "gemini-3-flash-preview",
@@ -46,15 +57,14 @@ function buildModelCandidates(): GeminiModelCandidate[] {
 
 /**
  * Generates text using the Google Gemini REST API with automatic model fallback
- * and per-attempt timeouts. Returns null if no API key is configured or all
- * candidate models fail.
+ * and explicit failure classification (missing API key vs upstream failure vs empty response).
  */
-export async function generateGeminiText(
+export async function generateGeminiTextDetailed(
   options: GeminiGenerateOptions
-): Promise<GeminiGenerateResult | null> {
+): Promise<GeminiDetailedResult> {
   const apiKey = process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
-    return null;
+    return { ok: false, reason: "missing_api_key" };
   }
 
   const {
@@ -65,6 +75,7 @@ export async function generateGeminiText(
   } = options;
 
   const candidates = buildModelCandidates();
+  let hadUpstreamError = false;
 
   for (const candidate of candidates) {
     const controller = new AbortController();
@@ -90,10 +101,13 @@ export async function generateGeminiText(
       };
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${candidate.name}:generateContent?key=${encodeURIComponent(apiKey)}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${candidate.name}:generateContent`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
           body: JSON.stringify(bodyPayload),
           signal: controller.signal,
         }
@@ -102,15 +116,9 @@ export async function generateGeminiText(
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        let errorSnippet = "";
-        try {
-          const errText = await response.text();
-          errorSnippet = errText.slice(0, 200).replace(/\s+/g, " ");
-        } catch {
-          // ignore body read failure
-        }
+        hadUpstreamError = true;
         console.warn(
-          `[Gemini] Model '${candidate.name}' returned HTTP ${response.status}: ${errorSnippet}`
+          `[Gemini] Model '${candidate.name}' returned HTTP ${response.status}`
         );
         continue;
       }
@@ -131,7 +139,7 @@ export async function generateGeminiText(
         .trim();
 
       if (text.length > 0) {
-        return { text, model: candidate.name };
+        return { ok: true, text, model: candidate.name };
       }
 
       console.warn(
@@ -139,14 +147,29 @@ export async function generateGeminiText(
       );
     } catch (error: unknown) {
       clearTimeout(timeoutId);
+      hadUpstreamError = true;
       const message =
-        error instanceof Error ? error.message : "Unknown request error";
+        error instanceof Error ? error.name : "UnknownError";
       console.warn(
-        `[Gemini] Request to '${candidate.name}' failed: ${message}`
+        `[Gemini] Request to '${candidate.name}' failed (${message}).`
       );
     }
   }
 
-  return null;
+  return {
+    ok: false,
+    reason: hadUpstreamError ? "upstream_error" : "empty_response",
+  };
 }
 
+/**
+ * Generates text using the Google Gemini REST API with automatic model fallback
+ * and per-attempt timeouts. Returns null if no API key is configured or all
+ * candidate models fail.
+ */
+export async function generateGeminiText(
+  options: GeminiGenerateOptions
+): Promise<GeminiGenerateResult | null> {
+  const result = await generateGeminiTextDetailed(options);
+  return result.ok ? { text: result.text, model: result.model } : null;
+}

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import type { MistakeItem, QuestionSolution, QuestionCheckResult } from "../types/api.types";
 import AuthModal from "../components/auth/AuthModal";
 import AdaptiveReviewPanel from "../components/adaptive/AdaptiveReviewPanel";
@@ -19,6 +20,7 @@ import QuestionPromptText from "../components/exercises/QuestionPromptText";
 
 export const MistakeReviewPage: React.FC = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
+  const toast = useToast();
   const [mistakes, setMistakes] = useState<MistakeItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,7 +150,7 @@ export const MistakeReviewPage: React.FC = () => {
         setResolvedIds((prev) => new Set(prev).add(questionId));
       }
     } catch (err: any) {
-      alert(err.message || "Failed to check question correction");
+      toast.error(err?.message || "Failed to check question correction");
     } finally {
       setCheckingQuestionId(null);
     }
@@ -170,7 +172,7 @@ export const MistakeReviewPage: React.FC = () => {
         [questionId]: sol,
       }));
     } catch (err: any) {
-      alert(err.message || "Failed to load solution");
+      toast.error(err?.message || "Failed to load solution");
     } finally {
       setLoadingSolutionId(null);
     }

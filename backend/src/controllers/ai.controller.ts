@@ -1,13 +1,30 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { sendSuccess } from "../utils/response";
-import { generateGeminiText } from "../lib/gemini";
+import { generateGeminiTextDetailed } from "../lib/gemini";
+import { AppError } from "../middleware/error-handler";
 
 export const explainTheorySchema = z.object({
-  sectionId: z.string().trim().min(1, "sectionId cannot be empty"),
-  heading: z.string().trim().min(1, "heading cannot be empty"),
-  sourceContent: z.string().trim().min(1, "sourceContent cannot be empty"),
-  userQuestion: z.string().trim().optional(),
+  sectionId: z
+    .string()
+    .trim()
+    .min(1, "sectionId cannot be empty")
+    .max(20, "sectionId must be 20 characters or less"),
+  heading: z
+    .string()
+    .trim()
+    .min(1, "heading cannot be empty")
+    .max(300, "heading must be 300 characters or less"),
+  sourceContent: z
+    .string()
+    .trim()
+    .min(1, "sourceContent cannot be empty")
+    .max(12000, "sourceContent exceeds maximum allowed length of 12000 characters"),
+  userQuestion: z
+    .string()
+    .trim()
+    .max(1000, "userQuestion must be 1000 characters or less")
+    .optional(),
 });
 
 export type ExplainTheoryInput = z.infer<typeof explainTheorySchema>;
@@ -107,13 +124,13 @@ ${input.userQuestion ? "6" : "5"}. Nêu 2-3 lỗi sai phổ biến mà người 
 ${input.userQuestion ? "7" : "6"}. Kết thúc bằng 1 mẹo ghi nhớ nhanh súc tích.
 ${input.userQuestion ? "8" : "7"}. Trình bày bằng Markdown sạch đẹp với tiêu đề \`###\`, danh sách \`-\`, in đậm \`**...**\` và dùng \`...\` cho các từ/cụm tiếng Anh minh họa.`;
 
-  const aiResult = await generateGeminiText({
+  const aiResult = await generateGeminiTextDetailed({
     prompt: promptText,
     timeoutMs: 15000,
     temperature: 0.7,
   });
 
-  if (aiResult && aiResult.text.length > 0) {
+  if (aiResult.ok && aiResult.text.length > 0) {
     let explanation = aiResult.text;
     if (!explanation.includes(input.sectionId)) {
       explanation = `## 🤖 Gia sư AI GrammarPath — Giải thích Mục ${input.sectionId}\n\n${explanation}`;
@@ -125,10 +142,10 @@ ${input.userQuestion ? "8" : "7"}. Trình bày bằng Markdown sạch đẹp v�
     };
   }
 
-  return {
-    explanation: generateFallbackExplanation(input),
-    source: "fallback",
-  };
+  throw AppError.serviceUnavailable(
+    "AI explanation provider is currently unavailable. Please try again later.",
+    "AI_PROVIDER_UNAVAILABLE"
+  );
 }
 
 /**

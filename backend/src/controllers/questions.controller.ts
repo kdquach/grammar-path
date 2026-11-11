@@ -8,14 +8,18 @@ import { evaluateQuestion } from "../utils/grader";
 import { includeAnswersQuerySchema } from "./exercises.controller";
 
 export const questionIdParamSchema = z.object({
-  questionId: z.string().trim().min(1, "questionId cannot be empty"),
+  questionId: z
+    .string()
+    .trim()
+    .min(1, "questionId cannot be empty")
+    .max(50, "questionId must be 50 characters or less"),
 });
 
 export const checkQuestionBodySchema = z.object({
   answer: z.union([
-    z.string(),
-    z.array(z.string()),
-    z.record(z.string()),
+    z.string().max(1000, "Answer text exceeds maximum length"),
+    z.array(z.string().max(1000)).max(20),
+    z.record(z.string().max(50), z.string().max(1000)),
   ]),
 });
 

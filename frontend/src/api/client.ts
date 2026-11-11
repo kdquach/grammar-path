@@ -1,6 +1,4 @@
 import type {
-  ApiResponse,
-  ApiError,
   Book,
   UnitSummary,
   PaginationMeta,
@@ -26,9 +24,9 @@ import type {
   AdaptiveQuizSession,
   DifficultyLevel,
 } from "../types/api.types";
+import { emitUnauthorized } from "./authEvents";
+import { buildApiUrl } from "./apiUrl";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
-const API_PREFIX = `${BASE_URL}/api/v1`;
 const TOKEN_KEY = "grammarpath_token";
 
 export function getStoredToken(): string | null {
@@ -54,12 +52,31 @@ export function setStoredToken(token: string | null): void {
 class ApiClientError extends Error {
   code: string;
   details?: unknown;
+  status?: number;
 
-  constructor(code: string, message: string, details?: unknown) {
+  constructor(code: string, message: string, details?: unknown, status?: number) {
     super(message);
     this.name = "ApiClientError";
     this.code = code;
     this.details = details;
+    this.status = status;
+  }
+}
+
+function getDefaultHttpErrorMessage(status: number): string {
+  switch (status) {
+    case 401:
+      return "Your session has expired. Please sign in again.";
+    case 403:
+      return "You do not have permission to perform this action.";
+    case 413:
+      return "Request payload exceeds the maximum allowed size.";
+    case 429:
+      return "Too many requests. Please wait a moment and try again.";
+    case 503:
+      return "Service temporarily unavailable. Please try again later.";
+    default:
+      return `Request failed with status ${status}`;
   }
 }
 
@@ -67,7 +84,7 @@ async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ data: T; meta?: Record<string, unknown> }> {
-  const url = `${API_PREFIX}${endpoint}`;
+  const url = buildApiUrl(endpoint, import.meta.env.VITE_API_BASE_URL);
   const token = getStoredToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -80,19 +97,55 @@ async function request<T>(
     headers,
   });
 
-  const body = await response.json();
+  const rawText = await response.text();
+  let parsedBody: unknown = null;
+  if (rawText.trim().length > 0) {
+    try {
+      parsedBody = JSON.parse(rawText);
+    } catch {
+      parsedBody = null;
+    }
+  }
 
-  if (!response.ok || !body.success) {
-    const errorBody = body as ApiError;
+  const bodyObj =
+    parsedBody && typeof parsedBody === "object"
+      ? (parsedBody as {
+          success?: boolean;
+          data?: T;
+          meta?: Record<string, unknown>;
+          error?: { code?: string; message?: string; details?: unknown };
+        })
+      : null;
+
+  if (!response.ok || bodyObj?.success === false) {
+    const errorCode =
+      bodyObj?.error?.code || (response.status === 401 ? "UNAUTHORIZED" : `HTTP_${response.status}`);
+    const errorMessage =
+      bodyObj?.error?.message || getDefaultHttpErrorMessage(response.status);
+
+    if (response.status === 401 && errorCode === "UNAUTHORIZED" && Boolean(token)) {
+      setStoredToken(null);
+      emitUnauthorized({ endpoint, message: errorMessage });
+    }
+
     throw new ApiClientError(
-      errorBody?.error?.code || "HTTP_ERROR",
-      errorBody?.error?.message || `Request failed with status ${response.status}`,
-      errorBody?.error?.details
+      errorCode,
+      errorMessage,
+      bodyObj?.error?.details,
+      response.status
     );
   }
 
-  const successBody = body as ApiResponse<T>;
-  return { data: successBody.data, meta: successBody.meta };
+  if (!bodyObj || bodyObj.success !== true) {
+    throw new ApiClientError(
+      "INVALID_RESPONSE",
+      "Received an unexpected non-JSON response from server",
+      undefined,
+      response.status
+    );
+  }
+
+  return { data: bodyObj.data as T, meta: bodyObj.meta };
 }
 
 export const api = {

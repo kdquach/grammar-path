@@ -18,6 +18,7 @@ import {
   UnitProgressAttempt,
 } from "../../types/api.types";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import WordBankBar from "./WordBankBar";
 import QuestionCard from "./QuestionCard";
 
@@ -37,6 +38,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
   onOpenAuthModal,
 }) => {
   const { user } = useAuth();
+  const toast = useToast();
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [activeExerciseIndex, setActiveExerciseIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -177,7 +179,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
       }));
       onProgressChange?.();
     } catch (err: any) {
-      alert(err.message || "Failed to check answer");
+      toast.error(err?.message || "Failed to check answer");
     } finally {
       setCheckingQuestionId(null);
     }
@@ -193,7 +195,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
         [questionId]: solution,
       }));
     } catch (err: any) {
-      alert(err.message || "Failed to load solution");
+      toast.error(err?.message || "Failed to load solution");
     } finally {
       setRevealingQuestionId(null);
     }
@@ -220,7 +222,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
       });
       onProgressChange?.();
     } catch (err: any) {
-      alert(err.message || "Failed to grade entire exercise");
+      toast.error(err?.message || "Failed to grade entire exercise");
     } finally {
       setIsCheckingExercise(false);
     }
@@ -239,7 +241,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
       }
       setResults(newResults);
     } catch (err: any) {
-      alert(err.message || "Failed to load exercise solutions");
+      toast.error(err?.message || "Failed to load exercise solutions");
     } finally {
       setIsRevealingAll(false);
     }

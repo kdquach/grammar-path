@@ -5,7 +5,11 @@ import { sendSuccess } from "../utils/response";
 import { AppError } from "../middleware/error-handler";
 
 export const sectionIdParamSchema = z.object({
-  sectionId: z.string().trim().min(1, "sectionId cannot be empty"),
+  sectionId: z
+    .string()
+    .trim()
+    .min(1, "sectionId cannot be empty")
+    .max(20, "sectionId must be 20 characters or less"),
 });
 
 export async function getTheorySectionById(

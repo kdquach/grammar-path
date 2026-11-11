@@ -1,0 +1,88 @@
+name: GrammarPath App CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-verify:
+    name: Backend Typecheck, Build, Migration & Security Verification
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/grammarpath_ci?schema=public
+      JWT_SECRET: ci-offline-test-signing-key-32-chars-minimum
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Backend TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Backend TypeScript build
+        run: npm run build
+
+      - name: Verify backend Prisma migration SQL offline
+        run: npm run test:migrations
+
+      - name: Run hermetic Phase 1 security & Phase 1.6 hygiene tests
+        run: npx vitest run tests/phase1-security-hardening.test.ts tests/phase1-6-hygiene.test.ts
+
+  frontend-verify:
+    name: Frontend Typecheck, Tests & Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Frontend TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Run frontend unit & component tests
+        run: npm test
+
+      - name: Build frontend bundle
+        run: npm run build
+

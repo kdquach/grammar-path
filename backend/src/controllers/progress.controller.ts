@@ -5,7 +5,11 @@ import { AppError } from "../middleware/error-handler";
 import { sendSuccess } from "../utils/response";
 
 const unitNumberParamSchema = z.object({
-  unitNumber: z.coerce.number().int().min(1).max(200),
+  unitNumber: z.coerce
+    .number()
+    .int({ message: "unitNumber must be an integer" })
+    .min(1, { message: "unitNumber must be between 1 and 145" })
+    .max(145, { message: "unitNumber must be between 1 and 145" }),
 });
 
 const updateProgressBodySchema = z.object({
