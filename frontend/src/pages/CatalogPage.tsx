@@ -32,6 +32,9 @@ const RANGE_FILTERS = [
   { label: "Units 121–145", from: 121, to: 145 },
 ];
 
+const PAGE_SIZE = 20;
+const ALL_UNITS_LIMIT = 145;
+
 export const CatalogPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -57,6 +60,10 @@ export const CatalogPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isStatusFiltered = Boolean(user && statusFilter !== "all");
+  const requestPage = isStatusFiltered ? 1 : page;
+  const requestLimit = isStatusFiltered ? ALL_UNITS_LIMIT : PAGE_SIZE;
+
   // Fetch book metadata on mount
   useEffect(() => {
     api
@@ -77,7 +84,14 @@ export const CatalogPage: React.FC = () => {
       .catch((err) => console.error("Failed to load progress overview:", err));
   }, [user]);
 
-  // Fetch units when page, search, or range filter changes
+  useEffect(() => {
+    if (!user && statusFilter !== "all") {
+      setStatusFilter("all");
+      setPage(1);
+    }
+  }, [user, statusFilter]);
+
+  // Fetch units when page, status mode, search, or range filter changes
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
@@ -85,8 +99,8 @@ export const CatalogPage: React.FC = () => {
 
     const range = RANGE_FILTERS[activeRange];
     const params = {
-      page,
-      limit: 20,
+      page: requestPage,
+      limit: requestLimit,
       search: search.trim() || undefined,
       fromUnit: range.from,
       toUnit: range.to,
@@ -111,7 +125,7 @@ export const CatalogPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [page, search, activeRange]);
+  }, [requestPage, requestLimit, search, activeRange]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearch(e.target.value);
@@ -120,6 +134,11 @@ export const CatalogPage: React.FC = () => {
 
   const handleRangeSelect = (index: number) => {
     setActiveRange(index);
+    setPage(1);
+  };
+
+  const handleStatusSelect = (nextStatus: "all" | LearningStatus) => {
+    setStatusFilter(nextStatus);
     setPage(1);
   };
 
@@ -134,14 +153,34 @@ export const CatalogPage: React.FC = () => {
     return map;
   }, [overview]);
 
-  // Filter displayed units by user status if statusFilter is active
-  const displayedUnits = useMemo(() => {
-    if (statusFilter === "all" || !user) return units;
+  // Filter all matching units by user status when a status filter is active
+  const filteredUnits = useMemo(() => {
+    if (!isStatusFiltered) return units;
     return units.filter((u) => {
       const status = progressMap[u.unitNumber] || "not_started";
       return status === statusFilter;
     });
-  }, [units, statusFilter, user, progressMap]);
+  }, [units, isStatusFiltered, statusFilter, progressMap]);
+
+  // Recompute pagination over the status-filtered set instead of raw server pagination
+  const effectiveMeta = useMemo<PaginationMeta>(() => {
+    if (!isStatusFiltered) return meta;
+    const totalItems = filteredUnits.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages);
+    return {
+      page: safePage,
+      limit: PAGE_SIZE,
+      totalItems,
+      totalPages,
+    };
+  }, [isStatusFiltered, meta, filteredUnits.length, page]);
+
+  const displayedUnits = useMemo(() => {
+    if (!isStatusFiltered) return units;
+    const start = (effectiveMeta.page - 1) * PAGE_SIZE;
+    return filteredUnits.slice(start, start + PAGE_SIZE);
+  }, [isStatusFiltered, units, filteredUnits, effectiveMeta.page]);
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -263,8 +302,12 @@ export const CatalogPage: React.FC = () => {
           {/* Result count badge */}
           <div className="text-xs text-slate-500 font-medium self-end md:self-auto">
             Showing{" "}
-            <strong className="text-slate-800">{displayedUnits.length}</strong> matching
-            units
+            <strong className="text-slate-800">
+              {effectiveMeta.totalItems > displayedUnits.length
+                ? `${displayedUnits.length} of ${effectiveMeta.totalItems}`
+                : displayedUnits.length}
+            </strong>{" "}
+            matching units
           </div>
         </div>
 
@@ -315,7 +358,8 @@ export const CatalogPage: React.FC = () => {
             ].map((pill) => (
               <button
                 key={pill.value}
-                onClick={() => setStatusFilter(pill.value as any)}
+                type="button"
+                onClick={() => handleStatusSelect(pill.value as "all" | LearningStatus)}
                 className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   statusFilter === pill.value
                     ? "bg-slate-800 text-white font-bold shadow-2xs"
@@ -446,11 +490,12 @@ export const CatalogPage: React.FC = () => {
         )}
 
         {/* ─── Pagination Controls ───────────────────────────────────────── */}
-        {meta.totalPages > 1 && (
+        {effectiveMeta.totalPages > 1 && (
           <div className="flex items-center justify-between pt-4 border-t border-slate-200">
             <button
+              type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
+              disabled={effectiveMeta.page <= 1}
               className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -458,13 +503,16 @@ export const CatalogPage: React.FC = () => {
             </button>
 
             <span className="text-xs font-medium text-slate-500">
-              Page <strong className="text-slate-800">{meta.page}</strong> of{" "}
-              <strong className="text-slate-800">{meta.totalPages}</strong>
+              Page <strong className="text-slate-800">{effectiveMeta.page}</strong> of{" "}
+              <strong className="text-slate-800">{effectiveMeta.totalPages}</strong>
             </span>
 
             <button
-              onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-              disabled={page >= meta.totalPages}
+              type="button"
+              onClick={() =>
+                setPage((p) => Math.min(effectiveMeta.totalPages, p + 1))
+              }
+              disabled={effectiveMeta.page >= effectiveMeta.totalPages}
               className="inline-flex items-center gap-1 px-3.5 py-2 text-xs font-semibold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-2xs cursor-pointer"
             >
               <span>Next</span>

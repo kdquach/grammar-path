@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import CatalogPage from "../src/pages/CatalogPage";
+import { AuthProvider } from "../src/context/AuthContext";
 import TheoryViewer from "../src/components/theory/TheoryViewer";
 import RuleReferenceModal from "../src/components/theory/RuleReferenceModal";
 import api from "../src/api/client";
@@ -13,23 +14,24 @@ import type {
 } from "../src/types/api.types";
 
 vi.mock("../src/api/client", () => {
+  const mockApi = {
+    getBook: vi.fn(),
+    getUnits: vi.fn(),
+    getTheorySection: vi.fn(),
+    getUnitDetail: vi.fn(),
+    getUnitTheory: vi.fn(),
+    explainTheory: vi.fn(),
+    getCurrentUser: vi.fn(),
+    getProgressOverview: vi.fn(),
+  };
   return {
-    default: {
-      getBook: vi.fn(),
-      getUnits: vi.fn(),
-      getTheorySection: vi.fn(),
-      getUnitDetail: vi.fn(),
-      getUnitTheory: vi.fn(),
-      explainTheory: vi.fn(),
-    },
-    api: {
-      getBook: vi.fn(),
-      getUnits: vi.fn(),
-      getTheorySection: vi.fn(),
-      getUnitDetail: vi.fn(),
-      getUnitTheory: vi.fn(),
-      explainTheory: vi.fn(),
-    },
+    default: mockApi,
+    api: mockApi,
+    getStoredToken: vi.fn(() => localStorage.getItem("grammarpath_token")),
+    setStoredToken: vi.fn((token: string | null) => {
+      if (token) localStorage.setItem("grammarpath_token", token);
+      else localStorage.removeItem("grammarpath_token");
+    }),
   };
 });
 
@@ -134,6 +136,7 @@ const mockTextbookExamples: TextbookExample[] = [
 describe("CatalogPage Component", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     vi.mocked(api.getBook).mockResolvedValue(mockBook);
     vi.mocked(api.getUnits).mockResolvedValue({
       units: mockUnits,
@@ -205,6 +208,127 @@ describe("CatalogPage Component", () => {
           toUnit: 30,
         })
       );
+    });
+  });
+
+  it("2b. Filters Completed units across all 145 units instead of only page 1 and recalculates pagination", async () => {
+    localStorage.setItem("grammarpath_token", "mock-token");
+
+    vi.mocked(api.getCurrentUser).mockResolvedValue({
+      id: "user-1",
+      email: "kd@example.com",
+      displayName: "KD",
+      createdAt: "2026-11-10T00:00:00Z",
+    });
+
+    vi.mocked(api.getProgressOverview).mockResolvedValue({
+      units: {
+        completedCount: 2,
+        inProgressCount: 0,
+        notStartedCount: 143,
+        totalUnits: 145,
+        completionPercentage: 1.4,
+      },
+      exercises: {
+        totalAttempts: 1,
+        uniqueExercisesAttempted: 1,
+        totalExercises: 549,
+        averageScorePercentage: 100,
+      },
+      questions: {
+        totalAnswered: 10,
+        uniqueQuestionsAnswered: 10,
+        correctUniqueQuestions: 10,
+        accuracyPercentage: 100,
+      },
+      recentAttempts: [],
+      unitProgressMap: [
+        {
+          unitNumber: 1,
+          status: "completed",
+          lastAccessedAt: "2026-11-10T00:00:00Z",
+          completedAt: "2026-11-10T00:00:00Z",
+        },
+        {
+          unitNumber: 70,
+          status: "completed",
+          lastAccessedAt: "2026-11-10T01:00:00Z",
+          completedAt: "2026-11-10T01:00:00Z",
+        },
+      ],
+    });
+
+    const allTestUnits: UnitSummary[] = [
+      mockUnits[0],
+      mockUnits[1],
+      ...Array.from({ length: 22 }, (_, i) => ({
+        ...mockUnits[1],
+        id: `unit-${i + 3}`,
+        unitNumber: i + 3,
+        title: `Topic ${i + 3}`,
+      })),
+      {
+        ...mockUnits[0],
+        id: "unit-70",
+        unitNumber: 70,
+        title: "Countable and uncountable 2",
+      },
+    ];
+
+    vi.mocked(api.getUnits).mockImplementation(async (params) => {
+      if (params?.limit === 145) {
+        return {
+          units: allTestUnits,
+          meta: {
+            page: 1,
+            limit: 145,
+            totalItems: allTestUnits.length,
+            totalPages: 1,
+          },
+        };
+      }
+      return {
+        units: mockUnits,
+        meta: {
+          page: params?.page || 1,
+          limit: 20,
+          totalItems: 145,
+          totalPages: 8,
+        },
+      };
+    });
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <CatalogPage />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const completedPill = await screen.findByRole("button", {
+      name: /Completed \(2\)/i,
+    });
+    expect(screen.getByText(/Page/i)).toBeInTheDocument();
+
+    fireEvent.click(completedPill);
+
+    await waitFor(() => {
+      expect(api.getUnits).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 1, limit: 145 })
+      );
+      expect(screen.getByText("Countable and uncountable 2")).toBeInTheDocument();
+    });
+
+    // Both completed units (Unit 1 & Unit 70) appear together on page 1, and old 8-page bar is gone
+    expect(screen.getByText("Present continuous (I am doing)")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Next/i })).not.toBeInTheDocument();
+
+    // Switching to Not Started paginates cleanly over the 23 non-completed mock units (2 pages)
+    fireEvent.click(screen.getByRole("button", { name: /Not Started/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Next/i })).toBeInTheDocument();
+      expect(screen.getByText(/Showing/i).textContent).toMatch(/20 of 23 matching units/);
     });
   });
 });
