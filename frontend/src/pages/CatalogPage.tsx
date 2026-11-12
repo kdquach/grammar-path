@@ -419,8 +419,16 @@ export const CatalogPage: React.FC = () => {
               return (
                 <div
                   key={unit.id || unit.unitNumber}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => navigate(`/units/${unit.unitNumber}`)}
-                  className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-md hover:border-brand-300 transition-all cursor-pointer flex flex-col justify-between group"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate(`/units/${unit.unitNumber}`);
+                    }
+                  }}
+                  className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs hover:shadow-md hover:border-brand-300 transition-all cursor-pointer flex flex-col justify-between group focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <div className="space-y-3">
                     {/* Top Bar: Unit Number Badge, Status Badge & PDF pages */}

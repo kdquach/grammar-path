@@ -12,6 +12,10 @@ const USER_MIGRATION_PATH = path.join(
   ROOT_DIR,
   "prisma/migrations/20261106000000_add_user_progress_tables/migration.sql"
 );
+const PRACTICE_SESSIONS_MIGRATION_PATH = path.join(
+  ROOT_DIR,
+  "prisma/migrations/20261113000000_add_practice_sessions/migration.sql"
+);
 
 const BASELINE_ENUMS = [
   "question_type_enum",
@@ -52,6 +56,9 @@ const INCREMENTAL_TABLES = [
   "learning_progress",
   "exercise_attempts",
   "question_attempt_items",
+  "adaptive_quiz_sessions",
+  "toeic_practice_sessions",
+  "toeic_practice_items",
 ];
 
 const BASELINE_FKS = [
@@ -86,6 +93,9 @@ const INCREMENTAL_FKS = [
   { table: "question_attempt_items", fk: "question_attempt_items_attempt_id_fkey" },
   { table: "question_attempt_items", fk: "question_attempt_items_user_id_fkey" },
   { table: "question_attempt_items", fk: "question_attempt_items_question_id_fkey" },
+  { table: "adaptive_quiz_sessions", fk: "adaptive_quiz_sessions_user_id_fkey" },
+  { table: "toeic_practice_sessions", fk: "toeic_practice_sessions_user_id_fkey" },
+  { table: "toeic_practice_items", fk: "toeic_practice_items_session_id_fkey" },
 ];
 
 const EXPECTED_CHECKS = [
@@ -160,6 +170,10 @@ const INCREMENTAL_INDEXES = [
   "exercise_attempts_user_id_submitted_at_idx",
   "question_attempt_items_user_id_is_correct_idx",
   "question_attempt_items_user_id_question_id_idx",
+  "adaptive_quiz_sessions_user_id_created_at_idx",
+  "toeic_practice_sessions_user_id_created_at_idx",
+  "toeic_practice_sessions_user_id_unit_number_idx",
+  "toeic_practice_items_session_id_item_order_idx",
 ];
 
 function checkBalancedParentheses(sqlContent: string, label: string): void {
@@ -194,13 +208,19 @@ function main() {
     fs.existsSync(USER_MIGRATION_PATH),
     "Missing 20261106000000_add_user_progress_tables/migration.sql"
   );
+  assert.ok(
+    fs.existsSync(PRACTICE_SESSIONS_MIGRATION_PATH),
+    "Missing 20261113000000_add_practice_sessions/migration.sql"
+  );
 
   const initSql = fs.readFileSync(INIT_MIGRATION_PATH, "utf-8");
   const userSql = fs.readFileSync(USER_MIGRATION_PATH, "utf-8");
-  const combinedSql = `${initSql}\n${userSql}`;
+  const practiceSql = fs.readFileSync(PRACTICE_SESSIONS_MIGRATION_PATH, "utf-8");
+  const combinedSql = `${initSql}\n${userSql}\n${practiceSql}`;
 
   checkBalancedParentheses(initSql, "20261105000000_init_schema");
   checkBalancedParentheses(userSql, "20261106000000_add_user_progress_tables");
+  checkBalancedParentheses(practiceSql, "20261113000000_add_practice_sessions");
 
   const allEnums = [...BASELINE_ENUMS, ...INCREMENTAL_ENUMS];
   for (const e of allEnums) {
@@ -247,8 +267,9 @@ function main() {
     );
   }
 
-  // Chronological order check: incremental migration folder sorts after baseline
+  // Chronological order check: incremental migration folders sort cleanly after baseline
   assert.ok("20261105000000_init_schema" < "20261106000000_add_user_progress_tables");
+  assert.ok("20261106000000_add_user_progress_tables" < "20261113000000_add_practice_sessions");
 
   console.log(
     `[PASS] Backend migration SQL verified offline: ${allEnums.length} enums, ${allTables.length} tables, ${allFks.length} FKs, ${EXPECTED_CHECKS.length} CHECK constraints, ${allIndexes.length} indexes.`

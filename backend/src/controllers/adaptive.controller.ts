@@ -3,6 +3,10 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { sendSuccess } from "../utils/response";
 import { AppError } from "../middleware/error-handler";
+import { formatQuestion } from "../utils/formatters";
+import { evaluateQuestion, isEmptyStudentAnswer } from "../utils/grader";
+import { runDeduplicatedSubmission, stableSerialize } from "../utils/idempotency";
+import { getLatestUnresolvedMistakes } from "../services/mistakes.service";
 import {
   DifficultyLevel,
   generateToeicQuestionsForUnit,
@@ -46,10 +50,10 @@ export interface ReviewRecommendation {
   suggestedActions: string[];
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * GET /api/v1/adaptive/analytics
- * Analyzes question_attempt_items for the authenticated user to determine weakest units, question types,
- * and granular rule-level (explanations.rule_reference) error analytics joined with theory_sections.
  */
 export async function getAdaptiveAnalytics(
   req: Request,
@@ -59,7 +63,6 @@ export async function getAdaptiveAnalytics(
   try {
     const userId = req.user!.id;
 
-    // Fetch all question attempts submitted by this user including ruleReference
     const attemptItems = await prisma.questionAttemptItem.findMany({
       where: { userId },
       include: {
@@ -101,7 +104,6 @@ export async function getAdaptiveAnalytics(
         ? Math.round((totalCorrect / totalEvaluated) * 1000) / 10
         : 0;
 
-    // Aggregate by Unit
     const unitMap = new Map<
       number,
       {
@@ -114,7 +116,6 @@ export async function getAdaptiveAnalytics(
       }
     >();
 
-    // Aggregate by Question Type
     const typeMap = new Map<
       string,
       {
@@ -124,7 +125,6 @@ export async function getAdaptiveAnalytics(
       }
     >();
 
-    // Aggregate by Rule Reference (Granular Sub-section Error Analytics)
     const ruleMap = new Map<
       string,
       {
@@ -142,7 +142,6 @@ export async function getAdaptiveAnalytics(
       const qType = exercise.questionType;
       const ruleRef = item.question.explanation?.ruleReference?.trim();
 
-      // Group by Unit
       if (!unitMap.has(unit.unitNumber)) {
         unitMap.set(unit.unitNumber, {
           unitNumber: unit.unitNumber,
@@ -162,7 +161,6 @@ export async function getAdaptiveAnalytics(
         u.errorsByType[qType] = (u.errorsByType[qType] || 0) + 1;
       }
 
-      // Group by Question Type
       if (!typeMap.has(qType)) {
         typeMap.set(qType, {
           questionType: qType,
@@ -176,7 +174,6 @@ export async function getAdaptiveAnalytics(
         t.errorCount += 1;
       }
 
-      // Group by Granular Rule Reference
       if (ruleRef) {
         if (!ruleMap.has(ruleRef)) {
           ruleMap.set(ruleRef, {
@@ -195,7 +192,6 @@ export async function getAdaptiveAnalytics(
       }
     }
 
-    // Build weakestUnits list: only units with at least 1 error
     const weakestUnits: WeakestUnitSummary[] = Array.from(unitMap.values())
       .filter((u) => u.errorCount > 0)
       .map((u) => {
@@ -224,7 +220,6 @@ export async function getAdaptiveAnalytics(
         return a.accuracyPercentage - b.accuracyPercentage;
       });
 
-    // Build errorDistribution list
     const errorDistribution: QuestionTypeErrorDistribution[] = Array.from(
       typeMap.values()
     )
@@ -248,7 +243,6 @@ export async function getAdaptiveAnalytics(
         ? errorDistribution[0].questionType
         : null;
 
-    // Build weakRules list (Top 10 weakest theory sub-sections resolved against theory_sections)
     const errorRules = Array.from(ruleMap.values())
       .filter((r) => r.errorCount > 0)
       .sort((a, b) => {
@@ -314,8 +308,6 @@ export async function getAdaptiveAnalytics(
 
 /**
  * GET /api/v1/adaptive/recommendations
- * Produces prioritized review suggestions for the user based on error frequency, low accuracy,
- * and identifies targetRules (e.g. ["1B", "1C"]) for each unit.
  */
 export async function getAdaptiveRecommendations(
   req: Request,
@@ -325,7 +317,6 @@ export async function getAdaptiveRecommendations(
   try {
     const userId = req.user!.id;
 
-    // 1. Fetch user attempt items with ruleReference
     const attemptItems = await prisma.questionAttemptItem.findMany({
       where: { userId },
       include: {
@@ -354,7 +345,6 @@ export async function getAdaptiveRecommendations(
       orderBy: { createdAt: "desc" },
     });
 
-    // 2. Fetch user's learningProgress
     const userProgress = await prisma.learningProgress.findMany({
       where: { userId },
       include: {
@@ -372,7 +362,6 @@ export async function getAdaptiveRecommendations(
       },
     });
 
-    // Group attempts by unit
     const unitStats = new Map<
       number,
       {
@@ -414,7 +403,6 @@ export async function getAdaptiveRecommendations(
 
     const recommendations: ReviewRecommendation[] = [];
 
-    // Prioritize units with mistakes
     const errorUnits = Array.from(unitStats.values())
       .filter((u) => u.errorCount > 0)
       .sort((a, b) => b.errorCount - a.errorCount);
@@ -466,7 +454,6 @@ export async function getAdaptiveRecommendations(
       });
     }
 
-    // If fewer than 3 recommendations, add in-progress units
     if (recommendations.length < 3) {
       const inProgressUnits = userProgress
         .filter((p) => p.status === "in_progress")
@@ -494,7 +481,6 @@ export async function getAdaptiveRecommendations(
       }
     }
 
-    // If still empty (new user with no attempts), recommend Unit 1
     if (recommendations.length === 0) {
       const unit1 = await prisma.unit.findFirst({
         where: { unitNumber: 1 },
@@ -537,7 +523,7 @@ export async function getAdaptiveRecommendations(
   }
 }
 
-// ─── Phase 9.2: TOEIC-Style Practice Generator ────────────────────────────────
+// ─── Workstream E: TOEIC-Style Practice Generator (Anti-Spoiler + Persisted) ──
 
 export const toeicPracticeSchema = z.object({
   unitNumber: z.coerce
@@ -549,10 +535,18 @@ export const toeicPracticeSchema = z.object({
   difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium"),
 });
 
+export const checkToeicPracticeSchema = z.object({
+  sessionId: z.string().uuid("Invalid TOEIC practice sessionId"),
+  itemId: z.string().uuid("Invalid TOEIC practice itemId"),
+  submissionId: z.string().trim().min(1).max(120).optional(),
+  studentAnswer: z.string().trim().min(1).max(10).optional(),
+  answer: z.string().trim().min(1).max(10).optional(),
+});
+
 /**
  * POST /api/v1/adaptive/toeic-practice
- * Generates TOEIC Part 5 multiple choice questions tailored to the requested unit's grammar point
- * and requested difficulty tier ('easy' | 'medium' | 'hard').
+ * Generates unit-grounded TOEIC Part 5 style drills, persists the session & items
+ * securely in PostgreSQL, and returns questions WITHOUT pre-submission answers.
  */
 export async function generateToeicPracticeHandler(
   req: Request,
@@ -560,9 +554,9 @@ export async function generateToeicPracticeHandler(
   next: NextFunction
 ): Promise<void> {
   try {
+    const userId = req.user!.id;
     const { unitNumber, count, difficulty } = toeicPracticeSchema.parse(req.body);
 
-    // Fetch the unit along with theory sections and examples
     const unit = await prisma.unit.findFirst({
       where: { unitNumber },
       include: {
@@ -580,7 +574,21 @@ export async function generateToeicPracticeHandler(
             translationVi: true,
           },
           orderBy: { displayOrder: "asc" },
-          take: 8,
+        },
+        exercises: {
+          orderBy: { displayOrder: "asc" },
+          include: {
+            questions: {
+              orderBy: { displayOrder: "asc" },
+              include: {
+                options: { orderBy: { displayOrder: "asc" } },
+                blanks: { orderBy: { blankIndex: "asc" } },
+                parts: { select: { partId: true }, orderBy: { displayOrder: "asc" } },
+                acceptedAnswers: { orderBy: { displayOrder: "asc" } },
+                explanation: true,
+              },
+            },
+          },
         },
       },
     });
@@ -589,28 +597,177 @@ export async function generateToeicPracticeHandler(
       throw new AppError(404, "NOT_FOUND", `Unit ${unitNumber} not found`);
     }
 
-    // Generate questions using AI or structured difficulty-specific fallback
-    const questions = await generateToeicQuestionsForUnit({
+    const flattenedQuestions = unit.exercises.flatMap((ex) =>
+      ex.questions.map((q) => ({
+        questionId: q.questionId,
+        questionContent: q.questionContent,
+        isExample: q.isExample,
+        correctAnswerText: q.correctAnswerText,
+        acceptedAnswers: q.acceptedAnswers,
+        options: q.options,
+        blanks: q.blanks,
+        parts: q.parts,
+        explanation: q.explanation,
+        exercise: {
+          exerciseId: ex.exerciseId,
+          questionType: ex.questionType,
+          instruction: ex.instruction,
+        },
+      }))
+    );
+
+    const generated = await generateToeicQuestionsForUnit({
       unitNumber: unit.unitNumber,
       title: unit.title,
       theorySections: unit.theorySections,
       textbookExamples: unit.textbookExamples,
+      unitQuestions: flattenedQuestions,
       count,
       difficulty: difficulty as DifficultyLevel,
     });
 
+    const createdSession = await prisma.toeicPracticeSession.create({
+      data: {
+        userId,
+        unitNumber: unit.unitNumber,
+        difficulty,
+        source: generated.source,
+        requestedCount: count,
+        actualCount: generated.questions.length,
+        items: {
+          create: generated.questions.map((q, idx) => ({
+            itemOrder: idx + 1,
+            source: q.source,
+            prompt: q.prompt,
+            options: q.options as any,
+            correctAnswer: q.correctAnswer,
+            explanation: q.explanation,
+            ruleReference: q.ruleReference,
+          })),
+        },
+      },
+      include: {
+        items: {
+          orderBy: { itemOrder: "asc" },
+        },
+      },
+    });
+
+    // Anti-spoiler: NEVER expose correctAnswer or explanation before user submission
     sendSuccess(res, {
+      sessionId: createdSession.id,
       unitNumber: unit.unitNumber,
       title: unit.title,
       difficulty,
-      questions,
+      source: createdSession.source,
+      isOfficialToeic: generated.isOfficialToeic,
+      sourceNotice: generated.sourceNotice,
+      requestedCount: count,
+      actualCount: createdSession.items.length,
+      questions: createdSession.items.map((item, idx) => ({
+        itemId: item.id,
+        itemOrder: item.itemOrder,
+        source: item.source,
+        difficulty,
+        prompt: item.prompt,
+        options: item.options,
+        ruleReference: generated.questions[idx]?.ruleReference || item.ruleReference,
+      })),
     });
   } catch (error) {
     next(error);
   }
 }
 
-// ─── Phase 9.2: Adaptive Quiz Generation Engine ───────────────────────────────
+/**
+ * POST /api/v1/adaptive/toeic-practice/check
+ * Grades a single persisted TOEIC practice item server-side and updates DB state.
+ */
+export async function checkToeicPracticeHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const parsed = checkToeicPracticeSchema.parse(req.body);
+    const rawAnswer = (parsed.studentAnswer ?? parsed.answer ?? "").trim().toUpperCase();
+
+    if (!["A", "B", "C", "D"].includes(rawAnswer)) {
+      throw AppError.badRequest(
+        "studentAnswer must be one of 'A', 'B', 'C', or 'D'.",
+        "VALIDATION_ERROR"
+      );
+    }
+
+    const session = await prisma.toeicPracticeSession.findUnique({
+      where: { id: parsed.sessionId },
+      include: {
+        items: {
+          where: { id: parsed.itemId },
+          take: 1,
+        },
+      },
+    });
+
+    if (!session) {
+      throw AppError.notFound(
+        `TOEIC practice session '${parsed.sessionId}' not found`,
+        "NOT_FOUND"
+      );
+    }
+
+    if (session.userId !== userId) {
+      throw new AppError(
+        403,
+        "FORBIDDEN",
+        "You do not have permission to submit answers to this practice session."
+      );
+    }
+
+    const item = session.items[0];
+    if (!item) {
+      throw AppError.notFound(
+        `TOEIC practice item '${parsed.itemId}' not found in session`,
+        "NOT_FOUND"
+      );
+    }
+
+    const dedupeKey = parsed.submissionId
+      ? `toeic-check:${userId}:${item.id}:sub:${parsed.submissionId}`
+      : `toeic-check:${userId}:${item.id}:${rawAnswer}`;
+
+    const graded = await runDeduplicatedSubmission(dedupeKey, async () => {
+      const isCorrect = rawAnswer === item.correctAnswer.trim().toUpperCase();
+      const updated = await prisma.toeicPracticeItem.update({
+        where: { id: item.id },
+        data: {
+          studentAnswer: rawAnswer,
+          isCorrect,
+          answeredAt: new Date(),
+          attemptCount: { increment: 1 },
+        },
+      });
+
+      return {
+        sessionId: session.id,
+        itemId: item.id,
+        isCorrect: updated.isCorrect ?? isCorrect,
+        studentAnswer: rawAnswer,
+        correctAnswer: item.correctAnswer,
+        explanation: item.explanation,
+        ruleReference: item.ruleReference,
+        attemptCount: updated.attemptCount,
+      };
+    });
+
+    sendSuccess(res, graded);
+  } catch (error) {
+    next(error);
+  }
+}
+
+// ─── Workstream B: Adaptive Quiz Generation & Server-Graded Check ─────────────
 
 export const generateQuizSchema = z.object({
   questionCount: z.coerce.number().int().min(1).max(20).optional().default(5),
@@ -621,10 +778,53 @@ export const generateQuizSchema = z.object({
     .optional(),
 });
 
+export const checkAdaptiveQuizSchema = z.object({
+  sessionId: z.string().trim().min(1).max(120).optional(),
+  questionId: z.string().trim().min(1).max(50),
+  submissionId: z.string().trim().min(1).max(120).optional(),
+  studentAnswer: z
+    .union([
+      z.string().max(1000),
+      z.array(z.string().max(1000)).max(20),
+      z.record(z.string().max(50), z.string().max(1000)),
+    ])
+    .optional(),
+  answer: z
+    .union([
+      z.string().max(1000),
+      z.array(z.string().max(1000)).max(20),
+      z.record(z.string().max(50), z.string().max(1000)),
+    ])
+    .optional(),
+});
+
+function formatAdaptiveQuestionPayload(q: any, difficulty: DifficultyLevel) {
+  const safeBase = formatQuestion(q, false);
+  return {
+    ...safeBase,
+    unitNumber: q.exercise.unit.unitNumber,
+    unitTitle: q.exercise.unit.title,
+    exerciseId: q.exercise.id,
+    canonicalExerciseId: q.exercise.exerciseId,
+    exerciseNumber: q.exercise.exerciseNumber,
+    questionType: q.exercise.questionType,
+    instruction: q.exercise.instruction,
+    prompt: safeBase.questionContent,
+    wordBankItems: (q.exercise.wordBankItems || []).map((w: any) => ({
+      id: w.id,
+      word: w.word,
+      displayOrder: w.displayOrder,
+    })),
+    ruleReference: q.explanation?.ruleReference || `${q.exercise.unit.unitNumber}A`,
+    difficulty,
+  };
+}
+
 /**
  * POST /api/v1/adaptive/quiz/generate
- * Analyzes user mistakes from question_attempt_items and generates a targeted remedial quiz session
- * at the requested difficulty tier ('easy' | 'medium' | 'hard'), with ruleReference on each question.
+ * Uses latest-attempt unresolved mistakes (resolved mistakes are excluded),
+ * returns complete structural question payloads WITHOUT answers/explanations,
+ * and persists the adaptive session in PostgreSQL.
  */
 export async function generateAdaptiveQuizHandler(
   req: Request,
@@ -637,114 +837,92 @@ export async function generateAdaptiveQuizHandler(
       req.body
     );
 
-    // Fetch all incorrect question attempts by this user
-    const mistakeItems = await prisma.questionAttemptItem.findMany({
-      where: {
-        userId,
-        isCorrect: false,
-        ...(targetUnitNumbers && targetUnitNumbers.length > 0
-          ? { question: { exercise: { unit: { unitNumber: { in: targetUnitNumbers } } } } }
-          : {}),
-      },
-      include: {
-        question: {
-          include: {
-            options: { orderBy: { displayOrder: "asc" } },
-            blanks: { orderBy: { blankIndex: "asc" } },
-            explanation: true,
-            exercise: {
-              include: {
-                unit: {
-                  select: { id: true, unitNumber: true, title: true },
-                },
-              },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    // 1. Query ONLY latest unresolved mistakes for this user
+    const unresolvedMistakes = await getLatestUnresolvedMistakes(
+      userId,
+      targetUnitNumbers
+    );
 
-    // Group errors by unit to identify weak spots
+    // Aggregate unresolved mistakes by unit
     const unitMistakeMap = new Map<
       number,
-      { unitId: string; unitNumber: number; title: string; count: number }
+      { unitNumber: number; title: string; count: number }
     >();
 
-    for (const item of mistakeItems) {
-      const u = item.question.exercise.unit;
-      const existing = unitMistakeMap.get(u.unitNumber) || {
-        unitId: u.id,
-        unitNumber: u.unitNumber,
-        title: u.title,
+    for (const m of unresolvedMistakes) {
+      const existing = unitMistakeMap.get(m.unitNumber) || {
+        unitNumber: m.unitNumber,
+        title: m.unitTitle,
         count: 0,
       };
       existing.count += 1;
-      unitMistakeMap.set(u.unitNumber, existing);
+      unitMistakeMap.set(m.unitNumber, existing);
     }
 
     const weakUnits = Array.from(unitMistakeMap.values()).sort(
       (a, b) => b.count - a.count
     );
 
-    const seenQuestionIds = new Set<string>();
+    const seenUuids = new Set<string>();
     const questions: any[] = [];
 
-    const formatAdaptiveQuestion = (q: any) => ({
-      id: q.id,
-      questionId: q.questionId,
-      unitNumber: q.exercise.unit.unitNumber,
-      unitTitle: q.exercise.unit.title,
-      exerciseId: q.exercise.id,
-      exerciseNumber: q.exercise.exerciseNumber,
-      questionType: q.exercise.questionType,
-      instruction: q.exercise.instruction,
-      prompt: q.questionContent,
-      options:
-        q.options?.map((opt: any) => ({
-          key: opt.optionKey,
-          text: opt.optionText,
-        })) || [],
-      correctAnswer:
-        q.correctAnswerText || (q.blanks?.[0]?.correctAnswerText ?? ""),
-      explanation: q.explanation?.aiExplanation || null,
-      ruleReference: q.explanation?.ruleReference || `${q.exercise.unit.unitNumber}A`,
-      difficulty,
-      contextClue: q.contextClue || null,
-    });
-
-    // 1. Add questions that the user previously missed
-    for (const item of mistakeItems) {
+    // Format unresolved mistake records directly (already non-spoiler)
+    for (const m of unresolvedMistakes) {
       if (questions.length >= questionCount) break;
-      if (!seenQuestionIds.has(item.question.id)) {
-        seenQuestionIds.add(item.question.id);
-        questions.push(formatAdaptiveQuestion(item.question));
+      if (!seenUuids.has(m.questionUuid)) {
+        seenUuids.add(m.questionUuid);
+        questions.push({
+          id: m.questionUuid,
+          questionId: m.questionId,
+          questionContent: m.questionContent,
+          isExample: m.isExample,
+          hasVisualContext: m.hasVisualContext,
+          visualContextDescription: m.visualContextDescription,
+          contextClue: m.contextClue,
+          displayOrder: m.displayOrder,
+          options: m.options,
+          blanks: m.blanks,
+          parts: m.parts,
+          unitNumber: m.unitNumber,
+          unitTitle: m.unitTitle,
+          exerciseId: m.exerciseId,
+          canonicalExerciseId: m.exerciseId,
+          exerciseNumber: m.exerciseNumber,
+          questionType: m.questionType,
+          instruction: m.instruction,
+          prompt: m.questionContent,
+          wordBankItems: m.wordBankItems,
+          ruleReference: m.ruleReference || `${m.unitNumber}A`,
+          difficulty,
+        });
       }
     }
 
-    // 2. If needed, query additional questions from the user's weak units (or requested units)
+    // 2. Top up from weak units (or requested units) using canonical interactive questions
     if (questions.length < questionCount) {
       const queryUnitFilter =
         targetUnitNumbers && targetUnitNumbers.length > 0
           ? { unitNumber: { in: targetUnitNumbers } }
           : weakUnits.length > 0
-          ? { id: { in: weakUnits.map((u) => u.unitId) } }
+          ? { unitNumber: { in: weakUnits.map((u) => u.unitNumber) } }
           : null;
 
       if (queryUnitFilter) {
         const additional = await prisma.question.findMany({
           where: {
             exercise: { unit: queryUnitFilter },
-            id: { notIn: Array.from(seenQuestionIds) },
+            id: { notIn: Array.from(seenUuids) },
             isExample: false,
           },
           include: {
             options: { orderBy: { displayOrder: "asc" } },
             blanks: { orderBy: { blankIndex: "asc" } },
-            explanation: true,
+            parts: { orderBy: { displayOrder: "asc" } },
+            explanation: { select: { ruleReference: true } },
             exercise: {
               include: {
                 unit: { select: { id: true, unitNumber: true, title: true } },
+                wordBankItems: { orderBy: { displayOrder: "asc" } },
               },
             },
           },
@@ -752,15 +930,15 @@ export async function generateAdaptiveQuizHandler(
         });
 
         for (const q of additional) {
-          if (!seenQuestionIds.has(q.id)) {
-            seenQuestionIds.add(q.id);
-            questions.push(formatAdaptiveQuestion(q));
+          if (!seenUuids.has(q.id)) {
+            seenUuids.add(q.id);
+            questions.push(formatAdaptiveQuestionPayload(q, difficulty));
           }
         }
       }
     }
 
-    // 3. If still needed (e.g. new user or insufficient questions), add foundational diagnostic questions
+    // 3. Foundational diagnostic fallback when user has no unresolved mistakes yet
     let targetUnits = weakUnits.map((u) => ({
       unitNumber: u.unitNumber,
       title: u.title,
@@ -783,16 +961,18 @@ export async function generateAdaptiveQuizHandler(
       const diagQuestions = await prisma.question.findMany({
         where: {
           exercise: { unitId: { in: foundationalUnits.map((u) => u.id) } },
-          id: { notIn: Array.from(seenQuestionIds) },
+          id: { notIn: Array.from(seenUuids) },
           isExample: false,
         },
         include: {
           options: { orderBy: { displayOrder: "asc" } },
           blanks: { orderBy: { blankIndex: "asc" } },
-          explanation: true,
+          parts: { orderBy: { displayOrder: "asc" } },
+          explanation: { select: { ruleReference: true } },
           exercise: {
             include: {
               unit: { select: { id: true, unitNumber: true, title: true } },
+              wordBankItems: { orderBy: { displayOrder: "asc" } },
             },
           },
         },
@@ -800,9 +980,9 @@ export async function generateAdaptiveQuizHandler(
       });
 
       for (const q of diagQuestions) {
-        if (!seenQuestionIds.has(q.id)) {
-          seenQuestionIds.add(q.id);
-          questions.push(formatAdaptiveQuestion(q));
+        if (!seenUuids.has(q.id)) {
+          seenUuids.add(q.id);
+          questions.push(formatAdaptiveQuestionPayload(q, difficulty));
         }
       }
 
@@ -815,7 +995,16 @@ export async function generateAdaptiveQuizHandler(
       }
     }
 
-    const sessionId = `quiz_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const dbSession = await prisma.adaptiveQuizSession.create({
+      data: {
+        userId,
+        difficulty,
+        questionIds: questions.map((q) => q.questionId),
+        targetUnits: targetUnits as any,
+      },
+    });
+
+    const sessionId = `quiz_${dbSession.id}`;
 
     sendSuccess(res, {
       sessionId,
@@ -823,6 +1012,138 @@ export async function generateAdaptiveQuizHandler(
       targetUnits,
       totalQuestions: questions.length,
       questions,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/v1/adaptive/quiz/check
+ * Grades an Adaptive Quiz question canonically on the server, verifies session ownership,
+ * persists a QuestionAttemptItem row (resolving mistakes naturally without wiping history),
+ * and guards against duplicate submissions.
+ */
+export async function checkAdaptiveQuizHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const userId = req.user!.id;
+    const parsed = checkAdaptiveQuizSchema.parse(req.body);
+    const rawAnswer =
+      parsed.studentAnswer !== undefined ? parsed.studentAnswer : parsed.answer;
+
+    if (isEmptyStudentAnswer(rawAnswer)) {
+      throw AppError.badRequest(
+        "Please provide a non-empty answer before checking.",
+        "VALIDATION_ERROR"
+      );
+    }
+
+    if (parsed.sessionId) {
+      const normalizedUuid = parsed.sessionId.startsWith("quiz_")
+        ? parsed.sessionId.slice(5)
+        : parsed.sessionId;
+
+      if (!UUID_REGEX.test(normalizedUuid)) {
+        throw AppError.badRequest("Invalid adaptive quiz sessionId", "VALIDATION_ERROR");
+      }
+
+      const session = await prisma.adaptiveQuizSession.findUnique({
+        where: { id: normalizedUuid },
+      });
+
+      if (!session) {
+        throw AppError.notFound(
+          `Adaptive quiz session '${parsed.sessionId}' not found`,
+          "NOT_FOUND"
+        );
+      }
+
+      if (session.userId !== userId) {
+        throw new AppError(
+          403,
+          "FORBIDDEN",
+          "You do not have permission to submit answers to this adaptive quiz session."
+        );
+      }
+
+      const allowedIds = Array.isArray(session.questionIds)
+        ? (session.questionIds as string[])
+        : [];
+      if (!allowedIds.includes(parsed.questionId)) {
+        throw AppError.badRequest(
+          `Question '${parsed.questionId}' does not belong to adaptive quiz session '${parsed.sessionId}'.`,
+          "VALIDATION_ERROR"
+        );
+      }
+    }
+
+    const question = await prisma.question.findFirst({
+      where: { questionId: parsed.questionId },
+      include: {
+        exercise: {
+          select: { unitId: true },
+        },
+        options: { orderBy: { displayOrder: "asc" } },
+        blanks: {
+          orderBy: { blankIndex: "asc" },
+          include: {
+            acceptedAnswers: { orderBy: { displayOrder: "asc" } },
+          },
+        },
+        parts: {
+          orderBy: { displayOrder: "asc" },
+          include: {
+            acceptedAnswers: { orderBy: { displayOrder: "asc" } },
+          },
+        },
+        acceptedAnswers: { orderBy: { displayOrder: "asc" } },
+        explanation: true,
+      },
+    });
+
+    if (!question) {
+      throw AppError.notFound(
+        `Question '${parsed.questionId}' not found`,
+        "NOT_FOUND"
+      );
+    }
+
+    const evaluation = evaluateQuestion(question, rawAnswer);
+
+    const dedupeKey = parsed.submissionId
+      ? `adaptive-check:${userId}:${parsed.sessionId || "none"}:${question.id}:sub:${parsed.submissionId}`
+      : `adaptive-check:${userId}:${parsed.sessionId || "none"}:${question.id}:${stableSerialize(rawAnswer)}`;
+
+    const attemptItemId = await runDeduplicatedSubmission(dedupeKey, async () => {
+      const created = await prisma.questionAttemptItem.create({
+        data: {
+          attemptId: null,
+          userId,
+          questionId: question.id,
+          studentAnswer: (evaluation.studentAnswer !== undefined
+            ? evaluation.studentAnswer
+            : null) as any,
+          isCorrect: evaluation.isCorrect,
+          createdAt: new Date(),
+        },
+      });
+      return created.id;
+    });
+
+    sendSuccess(res, {
+      sessionId: parsed.sessionId || null,
+      questionId: question.questionId,
+      isCorrect: evaluation.isCorrect,
+      studentAnswer: evaluation.studentAnswer,
+      correctAnswers: evaluation.correctAnswers,
+      expectedAnswers: evaluation.expectedAnswers,
+      explanation: evaluation.explanation,
+      ruleReference: evaluation.ruleReference,
+      questionAttemptId: attemptItemId,
     });
   } catch (error) {
     next(error);

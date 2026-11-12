@@ -239,6 +239,8 @@ describe("Phase 1 Frontend Runtime Reliability, Non-Blocking Errors & Session Ex
 
   it("replaces window.alert() in ExerciseViewer with dismissible toast notifications", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    setStoredToken("valid-token");
+    vi.spyOn(api, "getCurrentUser").mockResolvedValueOnce(mockUser);
     vi.spyOn(api, "getUnitExercises").mockResolvedValueOnce([sampleExercise]);
     vi.spyOn(api, "checkExerciseAnswers").mockRejectedValueOnce(
       new ApiClientError("INTERNAL_SERVER_ERROR", "Grading temporarily unavailable")
@@ -249,7 +251,30 @@ describe("Phase 1 Frontend Runtime Reliability, Non-Blocking Errors & Session Ex
 
     render(
       <ToastProvider>
-        <ExerciseViewer unitNumber={1} />
+        <AuthProvider>
+          <ExerciseViewer
+            unitNumber={1}
+            unitProgress={{
+              unitNumber: 1,
+              title: "Present continuous (I am doing)",
+              status: "in_progress",
+              lastAccessedAt: null,
+              completedAt: null,
+              attempts: [
+                {
+                  id: "att-1",
+                  exerciseId: "1.1",
+                  exerciseNumber: "1.1",
+                  totalQuestions: 1,
+                  correctCount: 0,
+                  scorePercentage: 0,
+                  submittedAt: "2026-11-06T12:00:00Z",
+                  items: [],
+                },
+              ],
+            }}
+          />
+        </AuthProvider>
       </ToastProvider>
     );
 
@@ -257,6 +282,9 @@ describe("Phase 1 Frontend Runtime Reliability, Non-Blocking Errors & Session Ex
       expect(screen.getByText(/Complete the sentences\./i)).toBeInTheDocument();
     });
 
+    fireEvent.change(screen.getByPlaceholderText(/Type your answer here/i), {
+      target: { value: "is driving" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /Check Entire Exercise/i }));
 
     await waitFor(() => {
@@ -313,12 +341,17 @@ describe("Phase 1 Frontend Runtime Reliability, Non-Blocking Errors & Session Ex
     );
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/Type your correction/i)).toBeInTheDocument();
+      expect(
+        screen.getByPlaceholderText(/type full sentence or missing phrase\.\.\./i)
+      ).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByPlaceholderText(/Type your correction/i), {
-      target: { value: "is eating" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/type full sentence or missing phrase\.\.\./i),
+      {
+        target: { value: "is eating" },
+      }
+    );
     fireEvent.click(screen.getByRole("button", { name: /Check Correction/i }));
 
     await waitFor(() => {

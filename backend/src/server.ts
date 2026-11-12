@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { validateEnv, AppEnvConfig } from "./config/env";
-import prisma from "./lib/prisma";
 
 let env: AppEnvConfig;
 try {
@@ -14,7 +13,8 @@ try {
   process.exit(1);
 }
 
-// Import app only after environment validation succeeds
+// Import app and database client only after environment validation succeeds
+import prisma from "./lib/prisma";
 import { createApp } from "./app";
 
 const app = createApp(env);

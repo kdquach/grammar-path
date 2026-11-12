@@ -1,13 +1,14 @@
 import React from "react";
-import { Image as ImageIcon } from "lucide-react";
 import { Question } from "../../../types/api.types";
 import QuestionPromptText from "../QuestionPromptText";
+import QuestionVisualContext from "../QuestionVisualContext";
 
 interface SentenceQuestionRendererProps {
   question: Question;
   value: string | undefined;
   onChange: (val: string) => void;
   disabled?: boolean;
+  onFocusField?: () => void;
 }
 
 export const SentenceQuestionRenderer: React.FC<SentenceQuestionRendererProps> = ({
@@ -15,19 +16,15 @@ export const SentenceQuestionRenderer: React.FC<SentenceQuestionRendererProps> =
   value = "",
   onChange,
   disabled = false,
+  onFocusField,
 }) => {
   return (
     <div className="space-y-3">
       {/* Visual Context Callout */}
-      {question.hasVisualContext && question.visualContextDescription && (
-        <div className="flex items-start gap-2 p-3 bg-blue-50/70 border border-blue-200 rounded-lg text-xs text-blue-900">
-          <ImageIcon className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Visual context: </span>
-            <span className="italic">{question.visualContextDescription}</span>
-          </div>
-        </div>
-      )}
+      <QuestionVisualContext
+        hasVisualContext={question.hasVisualContext}
+        description={question.visualContextDescription}
+      />
 
       {/* Prompt and Context Clue */}
       <div className="flex flex-wrap items-baseline gap-2">
@@ -47,6 +44,7 @@ export const SentenceQuestionRenderer: React.FC<SentenceQuestionRendererProps> =
         type="text"
         disabled={disabled}
         value={value}
+        onFocus={() => onFocusField?.()}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Type full sentence or missing phrase..."
         className={`w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors placeholder:text-slate-400 ${

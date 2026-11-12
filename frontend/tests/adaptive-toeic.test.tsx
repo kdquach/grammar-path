@@ -22,7 +22,9 @@ vi.mock("../src/api/client", () => {
     getUnitProgress: vi.fn(),
     updateUnitProgress: vi.fn(),
     generateToeicPractice: vi.fn(),
+    checkToeicPracticeAnswer: vi.fn(),
     generateAdaptiveQuiz: vi.fn(),
+    checkAdaptiveQuizAnswer: vi.fn(),
     getProgressOverview: vi.fn(),
     getAdaptiveAnalytics: vi.fn(),
     getAdaptiveRecommendations: vi.fn(),
@@ -112,11 +114,19 @@ const mockUnitProgress: UnitProgressDetail = {
 };
 
 const mockToeicSession: ToeicPracticeSession = {
+  sessionId: "toeic_session_1",
   unitNumber: 1,
   title: "Present continuous (I am doing)",
   difficulty: "medium",
+  requestedCount: 5,
+  actualCount: 2,
+  source: "mixed",
+  isOfficialToeic: false,
+  sourceNotice:
+    "Câu hỏi luyện tập dạng TOEIC Part 5 biên soạn theo Unit 1 (không phải đề thi chính thức của ETS).",
   questions: [
     {
+      itemId: "toeic_item_1",
       prompt: "Ms. Patterson _______ a comprehensive quarterly financial review in Conference Room B right now.",
       options: [
         { key: "A", text: "conducts" },
@@ -124,12 +134,11 @@ const mockToeicSession: ToeicPracticeSession = {
         { key: "C", text: "conducted" },
         { key: "D", text: "has conducted" },
       ],
-      correctAnswer: "B",
-      explanation: "Dấu hiệu 'right now' diễn tả hành động đang diễn ra tại thời điểm nói. Chọn 'is conducting'.",
       difficulty: "medium",
       ruleReference: "1A",
     },
     {
+      itemId: "toeic_item_2",
       prompt: "The IT support team _______ a new firewall this week.",
       options: [
         { key: "A", text: "is installing" },
@@ -137,8 +146,6 @@ const mockToeicSession: ToeicPracticeSession = {
         { key: "C", text: "installed" },
         { key: "D", text: "install" },
       ],
-      correctAnswer: "A",
-      explanation: "Trạng ngữ 'this week' diễn tả tiến trình tạm thời trong hiện tại. Chọn 'is installing'.",
       difficulty: "medium",
       ruleReference: "1C",
     },
@@ -169,8 +176,6 @@ const mockAdaptiveQuizSession: AdaptiveQuizSession = {
         { key: "C", text: "tried" },
         { key: "D", text: "was trying" },
       ],
-      correctAnswer: "B",
-      explanation: "Diễn tả hành động đang diễn ra lúc nói: 'am trying'.",
       contextClue: "Diễn ra ngay bây giờ",
       difficulty: "medium",
       ruleReference: "1B",
@@ -185,9 +190,9 @@ const mockAdaptiveQuizSession: AdaptiveQuizSession = {
       questionType: "fill_blank",
       instruction: "Complete the sentence",
       prompt: "Where is Mark? He _______ a shower.",
-      correctAnswer: "is having",
-      explanation: "Hành động đang tiếp diễn: is having a shower.",
-      contextClue: null,
+      questionContent: "Where is Mark? He [___] a shower.",
+      blanks: [{ blankIndex: 1 }],
+      contextClue: "(have)",
       difficulty: "medium",
       ruleReference: "1B",
     },
@@ -230,7 +235,42 @@ describe("Phase 9.2 & 9.3: TOEIC Practice, Adaptive Quiz & Rule Analytics UI", (
     vi.mocked(api.getUnitTheory).mockResolvedValue(mockUnitTheory);
     vi.mocked(api.getUnitProgress).mockResolvedValue(mockUnitProgress);
     vi.mocked(api.generateToeicPractice).mockResolvedValue(mockToeicSession);
+    vi.mocked(api.checkToeicPracticeAnswer).mockResolvedValue({
+      sessionId: "toeic_session_1",
+      itemId: "toeic_item_1",
+      isCorrect: true,
+      studentAnswer: "B",
+      correctAnswer: "B",
+      explanation:
+        "Dấu hiệu 'right now' diễn tả hành động đang diễn ra tại thời điểm nói. Chọn 'is conducting'.",
+      ruleReference: "1A",
+      attemptCount: 1,
+    });
     vi.mocked(api.generateAdaptiveQuiz).mockResolvedValue(mockAdaptiveQuizSession);
+    vi.mocked(api.checkAdaptiveQuizAnswer).mockImplementation(async (payload) => {
+      if (payload.questionId === "1.1-q1") {
+        return {
+          questionId: "1.1-q1",
+          sessionId: payload.sessionId || "quiz_test_12345",
+          isCorrect: true,
+          studentAnswer: payload.studentAnswer,
+          correctAnswers: ["B"],
+          expectedAnswers: ["B"],
+          explanation: "Diễn tả hành động đang diễn ra lúc nói: 'am trying'.",
+          ruleReference: "1B",
+        };
+      }
+      return {
+        questionId: payload.questionId,
+        sessionId: payload.sessionId || "quiz_test_12345",
+        isCorrect: true,
+        studentAnswer: payload.studentAnswer,
+        correctAnswers: ["is having"],
+        expectedAnswers: ["is having"],
+        explanation: "Hành động đang tiếp diễn: is having a shower.",
+        ruleReference: "1B",
+      };
+    });
     vi.mocked(api.getProgressOverview).mockResolvedValue(mockProgressOverview);
     vi.mocked(api.getAdaptiveAnalytics).mockResolvedValue({
       totalEvaluated: 10,
@@ -309,24 +349,34 @@ describe("Phase 9.2 & 9.3: TOEIC Practice, Adaptive Quiz & Rule Analytics UI", (
     // Verify API was called initially with medium difficulty
     expect(api.generateToeicPractice).toHaveBeenCalledWith(1, 5, "medium");
 
-    // Verify modal elements and 3-tier difficulty selector are displayed
+    // Verify modal elements, source disclaimer, count selector, and 3-tier difficulty selector are displayed
     await waitFor(() => {
       expect(screen.getByText(/TOEIC Part 5 Format/i)).toBeInTheDocument();
+      expect(screen.getByText(/không phải đề thi chính thức của ETS/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "10" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "20" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Dễ \(Cơ bản\)/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Trung bình \(TOEIC Chuẩn\)/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Khó \(Bẫy TOEIC 700\+\)/i })).toBeInTheDocument();
       expect(screen.getByText(/Ms. Patterson/i)).toBeInTheDocument();
     });
 
-    // Select option B and check answer
+    // Select option B and check answer via server grading endpoint
     const optionB = screen.getByRole("button", { name: /B is conducting/i });
     fireEvent.click(optionB);
 
     const checkBtn = screen.getByRole("button", { name: /Kiểm tra đáp án/i });
     fireEvent.click(checkBtn);
 
-    // Verify feedback is shown with explanation AND ruleReference badge
+    // Verify API call and server feedback shown with explanation AND ruleReference badge
     await waitFor(() => {
+      expect(api.checkToeicPracticeAnswer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: "toeic_session_1",
+          itemId: "toeic_item_1",
+          studentAnswer: "B",
+        })
+      );
       expect(screen.getByText(/Chính xác! Đáp án đúng là \(B\)/i)).toBeInTheDocument();
       expect(
         screen.getByText(/Dấu hiệu 'right now' diễn tả hành động đang diễn ra/i)
@@ -334,11 +384,15 @@ describe("Phase 9.2 & 9.3: TOEIC Practice, Adaptive Quiz & Rule Analytics UI", (
       expect(screen.getByRole("button", { name: /Quy tắc 1A/i })).toBeInTheDocument();
     });
 
+    // Switch count selector to 10
+    fireEvent.click(screen.getByRole("button", { name: "10" }));
+    expect(api.generateToeicPractice).toHaveBeenCalledWith(1, 10, "medium");
+
     // Switch difficulty to 'hard'
     const hardBtn = screen.getByRole("button", { name: /Khó \(Bẫy TOEIC 700\+\)/i });
     fireEvent.click(hardBtn);
 
-    expect(api.generateToeicPractice).toHaveBeenCalledWith(1, 5, "hard");
+    expect(api.generateToeicPractice).toHaveBeenCalledWith(1, 10, "hard");
   });
 
   // ─── 2. Adaptive Quiz & Rule Analytics on ProgressDashboardPage ────────────
@@ -394,17 +448,63 @@ describe("Phase 9.2 & 9.3: TOEIC Practice, Adaptive Quiz & Rule Analytics UI", (
       ).toBeInTheDocument();
     });
 
-    // Select option B and check answer
-    const optB = screen.getByRole("button", { name: /B am trying/i });
+    // Select option B and check answer via server endpoint (fire rapid double-click to verify lock)
+    const optB = screen.getByText("am trying").closest("button")!;
     fireEvent.click(optB);
+
+    let resolveCheck!: (val: any) => void;
+    vi.mocked(api.checkAdaptiveQuizAnswer).mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveCheck = res;
+        })
+    );
 
     const checkBtn = screen.getByRole("button", { name: /Kiểm tra đáp án/i });
     fireEvent.click(checkBtn);
+    fireEvent.click(checkBtn);
 
-    // Verify explanation and ruleReference badge in feedback
+    expect(api.checkAdaptiveQuizAnswer).toHaveBeenCalledTimes(1);
+    expect(api.checkAdaptiveQuizAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "quiz_test_12345",
+        questionId: "1.1-q1",
+        studentAnswer: "B",
+      })
+    );
+
+    resolveCheck({
+      questionId: "1.1-q1",
+      sessionId: "quiz_test_12345",
+      isCorrect: true,
+      studentAnswer: "B",
+      correctAnswers: ["B"],
+      expectedAnswers: ["B"],
+      explanation: "Diễn tả hành động đang diễn ra lúc nói: 'am trying'.",
+      ruleReference: "1B",
+    });
+
+    // Verify explanation, ruleReference badge, and progress refresh callback
     await waitFor(() => {
       expect(screen.getByText(/Chính xác! Đáp án chuẩn: B/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /Quy tắc 1B/i })).toBeInTheDocument();
+    });
+
+    // Move to fill_blank question #2 and submit answer
+    fireEvent.click(screen.getByRole("button", { name: /Câu kế tiếp/i }));
+    const blankInput = await screen.findByPlaceholderText(/Type your answer here\.\.\./i);
+    fireEvent.change(blankInput, { target: { value: "is having" } });
+    fireEvent.click(screen.getByRole("button", { name: /Kiểm tra đáp án/i }));
+
+    await waitFor(() => {
+      expect(api.checkAdaptiveQuizAnswer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: "quiz_test_12345",
+          questionId: "1.1-q2",
+          studentAnswer: "is having",
+        })
+      );
+      expect(screen.getByText(/Hoàn thành bài Quiz Thích Ứng/i)).toBeInTheDocument();
     });
   });
 });

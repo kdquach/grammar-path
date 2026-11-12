@@ -1,12 +1,14 @@
 import React from "react";
 import { Question } from "../../../types/api.types";
 import QuestionPromptText from "../QuestionPromptText";
+import QuestionVisualContext from "../QuestionVisualContext";
 
 interface MultiPartQuestionRendererProps {
   question: Question;
   value: Record<string, string> | undefined;
   onChange: (val: Record<string, string>) => void;
   disabled?: boolean;
+  onFocusField?: (partId: string) => void;
 }
 
 export const MultiPartQuestionRenderer: React.FC<MultiPartQuestionRendererProps> = ({
@@ -14,6 +16,7 @@ export const MultiPartQuestionRenderer: React.FC<MultiPartQuestionRendererProps>
   value = {},
   onChange,
   disabled = false,
+  onFocusField,
 }) => {
   const parts = question.parts || [];
 
@@ -26,6 +29,11 @@ export const MultiPartQuestionRenderer: React.FC<MultiPartQuestionRendererProps>
 
   return (
     <div className="space-y-4">
+      <QuestionVisualContext
+        hasVisualContext={question.hasVisualContext}
+        description={question.visualContextDescription}
+      />
+
       {question.questionContent && (
         <QuestionPromptText content={question.questionContent} />
       )}
@@ -60,6 +68,7 @@ export const MultiPartQuestionRenderer: React.FC<MultiPartQuestionRendererProps>
                 type="text"
                 disabled={disabled}
                 value={currentVal}
+                onFocus={() => onFocusField?.(partId)}
                 onChange={(e) => handlePartChange(partId, e.target.value)}
                 placeholder={`Answer for part ${index + 1}...`}
                 className={`w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors placeholder:text-slate-400 ${

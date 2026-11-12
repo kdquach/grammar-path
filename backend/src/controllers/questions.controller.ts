@@ -4,8 +4,9 @@ import prisma from "../lib/prisma";
 import { sendSuccess } from "../utils/response";
 import { AppError } from "../middleware/error-handler";
 import { formatQuestionDetail, formatQuestionSolution } from "../utils/formatters";
-import { evaluateQuestion } from "../utils/grader";
-import { includeAnswersQuerySchema } from "./exercises.controller";
+import { evaluateQuestion, isEmptyStudentAnswer } from "../utils/grader";
+import { runDeduplicatedSubmission, stableSerialize } from "../utils/idempotency";
+import { assertNoSpoilerQueryParams } from "./exercises.controller";
 
 export const questionIdParamSchema = z.object({
   questionId: z
@@ -16,6 +17,7 @@ export const questionIdParamSchema = z.object({
 });
 
 export const checkQuestionBodySchema = z.object({
+  submissionId: z.string().trim().min(1).max(120).optional(),
   answer: z.union([
     z.string().max(1000, "Answer text exceeds maximum length"),
     z.array(z.string().max(1000)).max(20),
@@ -30,7 +32,7 @@ export async function getQuestionById(
 ): Promise<void> {
   try {
     const { questionId } = questionIdParamSchema.parse(req.params);
-    const { includeAnswers } = includeAnswersQuerySchema.parse(req.query);
+    assertNoSpoilerQueryParams(req.query as Record<string, unknown>);
 
     const question = await prisma.question.findFirst({
       where: { questionId },
@@ -43,21 +45,8 @@ export async function getQuestionById(
         },
         blanks: {
           orderBy: { blankIndex: "asc" },
-          include: {
-            acceptedAnswers: {
-              orderBy: { displayOrder: "asc" },
-            },
-          },
         },
         parts: {
-          orderBy: { displayOrder: "asc" },
-          include: {
-            acceptedAnswers: {
-              orderBy: { displayOrder: "asc" },
-            },
-          },
-        },
-        acceptedAnswers: {
           orderBy: { displayOrder: "asc" },
         },
         exercise: {
@@ -80,7 +69,7 @@ export async function getQuestionById(
       );
     }
 
-    const formatted = formatQuestionDetail(question, includeAnswers);
+    const formatted = formatQuestionDetail(question, false);
 
     sendSuccess(res, formatted);
   } catch (error) {
@@ -95,12 +84,14 @@ export async function getQuestionSolution(
 ): Promise<void> {
   try {
     const { questionId } = questionIdParamSchema.parse(req.params);
+    const userId = req.user!.id;
 
     const question = await prisma.question.findFirst({
       where: { questionId },
       include: {
         exercise: {
           select: {
+            id: true,
             unitId: true,
           },
         },
@@ -141,6 +132,30 @@ export async function getQuestionSolution(
       );
     }
 
+    // Attempt-state gate: interactive test items require at least one non-empty submitted attempt
+    if (!question.isExample) {
+      const priorAttempts = await prisma.questionAttemptItem.findMany({
+        where: {
+          userId,
+          questionId: question.id,
+        },
+        select: { studentAnswer: true },
+        take: 25,
+      });
+
+      const hasSubmittedAttempt = priorAttempts.some(
+        (item) => !isEmptyStudentAnswer(item.studentAnswer)
+      );
+
+      if (!hasSubmittedAttempt) {
+        throw new AppError(
+          403,
+          "SOLUTION_LOCKED",
+          "Submit an answer attempt for this question before viewing its solution."
+        );
+      }
+    }
+
     let linkedSection: { sectionId: string; heading: string } | null = null;
     if (question.explanation?.ruleReference) {
       const section = await prisma.theorySection.findFirst({
@@ -175,7 +190,14 @@ export async function checkQuestionAnswer(
 ): Promise<void> {
   try {
     const { questionId } = questionIdParamSchema.parse(req.params);
-    const { answer } = checkQuestionBodySchema.parse(req.body);
+    const { answer, submissionId } = checkQuestionBodySchema.parse(req.body);
+
+    if (isEmptyStudentAnswer(answer)) {
+      throw AppError.badRequest(
+        "Please provide a non-empty answer before checking.",
+        "VALIDATION_ERROR"
+      );
+    }
 
     const question = await prisma.question.findFirst({
       where: { questionId },
@@ -225,53 +247,61 @@ export async function checkQuestionAnswer(
     if (req.user) {
       const userId = req.user.id;
       const unitId = question.exercise.unitId;
+      const dedupeKey = submissionId
+        ? `question:${userId}:${question.id}:sub:${submissionId}`
+        : `question:${userId}:${question.id}:${stableSerialize(answer)}`;
 
-      const txResult = await prisma.$transaction(async (tx) => {
-        const item = await tx.questionAttemptItem.create({
-          data: {
-            attemptId: null,
-            userId,
-            questionId: question.id,
-            studentAnswer: (result.studentAnswer !== undefined ? result.studentAnswer : null) as any,
-            isCorrect: result.isCorrect,
-            createdAt: new Date(),
-          },
-        });
+      const txResult = await runDeduplicatedSubmission(dedupeKey, () =>
+        prisma.$transaction(async (tx) => {
+          const item = await tx.questionAttemptItem.create({
+            data: {
+              attemptId: null,
+              userId,
+              questionId: question.id,
+              studentAnswer: (result.studentAnswer !== undefined
+                ? result.studentAnswer
+                : null) as any,
+              isCorrect: result.isCorrect,
+              createdAt: new Date(),
+            },
+          });
 
-        const currentProgress = await tx.learningProgress.findUnique({
-          where: {
-            userId_unitId: {
+          const currentProgress = await tx.learningProgress.findUnique({
+            where: {
+              userId_unitId: {
+                userId,
+                unitId,
+              },
+            },
+          });
+
+          const targetStatus =
+            currentProgress?.status === "completed" ? "completed" : "in_progress";
+          const now = new Date();
+
+          await tx.learningProgress.upsert({
+            where: {
+              userId_unitId: {
+                userId,
+                unitId,
+              },
+            },
+            create: {
               userId,
               unitId,
+              status: targetStatus,
+              lastAccessedAt: now,
+              completedAt: targetStatus === "completed" ? now : null,
             },
-          },
-        });
-
-        const targetStatus = currentProgress?.status === "completed" ? "completed" : "in_progress";
-        const now = new Date();
-
-        await tx.learningProgress.upsert({
-          where: {
-            userId_unitId: {
-              userId,
-              unitId,
+            update: {
+              status: targetStatus,
+              lastAccessedAt: now,
             },
-          },
-          create: {
-            userId,
-            unitId,
-            status: targetStatus,
-            lastAccessedAt: now,
-            completedAt: targetStatus === "completed" ? now : null,
-          },
-          update: {
-            status: targetStatus,
-            lastAccessedAt: now,
-          },
-        });
+          });
 
-        return item.id;
-      });
+          return item.id;
+        })
+      );
 
       questionAttemptId = txResult;
     }

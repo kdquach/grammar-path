@@ -21,6 +21,7 @@ import type {
   AdaptiveAnalytics,
   AdaptiveRecommendationsResponse,
   ToeicPracticeSession,
+  ToeicPracticeCheckResult,
   AdaptiveQuizSession,
   DifficultyLevel,
 } from "../types/api.types";
@@ -213,35 +214,24 @@ export const api = {
   },
 
   /**
-   * Fetches all exercises belonging to a unit with optional spoiler answers.
+   * Fetches all exercises belonging to a unit (strict anti-spoiler mode).
    */
-  async getUnitExercises(
-    unitNumber: number,
-    includeAnswers = false
-  ): Promise<Exercise[]> {
-    const endpoint = `/units/${unitNumber}/exercises${
-      includeAnswers ? "?includeAnswers=true" : ""
-    }`;
-    const { data } = await request<Exercise[]>(endpoint);
+  async getUnitExercises(unitNumber: number): Promise<Exercise[]> {
+    const { data } = await request<Exercise[]>(`/units/${unitNumber}/exercises`);
     return data;
   },
 
   /**
-   * Fetches a single exercise by ID (e.g. "1.1").
+   * Fetches a single exercise by ID (e.g. "1.1", strict anti-spoiler mode).
    */
-  async getExerciseDetail(
-    exerciseId: string,
-    includeAnswers = false
-  ): Promise<Exercise> {
-    const endpoint = `/exercises/${exerciseId}${
-      includeAnswers ? "?includeAnswers=true" : ""
-    }`;
-    const { data } = await request<Exercise>(endpoint);
+  async getExerciseDetail(exerciseId: string): Promise<Exercise> {
+    const { data } = await request<Exercise>(`/exercises/${exerciseId}`);
     return data;
   },
 
   /**
-   * Fetches complete pedagogical solutions for all questions in an exercise.
+   * Fetches complete pedagogical solutions for all questions in an exercise
+   * (requires authenticated learner + prior exercise attempt).
    */
   async getExerciseSolutions(exerciseId: string): Promise<QuestionSolution[]> {
     const { data } = await request<QuestionSolution[]>(
@@ -251,16 +241,10 @@ export const api = {
   },
 
   /**
-   * Fetches single question detail.
+   * Fetches single question detail (strict anti-spoiler mode).
    */
-  async getQuestionDetail(
-    questionId: string,
-    includeAnswers = false
-  ): Promise<Question> {
-    const endpoint = `/questions/${questionId}${
-      includeAnswers ? "?includeAnswers=true" : ""
-    }`;
-    const { data } = await request<Question>(endpoint);
+  async getQuestionDetail(questionId: string): Promise<Question> {
+    const { data } = await request<Question>(`/questions/${questionId}`);
     return data;
   },
 
@@ -275,34 +259,42 @@ export const api = {
   },
 
   /**
-   * Evaluates student answer for a single question statelessly.
+   * Evaluates student answer for a single question on the server.
    */
   async checkQuestionAnswer(
     questionId: string,
-    answer: unknown
+    answer: unknown,
+    submissionId?: string
   ): Promise<QuestionCheckResult> {
     const { data } = await request<QuestionCheckResult>(
       `/questions/${questionId}/check`,
       {
         method: "POST",
-        body: JSON.stringify({ answer }),
+        body: JSON.stringify({
+          answer,
+          ...(submissionId ? { submissionId } : {}),
+        }),
       }
     );
     return data;
   },
 
   /**
-   * Evaluates student answers for an entire exercise statelessly.
+   * Evaluates student answers for an entire exercise on the server.
    */
   async checkExerciseAnswers(
     exerciseId: string,
-    answers: Record<string, unknown>
+    answers: Record<string, unknown>,
+    submissionId?: string
   ): Promise<ExerciseCheckResult> {
     const { data } = await request<ExerciseCheckResult>(
       `/exercises/${exerciseId}/check`,
       {
         method: "POST",
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({
+          answers,
+          ...(submissionId ? { submissionId } : {}),
+        }),
       }
     );
     return data;
@@ -422,7 +414,7 @@ export const api = {
   // ─── Phase 9.2 TOEIC Practice & Adaptive Quiz Methods ──────────────────────
 
   /**
-   * Generates AI-powered TOEIC Part 5 practice questions for a specific unit with difficulty tier.
+   * Generates TOEIC Part 5 practice questions for a specific unit without pre-submission answers.
    */
   async generateToeicPractice(
     unitNumber: number,
@@ -432,6 +424,22 @@ export const api = {
     const { data } = await request<ToeicPracticeSession>("/adaptive/toeic-practice", {
       method: "POST",
       body: JSON.stringify({ unitNumber, count, difficulty }),
+    });
+    return data;
+  },
+
+  /**
+   * Grades a single persisted TOEIC practice item on the server.
+   */
+  async checkToeicPracticeAnswer(payload: {
+    sessionId: string;
+    itemId: string;
+    studentAnswer: string;
+    submissionId?: string;
+  }): Promise<ToeicPracticeCheckResult> {
+    const { data } = await request<ToeicPracticeCheckResult>("/adaptive/toeic-practice/check", {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
     return data;
   },
@@ -454,6 +462,25 @@ export const api = {
           : {}),
       }),
     });
+    return data;
+  },
+
+  /**
+   * Grades an Adaptive Quiz question on the server and records QuestionAttemptItem.
+   */
+  async checkAdaptiveQuizAnswer(payload: {
+    sessionId?: string;
+    questionId: string;
+    studentAnswer: unknown;
+    submissionId?: string;
+  }): Promise<QuestionCheckResult & { sessionId?: string | null }> {
+    const { data } = await request<QuestionCheckResult & { sessionId?: string | null }>(
+      "/adaptive/quiz/check",
+      {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }
+    );
     return data;
   },
 };

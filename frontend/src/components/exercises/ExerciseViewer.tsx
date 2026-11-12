@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   CheckCheck,
   Eye,
@@ -9,10 +9,13 @@ import {
   Trophy,
   Sparkles,
   LogIn,
+  Image as ImageIcon,
+  Lock,
 } from "lucide-react";
 import { api } from "../../api/client";
 import {
   Exercise,
+  Question,
   QuestionSolution,
   UnitProgressDetail,
   UnitProgressAttempt,
@@ -20,7 +23,10 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import WordBankBar from "./WordBankBar";
-import QuestionCard from "./QuestionCard";
+import QuestionCard, { isSplitBlankSlashOptionQuestion } from "./QuestionCard";
+import { isEmptyAnswerValue } from "./QuestionFeedbackPanel";
+
+export { isEmptyAnswerValue };
 
 interface ExerciseViewerProps {
   unitNumber: number;
@@ -28,6 +34,18 @@ interface ExerciseViewerProps {
   onOpenRuleReference?: (sectionId: string) => void;
   onProgressChange?: () => void;
   onOpenAuthModal?: () => void;
+}
+
+interface ExerciseScoreSummary {
+  totalQuestions: number;
+  correctCount: number;
+  scorePercentage: number;
+}
+
+interface FocusedInputTarget {
+  questionId: string;
+  blankIndex?: number;
+  partId?: string;
 }
 
 export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
@@ -50,22 +68,24 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
   // Question evaluation or solution results: Record<questionId, any>
   const [results, setResults] = useState<Record<string, any>>({});
 
-  // Score summary for whole exercise evaluation
-  const [exerciseScore, setExerciseScore] = useState<{
-    totalQuestions: number;
-    correctCount: number;
-    scorePercentage: number;
-  } | null>(null);
+  // Per-exercise score summaries and restored state flags
+  const [exerciseScoresById, setExerciseScoresById] = useState<
+    Record<string, ExerciseScoreSummary>
+  >({});
+  const [restoredByExerciseId, setRestoredByExerciseId] = useState<
+    Record<string, boolean>
+  >({});
 
-  // Tracks if current view is showing restored previous attempt
-  const [isRestoredAttempt, setIsRestoredAttempt] = useState<boolean>(false);
-
-  // Loading states
+  // Loading states + synchronous in-flight guards to block double-submit races
   const [isCheckingExercise, setIsCheckingExercise] = useState<boolean>(false);
   const [isRevealingAll, setIsRevealingAll] = useState<boolean>(false);
   const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
   const [revealingQuestionId, setRevealingQuestionId] = useState<string | null>(null);
   const [wordBankResetVersion, setWordBankResetVersion] = useState<number>(0);
+
+  const isCheckingExerciseRef = useRef<boolean>(false);
+  const checkingQuestionIdsRef = useRef<Set<string>>(new Set());
+  const focusedTargetRef = useRef<FocusedInputTarget | null>(null);
 
   // Build map of latest attempts for each exercise in this unit
   const latestAttemptsByExerciseId = useMemo(() => {
@@ -87,14 +107,16 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
     setError(null);
 
     api
-      .getUnitExercises(unitNumber, false)
+      .getUnitExercises(unitNumber)
       .then((data) => {
         if (!isMounted) return;
         setExercises(data);
         setActiveExerciseIndex(0);
         setAnswers({});
         setResults({});
-        setExerciseScore(null);
+        setExerciseScoresById({});
+        setRestoredByExerciseId({});
+        focusedTargetRef.current = null;
       })
       .catch((err) => {
         if (!isMounted) return;
@@ -116,6 +138,13 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
     return latestAttemptsByExerciseId.get(activeExercise.exerciseId) || null;
   }, [activeExercise, latestAttemptsByExerciseId]);
 
+  const activeScore = activeExercise
+    ? exerciseScoresById[activeExercise.exerciseId] || null
+    : null;
+  const isRestoredAttempt = activeExercise
+    ? Boolean(restoredByExerciseId[activeExercise.exerciseId])
+    : false;
+
   const handleRestorePreviousAnswers = (attemptToRestore?: UnitProgressAttempt | null) => {
     const targetAttempt = attemptToRestore || activePastAttempt;
     if (!targetAttempt || !activeExercise) return;
@@ -126,52 +155,244 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
       for (const item of targetAttempt.items) {
         if (item.studentAnswer !== null && item.studentAnswer !== undefined) {
           restoredAnswers[item.questionId] = item.studentAnswer;
+          restoredResults[item.questionId] = {
+            questionId: item.questionId,
+            status: item.isCorrect ? "correct" : "incorrect",
+            isCorrect: item.isCorrect,
+            studentAnswer: item.studentAnswer,
+          };
+        } else {
+          restoredResults[item.questionId] = {
+            questionId: item.questionId,
+            status: "unanswered",
+            isCorrect: false,
+            studentAnswer: null,
+            correctAnswers: [],
+            expectedAnswers: [],
+            explanation: null,
+            ruleReference: null,
+          };
         }
-        restoredResults[item.questionId] = {
-          questionId: item.questionId,
-          isCorrect: item.isCorrect,
-          studentAnswer: item.studentAnswer,
-        };
       }
     }
 
     setAnswers((prev) => ({ ...prev, ...restoredAnswers }));
     setResults((prev) => ({ ...prev, ...restoredResults }));
-    setExerciseScore({
-      totalQuestions: targetAttempt.totalQuestions,
-      correctCount: targetAttempt.correctCount,
-      scorePercentage: targetAttempt.scorePercentage,
-    });
-    setIsRestoredAttempt(true);
+    setExerciseScoresById((prev) => ({
+      ...prev,
+      [activeExercise.exerciseId]: {
+        totalQuestions: targetAttempt.totalQuestions,
+        correctCount: targetAttempt.correctCount,
+        scorePercentage: targetAttempt.scorePercentage,
+      },
+    }));
+    setRestoredByExerciseId((prev) => ({
+      ...prev,
+      [activeExercise.exerciseId]: true,
+    }));
   };
 
-  // Automatically restore previously saved attempt when switching to an exercise that has no active unsaved inputs
+  // Automatically restore previously saved attempt when switching to an exercise with no active unsaved inputs
   useEffect(() => {
     if (!activeExercise) return;
     const past = latestAttemptsByExerciseId.get(activeExercise.exerciseId);
     if (past && past.items && past.items.length > 0) {
       const hasAnyInput = activeExercise.questions.some(
-        (q) => answers[q.questionId] !== undefined
+        (q) => !isEmptyAnswerValue(answers[q.questionId])
       );
-      if (!hasAnyInput && !exerciseScore) {
+      if (!hasAnyInput && !exerciseScoresById[activeExercise.exerciseId]) {
         handleRestorePreviousAnswers(past);
       }
     }
-  }, [activeExerciseIndex, latestAttemptsByExerciseId]);
+  }, [activeExerciseIndex, latestAttemptsByExerciseId, activeExercise?.exerciseId]);
 
   const handleAnswerChange = (questionId: string, val: any) => {
-    setIsRestoredAttempt(false);
+    if (activeExercise) {
+      setRestoredByExerciseId((prev) => ({
+        ...prev,
+        [activeExercise.exerciseId]: false,
+      }));
+    }
     setAnswers((prev) => ({
       ...prev,
       [questionId]: val,
     }));
   };
 
-  // Single Question Check
+  // Click-to-insert from sticky WordBankBar into focused or next empty interactive text field
+  const handleSelectWordFromBank = (word: string) => {
+    if (!activeExercise) return;
+    const bankWords = new Set(
+      (activeExercise.wordBankItems || []).map((w) => w.word.toLowerCase())
+    );
+
+    const mergeWord = (existing: string): string => {
+      const trimmed = existing.trim();
+      if (!trimmed || bankWords.has(trimmed.toLowerCase())) {
+        return word;
+      }
+      if (/\s$/.test(existing)) {
+        return `${existing}${word}`;
+      }
+      return `${existing} ${word}`;
+    };
+
+    const isTextQuestion = (q: Question): boolean => {
+      if (q.isExample) return false;
+      const splitSlash = isSplitBlankSlashOptionQuestion(q);
+      const hasOptions = (q.options?.length || 0) > 0 && !splitSlash;
+      return !hasOptions;
+    };
+
+    let target = focusedTargetRef.current;
+    const targetQuestion = target
+      ? activeExercise.questions.find((q) => q.questionId === target!.questionId)
+      : undefined;
+
+    if (!target || !targetQuestion || !isTextQuestion(targetQuestion)) {
+      target = null;
+      for (const q of activeExercise.questions) {
+        if (!isTextQuestion(q)) continue;
+        const currentVal = answers[q.questionId];
+
+        if ((q.parts?.length || 0) > 0) {
+          const obj =
+            currentVal && typeof currentVal === "object" && !Array.isArray(currentVal)
+              ? (currentVal as Record<string, string>)
+              : {};
+          const emptyPart = q.parts.find(
+            (p, idx) => !(obj[p.partId || String(idx + 1)] || "").trim()
+          );
+          if (emptyPart) {
+            target = {
+              questionId: q.questionId,
+              partId: emptyPart.partId || String(q.parts.indexOf(emptyPart) + 1),
+            };
+            break;
+          }
+        } else if ((q.blanks?.length || 0) > 1) {
+          const arr = Array.isArray(currentVal) ? currentVal : [];
+          const emptyIdx = q.blanks.findIndex((_, idx) => !(arr[idx] || "").trim());
+          if (emptyIdx !== -1) {
+            target = { questionId: q.questionId, blankIndex: emptyIdx };
+            break;
+          }
+        } else {
+          const strVal =
+            typeof currentVal === "string"
+              ? currentVal
+              : Array.isArray(currentVal)
+              ? currentVal[0] || ""
+              : "";
+          if (!strVal.trim()) {
+            target = { questionId: q.questionId, blankIndex: 0 };
+            break;
+          }
+        }
+      }
+    }
+
+    if (!target) {
+      const firstTextQ = activeExercise.questions.find(isTextQuestion);
+      if (!firstTextQ) return;
+      target = {
+        questionId: firstTextQ.questionId,
+        blankIndex: (firstTextQ.blanks?.length || 0) > 1 ? 0 : undefined,
+        partId:
+          (firstTextQ.parts?.length || 0) > 0
+            ? firstTextQ.parts[0].partId || "1"
+            : undefined,
+      };
+    }
+
+    const qObj = activeExercise.questions.find(
+      (q) => q.questionId === target!.questionId
+    );
+    if (!qObj) return;
+
+    const currentVal = answers[qObj.questionId];
+    if ((qObj.parts?.length || 0) > 0 && target.partId) {
+      const prevMap =
+        currentVal && typeof currentVal === "object" && !Array.isArray(currentVal)
+          ? { ...(currentVal as Record<string, string>) }
+          : {};
+      prevMap[target.partId] = mergeWord(prevMap[target.partId] || "");
+      handleAnswerChange(qObj.questionId, prevMap);
+    } else if ((qObj.blanks?.length || 0) > 1) {
+      const blankIdx = target.blankIndex ?? 0;
+      const nextArr = Array.isArray(currentVal)
+        ? [...currentVal]
+        : typeof currentVal === "string" && currentVal.length > 0
+        ? [currentVal]
+        : [];
+      while (nextArr.length < qObj.blanks.length) {
+        nextArr.push("");
+      }
+      nextArr[blankIdx] = mergeWord(String(nextArr[blankIdx] || ""));
+      handleAnswerChange(qObj.questionId, nextArr);
+    } else {
+      const strVal =
+        typeof currentVal === "string"
+          ? currentVal
+          : Array.isArray(currentVal)
+          ? String(currentVal[0] || "")
+          : "";
+      handleAnswerChange(qObj.questionId, mergeWord(strVal));
+    }
+  };
+
+  const isQuestionSolutionUnlocked = (question: Question): boolean => {
+    if (question.isExample) return Boolean(user);
+    if (!user) return false;
+    const existingResult = results[question.questionId];
+    if (existingResult && existingResult.status !== "unanswered") {
+      if (existingResult.isCorrect === undefined || "answerKey" in existingResult) {
+        return true;
+      }
+      if (
+        existingResult.studentAnswer !== null &&
+        !(
+          existingResult.studentAnswer !== undefined &&
+          isEmptyAnswerValue(existingResult.studentAnswer)
+        )
+      ) {
+        return true;
+      }
+    }
+    return Boolean(
+      activePastAttempt?.items?.some(
+        (it) =>
+          it.questionId === question.questionId &&
+          !isEmptyAnswerValue(it.studentAnswer)
+      )
+    );
+  };
+
+  const isExerciseSolutionsUnlocked = (): boolean => {
+    if (!user || !activeExercise) return false;
+    if (activeScore || activePastAttempt) return true;
+    const interactive = activeExercise.questions.filter((q) => !q.isExample);
+    return (
+      interactive.length > 0 &&
+      interactive.every((q) => {
+        const r = results[q.questionId];
+        return Boolean(r) && r.status !== "unanswered";
+      })
+    );
+  };
+
+  // Single Question Check (with empty guard & double-submit lock)
   const handleCheckQuestion = async (questionId: string) => {
+    if (checkingQuestionIdsRef.current.has(questionId)) return;
+    const studentAnswer = answers[questionId];
+    if (isEmptyAnswerValue(studentAnswer)) {
+      toast.warning("Please enter or select an answer before checking.");
+      return;
+    }
+
     try {
+      checkingQuestionIdsRef.current.add(questionId);
       setCheckingQuestionId(questionId);
-      const studentAnswer = answers[questionId];
       const result = await api.checkQuestionAnswer(questionId, studentAnswer);
       setResults((prev) => ({
         ...prev,
@@ -181,18 +402,30 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
     } catch (err: any) {
       toast.error(err?.message || "Failed to check answer");
     } finally {
+      checkingQuestionIdsRef.current.delete(questionId);
       setCheckingQuestionId(null);
     }
   };
 
-  // Single Question Show Solution
-  const handleShowQuestionSolution = async (questionId: string) => {
+  // Single Question Show Solution (strictly gated by auth + prior attempt)
+  const handleShowQuestionSolution = async (question: Question) => {
+    if (!user) {
+      toast.info("Please sign in and try answering before viewing solutions.");
+      onOpenAuthModal?.();
+      return;
+    }
+
+    if (!isQuestionSolutionUnlocked(question)) {
+      toast.info("Check your answer at least once to unlock this solution.");
+      return;
+    }
+
     try {
-      setRevealingQuestionId(questionId);
-      const solution = await api.getQuestionSolution(questionId);
+      setRevealingQuestionId(question.questionId);
+      const solution = await api.getQuestionSolution(question.questionId);
       setResults((prev) => ({
         ...prev,
-        [questionId]: solution,
+        [question.questionId]: solution,
       }));
     } catch (err: any) {
       toast.error(err?.message || "Failed to load solution");
@@ -201,36 +434,75 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
     }
   };
 
-  // Whole Exercise Check
+  // Whole Exercise Check (strictly scoped to activeExercise questions)
   const handleCheckEntireExercise = async () => {
-    if (!activeExercise) return;
-    try {
-      setIsCheckingExercise(true);
-      const res = await api.checkExerciseAnswers(activeExercise.exerciseId, answers);
+    if (!activeExercise || isCheckingExerciseRef.current) return;
 
-      // Map question results
-      const newResults: Record<string, any> = { ...results };
-      for (const qResult of res.results) {
-        newResults[qResult.questionId] = qResult;
+    const scopedAnswers: Record<string, unknown> = {};
+    for (const q of activeExercise.questions) {
+      if (q.isExample) continue;
+      const val = answers[q.questionId];
+      if (!isEmptyAnswerValue(val)) {
+        scopedAnswers[q.questionId] = val;
       }
-      setResults(newResults);
+    }
 
-      setExerciseScore({
-        totalQuestions: res.totalQuestions,
-        correctCount: res.correctCount,
-        scorePercentage: res.scorePercentage,
+    if (Object.keys(scopedAnswers).length === 0) {
+      toast.warning("Please answer at least one question before checking the exercise.");
+      return;
+    }
+
+    try {
+      isCheckingExerciseRef.current = true;
+      setIsCheckingExercise(true);
+      const res = await api.checkExerciseAnswers(
+        activeExercise.exerciseId,
+        scopedAnswers
+      );
+
+      setResults((prev) => {
+        const nextResults = { ...prev };
+        for (const qResult of res.results) {
+          nextResults[qResult.questionId] = qResult;
+        }
+        return nextResults;
       });
+
+      setExerciseScoresById((prev) => ({
+        ...prev,
+        [activeExercise.exerciseId]: {
+          totalQuestions: res.totalQuestions,
+          correctCount: res.correctCount,
+          scorePercentage: res.scorePercentage,
+        },
+      }));
+      setRestoredByExerciseId((prev) => ({
+        ...prev,
+        [activeExercise.exerciseId]: false,
+      }));
       onProgressChange?.();
     } catch (err: any) {
       toast.error(err?.message || "Failed to grade entire exercise");
     } finally {
+      isCheckingExerciseRef.current = false;
       setIsCheckingExercise(false);
     }
   };
 
-  // Whole Exercise Reveal Solutions
+  // Whole Exercise Reveal Solutions (strictly gated by auth + prior attempt)
   const handleRevealAllSolutions = async () => {
     if (!activeExercise) return;
+    if (!user) {
+      toast.info("Please sign in and submit an attempt before viewing solutions.");
+      onOpenAuthModal?.();
+      return;
+    }
+
+    if (!isExerciseSolutionsUnlocked()) {
+      toast.info("Submit 'Check Entire Exercise' first to unlock all solutions.");
+      return;
+    }
+
     try {
       setIsRevealingAll(true);
       const solutions = await api.getExerciseSolutions(activeExercise.exerciseId);
@@ -247,7 +519,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
     }
   };
 
-  // Reset Exercise
+  // Reset active exercise only
   const handleResetExercise = () => {
     if (!activeExercise) return;
     const nextAnswers = { ...answers };
@@ -260,8 +532,16 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
 
     setAnswers(nextAnswers);
     setResults(nextResults);
-    setExerciseScore(null);
-    setIsRestoredAttempt(false);
+    setExerciseScoresById((prev) => {
+      const next = { ...prev };
+      delete next[activeExercise.exerciseId];
+      return next;
+    });
+    setRestoredByExerciseId((prev) => ({
+      ...prev,
+      [activeExercise.exerciseId]: false,
+    }));
+    focusedTargetRef.current = null;
     setWordBankResetVersion((v) => v + 1);
   };
 
@@ -293,6 +573,8 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
       </div>
     );
   }
+
+  const allSolutionsUnlocked = isExerciseSolutionsUnlocked();
 
   return (
     <div className="space-y-6">
@@ -329,8 +611,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
               type="button"
               onClick={() => {
                 setActiveExerciseIndex(idx);
-                setExerciseScore(null);
-                setIsRestoredAttempt(false);
+                focusedTargetRef.current = null;
               }}
               className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center gap-2 ${
                 isActive
@@ -395,19 +676,35 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
               "{activeExercise.instruction}"
             </p>
 
-            {/* Visual Context or Context Notes */}
+            {/* Visual Context (Pictures/Illustrations) */}
             {activeExercise.hasVisualContext && activeExercise.visualContextDescription && (
-              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs sm:text-sm text-blue-900 space-y-1">
+              <div
+                data-testid="exercise-visual-context"
+                className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl text-xs sm:text-sm text-blue-900 space-y-1"
+              >
                 <span className="font-bold flex items-center gap-1.5">
-                  <HelpCircle className="w-4 h-4 text-blue-600" /> Context Notes
+                  <ImageIcon className="w-4 h-4 text-blue-600" /> Visual Context
                 </span>
                 <p className="italic">{activeExercise.visualContextDescription}</p>
+              </div>
+            )}
+
+            {/* Distinct Context Notes */}
+            {activeExercise.contextNotes && activeExercise.contextNotes.trim() && (
+              <div
+                data-testid="exercise-context-notes"
+                className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl text-xs sm:text-sm text-amber-950 space-y-1"
+              >
+                <span className="font-bold flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-amber-600" /> Context Notes
+                </span>
+                <p className="whitespace-pre-line">{activeExercise.contextNotes}</p>
               </div>
             )}
           </section>
 
           {/* ─── Past Saved Attempt Banner (If not currently showing restored attempt) ── */}
-          {activePastAttempt && !isRestoredAttempt && !exerciseScore && (
+          {activePastAttempt && !isRestoredAttempt && !activeScore && (
             <div className="bg-indigo-50/80 border border-indigo-200/90 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
@@ -446,7 +743,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
           )}
 
           {/* ─── Score Summary Banner (Shown when exercise evaluated or restored) ── */}
-          {exerciseScore && (
+          {activeScore && (
             <div className="bg-white border-2 border-brand-200 rounded-2xl p-5 shadow-xs space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -465,7 +762,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
                       )}
                     </div>
                     <p className="text-xs text-slate-500">
-                      {exerciseScore.correctCount} of {exerciseScore.totalQuestions}{" "}
+                      {activeScore.correctCount} of {activeScore.totalQuestions}{" "}
                       questions correct
                     </p>
                   </div>
@@ -474,14 +771,14 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
                 <div className="text-right">
                   <span
                     className={`text-2xl font-black ${
-                      exerciseScore.scorePercentage >= 80
+                      activeScore.scorePercentage >= 80
                         ? "text-emerald-600"
-                        : exerciseScore.scorePercentage >= 50
+                        : activeScore.scorePercentage >= 50
                         ? "text-amber-600"
                         : "text-rose-600"
                     }`}
                   >
-                    {exerciseScore.scorePercentage}%
+                    {activeScore.scorePercentage}%
                   </span>
                 </div>
               </div>
@@ -490,13 +787,13 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
               <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
                 <div
                   className={`h-2.5 rounded-full transition-all duration-500 ${
-                    exerciseScore.scorePercentage >= 80
+                    activeScore.scorePercentage >= 80
                       ? "bg-emerald-500"
-                      : exerciseScore.scorePercentage >= 50
+                      : activeScore.scorePercentage >= 50
                       ? "bg-amber-500"
                       : "bg-rose-500"
                   }`}
-                  style={{ width: `${Math.min(100, exerciseScore.scorePercentage)}%` }}
+                  style={{ width: `${Math.min(100, activeScore.scorePercentage)}%` }}
                 />
               </div>
             </div>
@@ -523,12 +820,19 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
                 type="button"
                 disabled={isRevealingAll}
                 onClick={handleRevealAllSolutions}
+                title={
+                  allSolutionsUnlocked
+                    ? "Reveal solutions for the exercise"
+                    : "Sign in and check the exercise first to unlock solutions"
+                }
                 className="inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {isRevealingAll ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
+                ) : allSolutionsUnlocked ? (
                   <Eye className="w-4 h-4 text-slate-500" />
+                ) : (
+                  <Lock className="w-4 h-4 text-amber-500" />
                 )}
                 <span>Reveal All Solutions</span>
               </button>
@@ -552,6 +856,7 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
                 items={activeExercise.wordBankItems}
                 sticky
                 resetVersion={wordBankResetVersion}
+                onSelectWord={handleSelectWordFromBank}
               />
             )}
 
@@ -564,11 +869,19 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
                 onChange={(val) => handleAnswerChange(question.questionId, val)}
                 result={results[question.questionId]}
                 onCheck={() => handleCheckQuestion(question.questionId)}
-                onShowSolution={() => handleShowQuestionSolution(question.questionId)}
+                onShowSolution={() => handleShowQuestionSolution(question)}
                 isChecking={checkingQuestionId === question.questionId}
                 isLoadingSolution={revealingQuestionId === question.questionId}
+                isSolutionUnlocked={isQuestionSolutionUnlocked(question)}
                 onOpenRuleReference={onOpenRuleReference}
                 exerciseInstruction={activeExercise.instruction}
+                onFocusField={(target) => {
+                  focusedTargetRef.current = {
+                    questionId: question.questionId,
+                    blankIndex: target?.blankIndex,
+                    partId: target?.partId,
+                  };
+                }}
               />
             ))}
           </div>
@@ -579,4 +892,3 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
 };
 
 export default ExerciseViewer;
-

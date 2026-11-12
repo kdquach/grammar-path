@@ -242,6 +242,7 @@ export interface QuestionSolution {
 
 export interface QuestionCheckResult {
   questionId: string;
+  status?: "correct" | "incorrect" | "unanswered";
   isCorrect: boolean;
   studentAnswer: unknown;
   correctAnswers: string[];
@@ -351,10 +352,21 @@ export interface MistakeItem {
   questionId: string;
   questionContent: string;
   questionType: string;
+  isExample?: boolean;
+  hasVisualContext?: boolean;
+  visualContextDescription?: string | null;
+  contextClue?: string | null;
+  displayOrder?: number;
+  options?: QuestionOption[];
+  blanks?: QuestionBlank[];
+  parts?: QuestionPart[];
+  wordBankItems?: WordBankItem[];
   exerciseId: string;
   exerciseNumber: string;
+  instruction?: string | null;
   unitNumber: number;
   unitTitle: string;
+  ruleReference?: string | null;
   lastStudentAnswer: unknown;
   lastAttemptedAt: string;
 }
@@ -430,7 +442,10 @@ export interface AdaptiveRecommendationsResponse {
   totalRecommendations: number;
 }
 
-// ─── Phase 9.2: TOEIC Practice & Adaptive Quiz Types ─────────────────────────
+// ─── Phase 9.2 & 2.1: TOEIC Practice & Adaptive Quiz Types ──────────────────
+
+export type ToeicQuestionSource = "curated" | "dynamic" | "fallback";
+export type ToeicSessionSource = ToeicQuestionSource | "mixed";
 
 export interface ToeicOption {
   key: "A" | "B" | "C" | "D";
@@ -438,19 +453,37 @@ export interface ToeicOption {
 }
 
 export interface ToeicQuestion {
+  itemId: string;
+  itemOrder?: number;
+  source?: ToeicQuestionSource;
   prompt: string;
   options: ToeicOption[];
-  correctAnswer: "A" | "B" | "C" | "D";
-  explanation: string;
   difficulty?: DifficultyLevel;
-  ruleReference?: string;
+  ruleReference?: string | null;
 }
 
 export interface ToeicPracticeSession {
+  sessionId: string;
   unitNumber: number;
   title: string;
   difficulty?: DifficultyLevel;
+  source?: ToeicSessionSource;
+  isOfficialToeic?: boolean;
+  sourceNotice?: string;
+  requestedCount?: number;
+  actualCount?: number;
   questions: ToeicQuestion[];
+}
+
+export interface ToeicPracticeCheckResult {
+  sessionId: string;
+  itemId: string;
+  isCorrect: boolean;
+  studentAnswer: string;
+  correctAnswer: "A" | "B" | "C" | "D";
+  explanation: string;
+  ruleReference: string | null;
+  attemptCount?: number;
 }
 
 export interface QuizTargetUnit {
@@ -462,16 +495,23 @@ export interface QuizTargetUnit {
 export interface AdaptiveQuizQuestion {
   id: string;
   questionId: string;
+  questionContent?: string;
+  isExample?: boolean;
+  hasVisualContext?: boolean;
+  visualContextDescription?: string | null;
   unitNumber: number;
   unitTitle: string;
   exerciseId: string;
+  canonicalExerciseId?: string;
   exerciseNumber: string;
   questionType: string;
   instruction: string;
   prompt: string;
-  options?: Array<{ key: string; text: string }>;
-  correctAnswer?: string;
-  explanation?: string | null;
+  options?: QuestionOption[] | Array<{ key: string; text: string }>;
+  blanks?: QuestionBlank[];
+  parts?: QuestionPart[];
+  wordBankItems?: WordBankItem[];
+  displayOrder?: number;
   ruleReference?: string | null;
   difficulty?: DifficultyLevel;
   contextClue?: string | null;

@@ -1,12 +1,14 @@
 import React from "react";
 import { Question } from "../../../types/api.types";
 import QuestionPromptText from "../QuestionPromptText";
+import QuestionVisualContext from "../QuestionVisualContext";
 
 interface FillBlankQuestionRendererProps {
   question: Question;
   value: string | string[] | undefined;
   onChange: (val: string | string[]) => void;
   disabled?: boolean;
+  onFocusField?: (blankIndex?: number) => void;
 }
 
 export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps> = ({
@@ -14,6 +16,7 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
   value,
   onChange,
   disabled = false,
+  onFocusField,
 }) => {
   const blanks = question.blanks || [];
   const isMultiBlank = blanks.length > 1;
@@ -29,6 +32,11 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
 
     return (
       <div className="space-y-3">
+        <QuestionVisualContext
+          hasVisualContext={question.hasVisualContext}
+          description={question.visualContextDescription}
+        />
+
         <div className="flex flex-wrap items-baseline gap-2">
           {question.questionContent && (
             <QuestionPromptText content={question.questionContent} />
@@ -45,6 +53,7 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
           type="text"
           disabled={disabled}
           value={singleVal}
+          onFocus={() => onFocusField?.(0)}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Type your answer here..."
           className={`w-full max-w-lg px-3.5 py-2 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors placeholder:text-slate-400 ${
@@ -81,6 +90,11 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
 
   return (
     <div className="space-y-4">
+      <QuestionVisualContext
+        hasVisualContext={question.hasVisualContext}
+        description={question.visualContextDescription}
+      />
+
       <div className="flex flex-wrap items-baseline gap-2">
         {question.questionContent && (
           <QuestionPromptText content={question.questionContent} />
@@ -137,6 +151,7 @@ export const FillBlankQuestionRenderer: React.FC<FillBlankQuestionRendererProps>
                 type="text"
                 disabled={disabled}
                 value={val}
+                onFocus={() => onFocusField?.(index)}
                 onChange={(e) => handleBlankChange(index, e.target.value)}
                 placeholder={`Answer for blank #${blank.blankIndex ?? index + 1}...`}
                 className={`w-full px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors placeholder:text-slate-400 ${

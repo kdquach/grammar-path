@@ -1,10 +1,30 @@
-import { describe, it, expect, afterAll } from "vitest";
+import { describe, it, expect, afterAll, beforeAll } from "vitest";
 import request from "supertest";
 import app from "../src/app";
 import prisma from "../src/lib/prisma";
 
 describe("Exercise, Question, Answer Key, Explanation & Anti-Spoiler Mode REST APIs", () => {
+  const timestamp = Date.now();
+  const testEmail = `ex-anti-spoiler-${timestamp}@grammarpath.local`;
+  const testPassword = "securePassword123!";
+  let authToken = "";
+  let testUserId = "";
+
+  beforeAll(async () => {
+    const regRes = await request(app).post("/api/v1/auth/register").send({
+      email: testEmail,
+      password: testPassword,
+      displayName: "Exercise Anti-Spoiler Tester",
+    });
+    expect(regRes.status).toBe(201);
+    authToken = regRes.body.data.token;
+    testUserId = regRes.body.data.user.id;
+  });
+
   afterAll(async () => {
+    if (testUserId) {
+      await prisma.user.delete({ where: { id: testUserId } });
+    }
     await prisma.$disconnect();
   });
 
@@ -46,13 +66,11 @@ describe("Exercise, Question, Answer Key, Explanation & Anti-Spoiler Mode REST A
       expect(item.correctAnswerArray).toBeUndefined();
       expect(item.acceptedAnswers).toBeUndefined();
 
-      // Blanks (if any) should not leak answers
       for (const blank of item.blanks) {
         expect(blank.correctAnswerText).toBeUndefined();
         expect(blank.acceptedAnswers).toBeUndefined();
       }
 
-      // Parts (if any) should not leak answers
       for (const part of item.parts) {
         expect(part.correctAnswerText).toBeUndefined();
         expect(part.acceptedAnswers).toBeUndefined();
@@ -66,25 +84,20 @@ describe("Exercise, Question, Answer Key, Explanation & Anti-Spoiler Mode REST A
     expect(exampleItems[0].correctAnswerText).toBeUndefined();
   });
 
-  // 3. Spoiler Mode Enabled: ?includeAnswers=true returns correctAnswerText and acceptedAnswers
-  it("3. Verify Spoiler Mode Enabled: GET /api/v1/units/1/exercises?includeAnswers=true successfully returns correctAnswerText and acceptedAnswers for test items", async () => {
-    const res = await request(app).get("/api/v1/units/1/exercises?includeAnswers=true");
+  // 3. Anti-Spoiler Bypass Blocked: ?includeAnswers=true rejected with 403 SPOILER_FORBIDDEN
+  it("3. Verify Anti-Spoiler Bypass Blocked: GET /units/1/exercises?includeAnswers=true and equivalent flags return 403 SPOILER_FORBIDDEN", async () => {
+    const res1 = await request(app).get("/api/v1/units/1/exercises?includeAnswers=true");
+    expect(res1.status).toBe(403);
+    expect(res1.body.success).toBe(false);
+    expect(res1.body.error.code).toBe("SPOILER_FORBIDDEN");
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
+    const res2 = await request(app).get("/api/v1/exercises/1.1?includeAnswers=true");
+    expect(res2.status).toBe(403);
+    expect(res2.body.error.code).toBe("SPOILER_FORBIDDEN");
 
-    const exercise1 = res.body.data[0];
-    const testItems = exercise1.questions.filter((q: any) => !q.isExample);
-    expect(testItems.length).toBeGreaterThan(0);
-
-    // First non-example test item (1.1-q2)
-    const q2 = testItems[0];
-    expect(q2.questionId).toBe("1.1-q2");
-    expect(q2.correctAnswerText).toBe("e");
-    expect(q2.correctAnswerType).toBe("string");
-    expect(Array.isArray(q2.acceptedAnswers)).toBe(true);
-    expect(q2.acceptedAnswers).toContain("e");
-    expect(q2.acceptedAnswers).toContain("I'm getting hungry.");
+    const res3 = await request(app).get("/api/v1/questions/1.1-q2?includeAnswers=true");
+    expect(res3.status).toBe(403);
+    expect(res3.body.error.code).toBe("SPOILER_FORBIDDEN");
   });
 
   // 4. GET /api/v1/exercises/1.1 -> returns exercise 1.1 with word bank items and questions
@@ -137,44 +150,69 @@ describe("Exercise, Question, Answer Key, Explanation & Anti-Spoiler Mode REST A
     expect(Array.isArray(q.sourcePages)).toBe(true);
   });
 
-  // 6. GET /api/v1/questions/1.1-q1/solution -> returns 200, correct answer, answer key, explanation, rule reference
-  it("6. GET /api/v1/questions/1.1-q1/solution -> returns 200, including correct answer, Cambridge answer key, Vietnamese explanation, and rule reference (1A or similar)", async () => {
-    const res = await request(app).get("/api/v1/questions/1.1-q1/solution");
+  // 6. Question Solution Access Control: Guest -> 401; Worked example (auth) -> 200; Unattempted non-example -> 403; Attempted -> 200
+  it("6. GET /api/v1/questions/:id/solution -> enforces auth & attempt gate before returning solution", async () => {
+    const guestRes = await request(app).get("/api/v1/questions/1.1-q1/solution");
+    expect(guestRes.status).toBe(401);
 
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    const sol = res.body.data;
+    // Worked example is inspectable by authenticated learner
+    const exampleRes = await request(app)
+      .get("/api/v1/questions/1.1-q1/solution")
+      .set("Authorization", `Bearer ${authToken}`);
+    expect(exampleRes.status).toBe(200);
+    expect(exampleRes.body.data.questionId).toBe("1.1-q1");
+    expect(exampleRes.body.data.correctAnswerText).toBe("f");
+    expect(exampleRes.body.data.explanation.ruleReference).toBe("1B");
 
-    expect(sol.questionId).toBe("1.1-q1");
-    expect(sol.correctAnswerText).toBe("f");
-    expect(sol.correctAnswerType).toBe("string");
-    expect(sol.acceptedAnswers).toContain("f");
+    // Interactive item locked before attempt
+    const lockedRes = await request(app)
+      .get("/api/v1/questions/1.1-q2/solution")
+      .set("Authorization", `Bearer ${authToken}`);
+    expect(lockedRes.status).toBe(403);
+    expect(lockedRes.body.error.code).toBe("SOLUTION_LOCKED");
 
-    // Official Cambridge Answer Key
-    expect(sol.answerKey).toBeDefined();
-    expect(sol.answerKey.exerciseNumber).toBe("1.1");
-    expect(sol.answerKey.answerText).toBe("f");
+    // Attempt question -> unlocks solution
+    const checkRes = await request(app)
+      .post("/api/v1/questions/1.1-q2/check")
+      .set("Authorization", `Bearer ${authToken}`)
+      .send({ answer: "e" });
+    expect(checkRes.status).toBe(200);
 
-    // Pedagogical Vietnamese Explanation
-    expect(sol.explanation).toBeDefined();
-    expect(sol.explanation.explanationLanguage).toBe("vi");
-    expect(sol.explanation.aiExplanation).toContain("Hành động đang diễn ra");
-    expect(sol.explanation.ruleReference).toBe("1B");
-    expect(sol.explanation.theorySection).toBeDefined();
-    expect(sol.explanation.theorySection.sectionId).toBe("1B");
-    expect(sol.explanation.theorySection.heading).toContain("I am doing something");
+    const unlockedRes = await request(app)
+      .get("/api/v1/questions/1.1-q2/solution")
+      .set("Authorization", `Bearer ${authToken}`);
+    expect(unlockedRes.status).toBe(200);
+    expect(unlockedRes.body.data.correctAnswerText).toBe("e");
+    expect(unlockedRes.body.data.explanation.explanationLanguage).toBe("vi");
   });
 
-  // 7. GET /api/v1/exercises/1.1/solutions -> returns solutions for all questions in exercise 1.1
-  it("7. GET /api/v1/exercises/1.1/solutions -> returns solutions for all questions in exercise 1.1", async () => {
-    const res = await request(app).get("/api/v1/exercises/1.1/solutions");
+  // 7. Exercise Solutions Access Control: Guest -> 401; Unattempted auth -> 403; Submitted exercise -> 200
+  it("7. GET /api/v1/exercises/1.1/solutions -> enforces auth & attempt gate, then returns all 8 ordered solutions", async () => {
+    const guestRes = await request(app).get("/api/v1/exercises/1.1/solutions");
+    expect(guestRes.status).toBe(401);
+
+    const lockedRes = await request(app)
+      .get("/api/v1/exercises/1.1/solutions")
+      .set("Authorization", `Bearer ${authToken}`);
+    expect(lockedRes.status).toBe(403);
+    expect(lockedRes.body.error.code).toBe("SOLUTION_LOCKED");
+
+    // Submit exercise attempt first
+    const attemptRes = await request(app)
+      .post("/api/v1/exercises/1.1/check")
+      .set("Authorization", `Bearer ${authToken}`)
+      .send({ answers: { "1.1-q2": "e" } });
+    expect(attemptRes.status).toBe(200);
+
+    const res = await request(app)
+      .get("/api/v1/exercises/1.1/solutions")
+      .set("Authorization", `Bearer ${authToken}`);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.data).toHaveLength(8);
 
-    // Verify ordering by displayOrder ASC
     const questionIds = res.body.data.map((s: any) => s.questionId);
     expect(questionIds).toEqual([
       "1.1-q1",
@@ -187,40 +225,36 @@ describe("Exercise, Question, Answer Key, Explanation & Anti-Spoiler Mode REST A
       "1.1-q8",
     ]);
 
-    // Verify all solutions contain answers, keys, and explanations
     for (const sol of res.body.data) {
       expect(sol.correctAnswerText).toBeDefined();
       expect(sol.answerKey).toBeDefined();
       expect(sol.explanation).toBeDefined();
     }
 
-    // Verify meta
-    expect(res.body.meta).toBeDefined();
     expect(res.body.meta.exerciseId).toBe("1.1");
     expect(res.body.meta.totalSolutions).toBe(8);
   });
 
   // 8. Error handling: non-existent exercise ID or question ID returns 404 NOT_FOUND
-  it("8. Error handling: requesting non-existent exercise ID or question ID returns 404 NOT_FOUND", async () => {
+  it("8. Error handling: requesting non-existent exercise ID or question ID returns 404 NOT_FOUND (when authenticated for solution endpoints)", async () => {
     const resEx = await request(app).get("/api/v1/exercises/999.9");
     expect(resEx.status).toBe(404);
-    expect(resEx.body.success).toBe(false);
     expect(resEx.body.error.code).toBe("NOT_FOUND");
 
-    const resExSol = await request(app).get("/api/v1/exercises/999.9/solutions");
+    const resExSol = await request(app)
+      .get("/api/v1/exercises/999.9/solutions")
+      .set("Authorization", `Bearer ${authToken}`);
     expect(resExSol.status).toBe(404);
-    expect(resExSol.body.success).toBe(false);
     expect(resExSol.body.error.code).toBe("NOT_FOUND");
 
     const resQ = await request(app).get("/api/v1/questions/999.9-q99");
     expect(resQ.status).toBe(404);
-    expect(resQ.body.success).toBe(false);
     expect(resQ.body.error.code).toBe("NOT_FOUND");
 
-    const resQSol = await request(app).get("/api/v1/questions/999.9-q99/solution");
+    const resQSol = await request(app)
+      .get("/api/v1/questions/999.9-q99/solution")
+      .set("Authorization", `Bearer ${authToken}`);
     expect(resQSol.status).toBe(404);
-    expect(resQSol.body.success).toBe(false);
     expect(resQSol.body.error.code).toBe("NOT_FOUND");
   });
 });
-

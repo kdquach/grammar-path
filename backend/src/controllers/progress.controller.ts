@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { AppError } from "../middleware/error-handler";
 import { sendSuccess } from "../utils/response";
+import { getLatestUnresolvedMistakes } from "../services/mistakes.service";
 
 const unitNumberParamSchema = z.object({
   unitNumber: z.coerce
@@ -223,12 +224,60 @@ export async function updateUnitProgress(
       },
     });
 
+    // Preserve and return existing attempt history alongside the updated unit status
+    const exercises = await prisma.exercise.findMany({
+      where: { unitId: unit.id },
+      select: { id: true },
+    });
+    const exerciseIds = exercises.map((e) => e.id);
+    const attempts =
+      exerciseIds.length > 0
+        ? await prisma.exerciseAttempt.findMany({
+            where: {
+              userId,
+              exerciseId: { in: exerciseIds },
+            },
+            orderBy: { submittedAt: "desc" },
+            include: {
+              exercise: {
+                select: {
+                  exerciseId: true,
+                  exerciseNumber: true,
+                },
+              },
+              items: {
+                include: {
+                  question: {
+                    select: {
+                      questionId: true,
+                    },
+                  },
+                },
+              },
+            },
+          })
+        : [];
+
     sendSuccess(res, {
       unitNumber: unit.unitNumber,
       title: unit.title,
       status: progress.status,
       completedAt: progress.completedAt,
       lastAccessedAt: progress.lastAccessedAt,
+      attempts: attempts.map((a) => ({
+        id: a.id,
+        exerciseId: a.exercise.exerciseId,
+        exerciseNumber: a.exercise.exerciseNumber,
+        totalQuestions: a.totalQuestions,
+        correctCount: a.correctCount,
+        scorePercentage: a.scorePercentage,
+        submittedAt: a.submittedAt,
+        items: a.items.map((it) => ({
+          questionId: it.question.questionId,
+          studentAnswer: it.studentAnswer,
+          isCorrect: it.isCorrect,
+        })),
+      })),
     });
   } catch (error) {
     next(error);
@@ -330,45 +379,36 @@ export async function getMistakes(
 ): Promise<void> {
   try {
     const userId = req.user!.id;
+    const mistakes = await getLatestUnresolvedMistakes(userId);
 
-    const mistakes = await prisma.$queryRaw<MistakeRow[]>`
-      WITH latest_attempts AS (
-        SELECT DISTINCT ON (qai.question_id)
-          q.question_id AS "questionId",
-          q.question_content AS "questionContent",
-          e.question_type::text AS "questionType",
-          e.exercise_id AS "exerciseId",
-          e.exercise_number AS "exerciseNumber",
-          u.unit_number AS "unitNumber",
-          u.title AS "unitTitle",
-          qai.student_answer AS "lastStudentAnswer",
-          qai.created_at AS "lastAttemptedAt",
-          qai.is_correct AS "isCorrect"
-        FROM question_attempt_items qai
-        JOIN questions q ON q.id = qai.question_id
-        JOIN exercises e ON e.id = q.exercise_id
-        JOIN units u ON u.id = e.unit_id
-        WHERE qai.user_id = ${userId}::uuid
-        ORDER BY qai.question_id, qai.created_at DESC
-      )
-      SELECT 
-        "questionId",
-        "questionContent",
-        "questionType",
-        "exerciseId",
-        "exerciseNumber",
-        "unitNumber",
-        "unitTitle",
-        "lastStudentAnswer",
-        "lastAttemptedAt"
-      FROM latest_attempts
-      WHERE "isCorrect" = false
-      ORDER BY "lastAttemptedAt" DESC;
-    `;
-
-    sendSuccess(res, mistakes, {
-      totalMistakes: mistakes.length,
-    });
+    sendSuccess(
+      res,
+      mistakes.map((m) => ({
+        questionId: m.questionId,
+        questionContent: m.questionContent,
+        questionType: m.questionType,
+        isExample: m.isExample,
+        hasVisualContext: m.hasVisualContext,
+        visualContextDescription: m.visualContextDescription,
+        contextClue: m.contextClue,
+        displayOrder: m.displayOrder,
+        options: m.options,
+        blanks: m.blanks,
+        parts: m.parts,
+        wordBankItems: m.wordBankItems,
+        exerciseId: m.exerciseId,
+        exerciseNumber: m.exerciseNumber,
+        instruction: m.instruction,
+        unitNumber: m.unitNumber,
+        unitTitle: m.unitTitle,
+        ruleReference: m.ruleReference,
+        lastStudentAnswer: m.lastStudentAnswer,
+        lastAttemptedAt: m.lastAttemptedAt,
+      })),
+      {
+        totalMistakes: mistakes.length,
+      }
+    );
   } catch (error) {
     next(error);
   }

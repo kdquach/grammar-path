@@ -1,12 +1,16 @@
 import React from "react";
-import { CheckCircle2, Eye, Sparkles, Loader2 } from "lucide-react";
+import { CheckCircle2, Eye, Sparkles, Loader2, Lock } from "lucide-react";
 import { Question } from "../../types/api.types";
 import OptionQuestionRenderer from "./renderers/OptionQuestionRenderer";
 import MultiPartQuestionRenderer from "./renderers/MultiPartQuestionRenderer";
 import FillBlankQuestionRenderer from "./renderers/FillBlankQuestionRenderer";
 import SentenceQuestionRenderer from "./renderers/SentenceQuestionRenderer";
-import QuestionFeedbackPanel, { FeedbackData } from "./QuestionFeedbackPanel";
+import QuestionFeedbackPanel, {
+  FeedbackData,
+  isEmptyAnswerValue,
+} from "./QuestionFeedbackPanel";
 import QuestionPromptText from "./QuestionPromptText";
+import QuestionVisualContext from "./QuestionVisualContext";
 
 export function isSplitBlankSlashOptionQuestion(question: Question): boolean {
   const options = question.options || [];
@@ -51,9 +55,11 @@ interface QuestionCardProps {
   onShowSolution: () => void;
   isChecking?: boolean;
   isLoadingSolution?: boolean;
+  isSolutionUnlocked?: boolean;
   onOpenRuleReference?: (sectionId: string) => void;
   exerciseInstruction?: string;
   allowMultiple?: boolean;
+  onFocusField?: (target?: { blankIndex?: number; partId?: string }) => void;
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -66,10 +72,26 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onShowSolution,
   isChecking = false,
   isLoadingSolution = false,
+  isSolutionUnlocked = true,
   onOpenRuleReference,
   exerciseInstruction,
   allowMultiple,
+  onFocusField,
 }) => {
+  const isSplitSlashOptions = isSplitBlankSlashOptionQuestion(question);
+  const hasOptions =
+    question.options && question.options.length > 0 && !isSplitSlashOptions;
+  const hasParts = question.parts && question.parts.length > 0;
+  const hasBlanks = question.blanks && question.blanks.length > 0;
+  const isOrderedMultiExpected = Boolean(
+    hasParts || (!hasOptions && (question.blanks?.length || 0) > 1)
+  );
+  const partLabelPrefix = hasParts ? "Part #" : "Blank #";
+  const resolvedAllowMultiple =
+    allowMultiple !== undefined
+      ? allowMultiple
+      : isMultiSelectExercise(exerciseInstruction, question.questionId);
+
   // Convert any result (check result or full solution) to unified FeedbackData
   const feedback: FeedbackData | null = React.useMemo(() => {
     if (!result) return null;
@@ -80,9 +102,34 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       const ruleRef =
         result.ruleReference || (typeof exp === "object" ? exp?.ruleReference : null);
 
+      const orderedFromParts =
+        Array.isArray(result.parts) && result.parts.length > 0
+          ? result.parts.map(
+              (p: any) =>
+                p?.correctAnswerText ||
+                p?.acceptedAnswers?.[0] ||
+                result.correctAnswerText ||
+                ""
+            )
+          : [];
+      const orderedFromBlanks =
+        !hasOptions && Array.isArray(result.blanks) && result.blanks.length > 1
+          ? result.blanks.map(
+              (b: any) =>
+                b?.correctAnswerText ||
+                b?.acceptedAnswers?.[0] ||
+                result.correctAnswerText ||
+                ""
+            )
+          : [];
+
       const expected =
         result.expectedAnswers ||
-        (result.acceptedAnswers && result.acceptedAnswers.length > 0
+        (orderedFromParts.some(Boolean)
+          ? orderedFromParts
+          : orderedFromBlanks.some(Boolean)
+          ? orderedFromBlanks
+          : result.acceptedAnswers && result.acceptedAnswers.length > 0
           ? result.acceptedAnswers
           : result.correctAnswerText
           ? [result.correctAnswerText]
@@ -91,6 +138,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       return {
         isCorrect: result.isCorrect,
         isRevealedSolution: result.isCorrect === undefined,
+        isOrderedMultiExpected,
+        partLabelPrefix,
         studentAnswer: result.studentAnswer ?? value,
         expectedAnswers: expected,
         correctAnswers: result.correctAnswers || expected,
@@ -100,16 +149,54 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       };
     }
 
+    const resolvedStatus: "correct" | "incorrect" | "unanswered" =
+      result.status === "unanswered" ||
+      result.status === "correct" ||
+      result.status === "incorrect"
+        ? result.status
+        : result.isCorrect
+        ? "correct"
+        : result.studentAnswer === null ||
+          (result.studentAnswer !== undefined &&
+            isEmptyAnswerValue(result.studentAnswer)) ||
+          (result.studentAnswer === undefined &&
+            isEmptyAnswerValue(value) &&
+            !(
+              result.expectedAnswers?.length ||
+              result.correctAnswers?.length ||
+              result.explanation
+            ))
+        ? "unanswered"
+        : "incorrect";
+
+    if (resolvedStatus === "unanswered") {
+      return {
+        status: "unanswered",
+        isCorrect: false,
+        isRevealedSolution: false,
+        isOrderedMultiExpected,
+        partLabelPrefix,
+        studentAnswer: null,
+        expectedAnswers: [],
+        correctAnswers: [],
+        explanation: null,
+        ruleReference: null,
+      };
+    }
+
     return {
+      status: resolvedStatus,
       isCorrect: result.isCorrect,
       isRevealedSolution: false,
+      isOrderedMultiExpected,
+      partLabelPrefix,
       studentAnswer: result.studentAnswer ?? value,
       expectedAnswers: result.expectedAnswers || result.correctAnswers || [],
       correctAnswers: result.correctAnswers || [],
       explanation: result.explanation || null,
       ruleReference: result.ruleReference || null,
     };
-  }, [result, value]);
+  }, [result, value, hasOptions, isOrderedMultiExpected, partLabelPrefix]);
 
   // ─── 1. Worked Example Card ───────────────────────────────────────────
   if (question.isExample) {
@@ -141,6 +228,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         </div>
 
         <div className="space-y-2">
+          <QuestionVisualContext
+            hasVisualContext={question.hasVisualContext}
+            description={question.visualContextDescription}
+          />
+
           {question.questionContent && (
             <QuestionPromptText content={question.questionContent} />
           )}
@@ -174,16 +266,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   }
 
   // ─── 2. Interactive Test Question Card ─────────────────────────────────
-  const isSplitSlashOptions = isSplitBlankSlashOptionQuestion(question);
-  const hasOptions =
-    question.options && question.options.length > 0 && !isSplitSlashOptions;
-  const hasParts = question.parts && question.parts.length > 0;
-  const hasBlanks = question.blanks && question.blanks.length > 0;
-  const resolvedAllowMultiple =
-    allowMultiple !== undefined
-      ? allowMultiple
-      : isMultiSelectExercise(exerciseInstruction, question.questionId);
-
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 shadow-2xs space-y-4 hover:border-slate-300 transition-colors">
       {/* Question Header */}
@@ -216,18 +298,21 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             question={question}
             value={value}
             onChange={onChange}
+            onFocusField={(partId) => onFocusField?.({ partId })}
           />
         ) : hasBlanks ? (
           <FillBlankQuestionRenderer
             question={question}
             value={value}
             onChange={onChange}
+            onFocusField={(blankIndex) => onFocusField?.({ blankIndex })}
           />
         ) : (
           <SentenceQuestionRenderer
             question={question}
             value={value}
             onChange={onChange}
+            onFocusField={() => onFocusField?.({})}
           />
         )}
       </div>
@@ -253,12 +338,23 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             type="button"
             disabled={isLoadingSolution}
             onClick={onShowSolution}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer"
+            title={
+              isSolutionUnlocked
+                ? "Inspect full solution & explanation"
+                : "Sign in and check your answer once to unlock solution"
+            }
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium border bg-white hover:bg-slate-50 disabled:opacity-50 transition-colors cursor-pointer ${
+              isSolutionUnlocked
+                ? "border-slate-200 text-slate-700"
+                : "border-slate-200 text-slate-500"
+            }`}
           >
             {isLoadingSolution ? (
               <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
+            ) : isSolutionUnlocked ? (
               <Eye className="w-4 h-4 text-slate-500" />
+            ) : (
+              <Lock className="w-4 h-4 text-amber-500" />
             )}
             <span>Show Solution</span>
           </button>

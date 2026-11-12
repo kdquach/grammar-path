@@ -2,15 +2,32 @@ import React from "react";
 import {
   CheckCircle2,
   XCircle,
+  MinusCircle,
   Eye,
   BookOpen,
   FileText,
   Lightbulb,
 } from "lucide-react";
 
+export function isEmptyAnswerValue(val: unknown): boolean {
+  if (val === undefined || val === null) return true;
+  if (typeof val === "string") return val.trim().length === 0;
+  if (Array.isArray(val)) {
+    return val.every((item) => typeof item !== "string" || item.trim().length === 0);
+  }
+  if (typeof val === "object") {
+    const entries = Object.values(val as Record<string, unknown>);
+    return entries.every((item) => typeof item !== "string" || item.trim().length === 0);
+  }
+  return false;
+}
+
 export interface FeedbackData {
+  status?: "correct" | "incorrect" | "unanswered";
   isCorrect?: boolean;
   isRevealedSolution?: boolean;
+  isOrderedMultiExpected?: boolean;
+  partLabelPrefix?: string;
   studentAnswer?: unknown;
   correctAnswers?: string[];
   expectedAnswers?: string[];
@@ -33,8 +50,11 @@ export const QuestionFeedbackPanel: React.FC<QuestionFeedbackPanelProps> = ({
   onOpenRuleReference,
 }) => {
   const {
+    status,
     isCorrect,
     isRevealedSolution,
+    isOrderedMultiExpected = false,
+    partLabelPrefix = "#",
     expectedAnswers = [],
     correctAnswers = [],
     explanation,
@@ -42,18 +62,50 @@ export const QuestionFeedbackPanel: React.FC<QuestionFeedbackPanelProps> = ({
     answerKey,
   } = feedback;
 
+  const isUnanswered =
+    !isRevealedSolution && !isCorrect && status === "unanswered";
+
+  if (isUnanswered) {
+    return (
+      <div
+        data-feedback-status="unanswered"
+        className="mt-4 rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-700 transition-all duration-200"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 font-bold">
+            <MinusCircle className="w-5 h-5 text-slate-500" />
+            <span className="text-slate-700 text-base">Unanswered</span>
+          </div>
+          <span className="text-xs text-slate-500 font-medium">
+            No answer was submitted for this question.
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const answersToShow =
     expectedAnswers.length > 0 ? expectedAnswers : correctAnswers;
   const primaryExpected = answersToShow[0] || (answerKey ? answerKey.answerText : null);
-  const alternativeAnswers = answersToShow.slice(1);
+  const alternativeAnswers = isOrderedMultiExpected ? [] : answersToShow.slice(1);
 
   // Normalize source pages if array of objects or numbers
   const sourcePagesList: number[] = (answerKey?.sourcePages || []).map((p) =>
     typeof p === "number" ? p : p.pageNumber
   );
 
+  const hasBodyContent = Boolean(
+    (isOrderedMultiExpected && answersToShow.length > 1) ||
+      primaryExpected ||
+      answerKey ||
+      explanation
+  );
+
   return (
     <div
+      data-feedback-status={
+        isCorrect ? "correct" : isRevealedSolution ? "revealed" : "incorrect"
+      }
       className={`mt-4 rounded-xl border p-4 text-sm transition-all duration-200 ${
         isCorrect
           ? "bg-emerald-50/70 border-emerald-200 text-emerald-950"
@@ -63,7 +115,11 @@ export const QuestionFeedbackPanel: React.FC<QuestionFeedbackPanelProps> = ({
       }`}
     >
       {/* ─── Status Header ────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 mb-3 border-current/10">
+      <div
+        className={`flex flex-wrap items-center justify-between gap-2 ${
+          hasBodyContent ? "border-b pb-3 mb-3 border-current/10" : ""
+        }`}
+      >
         <div className="flex items-center gap-2 font-bold">
           {isCorrect ? (
             <>
@@ -98,31 +154,53 @@ export const QuestionFeedbackPanel: React.FC<QuestionFeedbackPanelProps> = ({
       </div>
 
       {/* ─── Expected Answers / Variants ──────────────────────────────── */}
-      {primaryExpected && (
+      {isOrderedMultiExpected && answersToShow.length > 1 ? (
         <div className="space-y-1.5 mb-3">
-          <div className="flex items-baseline gap-2">
-            <span className="text-xs uppercase font-bold tracking-wider opacity-75">
-              Expected Answer:
-            </span>
-            <span className="font-semibold text-slate-900 bg-white/80 px-2 py-0.5 rounded border border-current/15 font-mono text-sm">
-              {primaryExpected}
-            </span>
-          </div>
-
-          {alternativeAnswers.length > 0 && (
-            <div className="text-xs flex flex-wrap items-center gap-1.5 opacity-90 pl-1">
-              <span className="font-medium">Also accepted:</span>
-              {alternativeAnswers.map((alt, idx) => (
-                <span
-                  key={idx}
-                  className="px-1.5 py-0.5 bg-white/70 rounded font-mono text-[11px] border border-current/10"
-                >
-                  {alt}
+          <span className="text-xs uppercase font-bold tracking-wider opacity-75 block">
+            Expected Answers:
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {answersToShow.map((ans, idx) => (
+              <span
+                key={idx}
+                className="inline-flex items-baseline gap-1 font-semibold text-slate-900 bg-white/80 px-2 py-0.5 rounded border border-current/15 font-mono text-xs sm:text-sm"
+              >
+                <span className="text-[11px] font-sans font-bold text-slate-500">
+                  {partLabelPrefix}
+                  {idx + 1}:
                 </span>
-              ))}
-            </div>
-          )}
+                <span>{ans || "-"}</span>
+              </span>
+            ))}
+          </div>
         </div>
+      ) : (
+        primaryExpected && (
+          <div className="space-y-1.5 mb-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs uppercase font-bold tracking-wider opacity-75">
+                Expected Answer:
+              </span>
+              <span className="font-semibold text-slate-900 bg-white/80 px-2 py-0.5 rounded border border-current/15 font-mono text-sm">
+                {primaryExpected}
+              </span>
+            </div>
+
+            {alternativeAnswers.length > 0 && (
+              <div className="text-xs flex flex-wrap items-center gap-1.5 opacity-90 pl-1">
+                <span className="font-medium">Also accepted:</span>
+                {alternativeAnswers.map((alt, idx) => (
+                  <span
+                    key={idx}
+                    className="px-1.5 py-0.5 bg-white/70 rounded font-mono text-[11px] border border-current/10"
+                  >
+                    {alt}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {/* ─── Cambridge Answer Key Provenance Box ──────────────────────── */}

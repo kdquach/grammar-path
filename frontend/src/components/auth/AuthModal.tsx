@@ -30,6 +30,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setErrorMessage(null);
   }, [initialMode, isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,6 +105,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const modalContent = (
     <div
       className="fixed inset-0 z-50 m-0 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label={mode === "login" ? "Sign In to GrammarPath" : "Create Learner Account"}
       onClick={onClose}
     >
       <div

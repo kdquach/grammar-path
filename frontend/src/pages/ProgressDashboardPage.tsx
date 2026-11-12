@@ -29,6 +29,11 @@ export const ProgressDashboardPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isAdaptiveQuizOpen, setIsAdaptiveQuizOpen] = useState<boolean>(false);
+  const [refreshCounter, setRefreshCounter] = useState<number>(0);
+
+  const handleRefreshDashboard = () => {
+    setRefreshCounter((c) => c + 1);
+  };
 
   useEffect(() => {
     if (isAuthLoading) return;
@@ -59,7 +64,7 @@ export const ProgressDashboardPage: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [user, isAuthLoading]);
+  }, [user, isAuthLoading, refreshCounter]);
 
   // While restoring session from localStorage token
   if (isAuthLoading) {
@@ -104,7 +109,7 @@ export const ProgressDashboardPage: React.FC = () => {
     );
   }
 
-  if (isLoading) {
+  if (isLoading && !overview) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-slate-400 space-y-3">
         <Loader2 className="w-8 h-8 animate-spin text-brand-600" />
@@ -323,7 +328,10 @@ export const ProgressDashboardPage: React.FC = () => {
       </div>
 
       {/* ─── Phase 9: Adaptive Review & AI Tutor Engine ───────────────────── */}
-      <AdaptiveReviewPanel onStartAdaptiveQuiz={() => setIsAdaptiveQuizOpen(true)} />
+      <AdaptiveReviewPanel
+        refreshKey={refreshCounter}
+        onStartAdaptiveQuiz={() => setIsAdaptiveQuizOpen(true)}
+      />
 
       {/* ─── Recent Attempts Table ────────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-2xs space-y-4 p-6">
@@ -424,6 +432,7 @@ export const ProgressDashboardPage: React.FC = () => {
       <AdaptiveQuizModal
         isOpen={isAdaptiveQuizOpen}
         onClose={() => setIsAdaptiveQuizOpen(false)}
+        onProgressUpdated={handleRefreshDashboard}
       />
     </div>
   );

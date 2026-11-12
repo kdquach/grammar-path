@@ -9,7 +9,13 @@
     "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "test:migrations": "tsx scripts/verify-migrations.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:unit": "vitest run tests/phase1-security-hardening.test.ts tests/phase1-6-hygiene.test.ts tests/phase1-7-staging-guard.test.ts tests/phase2-1-unit.test.ts tests/phase2-2-unit.test.ts",
+    "staging:check": "node scripts/run-with-staging-env.mjs --check-only",
+    "prisma:status:staging": "node scripts/run-with-staging-env.mjs -- ./node_modules/.bin/prisma migrate status",
+    "prisma:migrate:staging": "node scripts/run-with-staging-env.mjs -- ./node_modules/.bin/prisma migrate deploy",
+    "test:api:staging": "node scripts/run-with-staging-env.mjs -- ./node_modules/.bin/vitest run tests/curriculum.api.test.ts tests/exercises.api.test.ts tests/grading.api.test.ts tests/auth-and-progress.api.test.ts tests/adaptive.api.test.ts tests/adaptive-toeic.api.test.ts tests/phase2-1-remediation.api.test.ts tests/phase2-2-qa.api.test.ts",
+    "start:staging": "node scripts/run-with-staging-env.mjs -- node dist/src/server.js"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

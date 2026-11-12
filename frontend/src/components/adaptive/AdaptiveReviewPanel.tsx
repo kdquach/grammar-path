@@ -25,10 +25,12 @@ import RuleReferenceModal from "../theory/RuleReferenceModal";
 
 interface AdaptiveReviewPanelProps {
   onStartAdaptiveQuiz?: () => void;
+  refreshKey?: number;
 }
 
 export const AdaptiveReviewPanel: React.FC<AdaptiveReviewPanelProps> = ({
   onStartAdaptiveQuiz,
+  refreshKey = 0,
 }) => {
   const { user } = useAuth();
   const [analytics, setAnalytics] = useState<AdaptiveAnalytics | null>(null);
@@ -70,7 +72,7 @@ export const AdaptiveReviewPanel: React.FC<AdaptiveReviewPanelProps> = ({
     if (user) {
       loadAdaptiveData();
     }
-  }, [user]);
+  }, [user, refreshKey]);
 
   if (!user) {
     return (
@@ -435,6 +437,7 @@ export const AdaptiveReviewPanel: React.FC<AdaptiveReviewPanelProps> = ({
         <AdaptiveQuizModal
           isOpen={isInternalQuizOpen}
           onClose={() => setIsInternalQuizOpen(false)}
+          onProgressUpdated={loadAdaptiveData}
         />
       </div>
 

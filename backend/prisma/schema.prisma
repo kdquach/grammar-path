@@ -454,9 +454,11 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  progress         LearningProgress[]
-  exerciseAttempts ExerciseAttempt[]
-  questionAttempts QuestionAttemptItem[]
+  progress              LearningProgress[]
+  exerciseAttempts      ExerciseAttempt[]
+  questionAttempts      QuestionAttemptItem[]
+  adaptiveQuizSessions  AdaptiveQuizSession[]
+  toeicPracticeSessions ToeicPracticeSession[]
 
   @@map("users")
 }
@@ -513,4 +515,59 @@ model QuestionAttemptItem {
   @@index([userId, isCorrect])
   @@index([userId, questionId])
   @@map("question_attempt_items")
+}
+
+// ─── Server-Graded Adaptive Quiz & TOEIC Practice Persistence ─────────────────
+
+model AdaptiveQuizSession {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  difficulty  String   @db.VarChar(20)
+  questionIds Json     @map("question_ids")
+  targetUnits Json     @map("target_units")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("adaptive_quiz_sessions")
+}
+
+model ToeicPracticeSession {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  unitNumber     Int      @map("unit_number")
+  difficulty     String   @db.VarChar(20)
+  source         String   @db.VarChar(20)
+  requestedCount Int      @map("requested_count")
+  actualCount    Int      @map("actual_count")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ToeicPracticeItem[]
+
+  @@index([userId, createdAt])
+  @@index([userId, unitNumber])
+  @@map("toeic_practice_sessions")
+}
+
+model ToeicPracticeItem {
+  id            String    @id @default(uuid()) @db.Uuid
+  sessionId     String    @map("session_id") @db.Uuid
+  itemOrder     Int       @map("item_order")
+  source        String    @db.VarChar(20)
+  prompt        String    @db.Text
+  options       Json
+  correctAnswer String    @map("correct_answer") @db.VarChar(10)
+  explanation   String    @db.Text
+  ruleReference String?   @map("rule_reference") @db.VarChar(32)
+  studentAnswer String?   @map("student_answer") @db.VarChar(10)
+  isCorrect     Boolean?  @map("is_correct")
+  attemptCount  Int       @default(0) @map("attempt_count")
+  answeredAt    DateTime? @map("answered_at") @db.Timestamptz(6)
+
+  session ToeicPracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, itemOrder])
+  @@map("toeic_practice_items")
 }

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "../src/context/AuthContext";
 import AppLayout from "../src/components/layout/AppLayout";
 import ProgressDashboardPage from "../src/pages/ProgressDashboardPage";
 import MistakeReviewPage from "../src/pages/MistakeReviewPage";
+import UnitPage from "../src/pages/UnitPage";
 import api from "../src/api/client";
 import type {
   AuthResponse,
@@ -20,6 +21,9 @@ vi.mock("../src/api/client", () => {
     registerUser: vi.fn(),
     getCurrentUser: vi.fn(),
     getProgressOverview: vi.fn(),
+    getUnitDetail: vi.fn(),
+    getUnitTheory: vi.fn(),
+    getUnitExercises: vi.fn(),
     getUnitProgress: vi.fn(),
     updateUnitProgress: vi.fn(),
     getMistakes: vi.fn(),
@@ -262,8 +266,8 @@ describe("Frontend Authentication, Progress Dashboard & Mistake Review", () => {
       expect(screen.getByText("1 Unresolved")).toBeInTheDocument();
     });
 
-    // Locate retry input and submit correct answer
-    const retryInput = screen.getByPlaceholderText(/type your correction\.\.\./i);
+    // Locate polymorphic retry input and submit correct answer
+    const retryInput = screen.getByPlaceholderText(/type full sentence or missing phrase\.\.\./i);
     const checkBtn = screen.getByRole("button", { name: /check correction/i });
 
     fireEvent.change(retryInput, { target: { value: "e" } });
@@ -274,12 +278,216 @@ describe("Frontend Authentication, Progress Dashboard & Mistake Review", () => {
       expect(api.checkQuestionAnswer).toHaveBeenCalledWith("1.1-q2", "e");
     });
 
-    // Verify resolved banner is displayed with Vietnamese explanation
+    // Verify resolved banner and explanation are displayed
     await waitFor(() => {
       expect(screen.getByText(/resolved! cleared from mistakes list/i)).toBeInTheDocument();
       expect(
         screen.getByText("Diễn tả hành động đang diễn ra tại thời điểm nói.")
       ).toBeInTheDocument();
+    });
+  });
+
+  // 4. MistakeReviewPage polymorphic multi-blank + Word Bank + option retry
+  it("5. MistakeReviewPage: Supports polymorphic multi-blank retry, WordBankBar insertion, and refreshes adaptive analytics on resolve", async () => {
+    const polyMistakes: MistakeItem[] = [
+      {
+        questionId: "86.4-q9",
+        questionContent:
+          "'Who were you talking to just now?' '[blank]. I wasn't talking to [blank].'",
+        questionType: "fill_blank",
+        instruction: "Complete the sentences with nobody/anything/...",
+        ruleReference: "86A",
+        wordBankItems: [{ id: "wb-86", word: "anyone", displayOrder: 1 }],
+        options: [
+          { optionKey: "a", optionText: "No-one / Anyone", displayOrder: 1 },
+          { optionKey: "b", optionText: "no-one / anyone", displayOrder: 2 },
+        ],
+        blanks: [{ blankIndex: 1 }, { blankIndex: 2 }],
+        parts: [],
+        exerciseId: "86.4",
+        exerciseNumber: "86.4",
+        unitNumber: 86,
+        unitTitle: "No/none/any Nothing/nobody etc.",
+        lastStudentAnswer: ["Nothing", "nothing"],
+        lastAttemptedAt: "2026-11-12T10:00:00Z",
+      },
+    ];
+
+    vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser);
+    vi.mocked(api.getMistakes).mockResolvedValue(polyMistakes);
+    vi.mocked(api.checkQuestionAnswer).mockResolvedValue({
+      questionId: "86.4-q9",
+      isCorrect: true,
+      studentAnswer: ["No-one", "anyone"],
+      correctAnswers: ["No-one / anyone"],
+      expectedAnswers: ["No-one / anyone"],
+      explanation: "Sau 'I wasn't talking to' dùng 'anyone'.",
+      ruleReference: "86A",
+    });
+
+    localStorage.setItem("grammarpath_token", "mock-token");
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <MistakeReviewPage />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Blank #1")).toBeInTheDocument();
+      expect(screen.getByText("Blank #2")).toBeInTheDocument();
+      expect(screen.getByText("Nothing / nothing")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Rule 86A/i })).toBeInTheDocument();
+    });
+
+    // Click slash pills and verify WordBankBar click inserts into focused/empty blank
+    fireEvent.click(screen.getByRole("button", { name: "No-one" }));
+    fireEvent.click(
+      within(screen.getByTestId("word-bank-bar")).getByRole("button", {
+        name: "anyone",
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /check correction/i }));
+
+    await waitFor(() => {
+      expect(api.checkQuestionAnswer).toHaveBeenCalledWith("86.4-q9", [
+        "No-one",
+        "anyone",
+      ]);
+      expect(screen.getByText(/resolved! cleared from mistakes list/i)).toBeInTheDocument();
+      // Analytics refetched after resolving mistake
+      expect(vi.mocked(api.getAdaptiveAnalytics).mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  // 6. UnitPage manual status toggle preserves attempts
+  it("6. UnitPage: Toggling manual completion status preserves exercise attempts in state", async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue(mockUser);
+    vi.mocked(api.getUnitDetail).mockResolvedValue({
+      id: "unit-23",
+      unitNumber: 23,
+      title: "Will and shall 2",
+      theoryPdfPage: 58,
+      exercisePdfPage: 59,
+      bookTheoryPage: 46,
+      bookExercisePage: 47,
+      bookAnswerKeyPage: 342,
+      confidenceLevel: "high",
+      sourcePages: [],
+      theorySections: [{ sectionId: "23A", heading: "23A", displayOrder: 1 }],
+      exercises: [
+        {
+          exerciseId: "23.1",
+          exerciseNumber: "23.1",
+          questionType: "fill_blank",
+          instruction: "Complete sentences",
+          hasVisualContext: false,
+          displayOrder: 1,
+          questionCount: 4,
+          wordBankCount: 0,
+        },
+      ],
+    });
+    vi.mocked(api.getUnitTheory).mockResolvedValue({
+      unitNumber: 23,
+      title: "Will and shall 2",
+      theorySections: [
+        {
+          id: "ts-23",
+          sectionId: "23A",
+          heading: "23A",
+          sourceContent: "Sample theory",
+          displayOrder: 1,
+          sourcePages: [46],
+        },
+      ],
+      textbookExamples: [],
+    });
+    vi.mocked(api.getUnitProgress).mockResolvedValue({
+      unitNumber: 23,
+      title: "Will and shall 2",
+      status: "in_progress",
+      lastAccessedAt: "2026-11-12T10:00:00Z",
+      completedAt: null,
+      attempts: [
+        {
+          id: "att-23-1",
+          exerciseId: "23.1",
+          exerciseNumber: "23.1",
+          scorePercentage: 75,
+          correctCount: 3,
+          totalQuestions: 4,
+          submittedAt: "2026-11-12T09:50:00Z",
+          items: [
+            {
+              questionId: "23.1-q1",
+              studentAnswer: "will go",
+              isCorrect: true,
+            },
+          ],
+        },
+      ],
+    });
+    vi.mocked(api.getUnitExercises).mockResolvedValue([
+      {
+        id: "ex-23-1",
+        exerciseId: "23.1",
+        exerciseNumber: "23.1",
+        questionType: "fill_blank",
+        instruction: "Complete sentences",
+        hasVisualContext: false,
+        displayOrder: 1,
+        wordBankItems: [],
+        questions: [
+          {
+            id: "q-23-1",
+            questionId: "23.1-q1",
+            questionContent: "I [___] tomorrow.",
+            isExample: false,
+            hasVisualContext: false,
+            displayOrder: 1,
+            options: [],
+            blanks: [{ blankIndex: 1 }],
+            parts: [],
+          },
+        ],
+      },
+    ]);
+    vi.mocked(api.updateUnitProgress).mockResolvedValue({
+      unitNumber: 23,
+      title: "Will and shall 2",
+      status: "completed",
+      lastAccessedAt: "2026-11-12T10:05:00Z",
+      completedAt: "2026-11-12T10:05:00Z",
+      attempts: [],
+    });
+
+    localStorage.setItem("grammarpath_token", "mock-token");
+
+    render(
+      <MemoryRouter initialEntries={["/units/23"]}>
+        <AuthProvider>
+          <Routes>
+            <Route path="/units/:unitNumber" element={<UnitPage />} />
+          </Routes>
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const markBtn = await screen.findByRole("button", { name: /mark as completed/i });
+    fireEvent.click(markBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Completed")).toBeInTheDocument();
+    });
+
+    // Switch to Exercises tab -> preserved score badge (75%) must still render!
+    fireEvent.click(screen.getByRole("button", { name: /exercises overview/i }));
+    await waitFor(() => {
+      expect(screen.getByText("✓ 75%")).toBeInTheDocument();
     });
   });
 

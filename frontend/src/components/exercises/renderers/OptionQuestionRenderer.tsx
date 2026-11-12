@@ -2,6 +2,7 @@ import React from "react";
 import { Check } from "lucide-react";
 import { Question } from "../../../types/api.types";
 import QuestionPromptText from "../QuestionPromptText";
+import QuestionVisualContext from "../QuestionVisualContext";
 
 interface OptionQuestionRendererProps {
   question: Question;
@@ -61,6 +62,11 @@ export const OptionQuestionRenderer: React.FC<OptionQuestionRendererProps> = ({
 
   return (
     <div className="space-y-3">
+      <QuestionVisualContext
+        hasVisualContext={question.hasVisualContext}
+        description={question.visualContextDescription}
+      />
+
       {question.questionContent && (
         <QuestionPromptText content={question.questionContent} />
       )}

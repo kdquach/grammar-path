@@ -110,7 +110,13 @@ export const UnitPage: React.FC = () => {
     try {
       setIsUpdatingProgress(true);
       const updated = await api.updateUnitProgress(unitNumber, nextStatus);
-      setUnitProgress(updated);
+      setUnitProgress((prev) => ({
+        ...updated,
+        attempts:
+          updated.attempts && updated.attempts.length > 0
+            ? updated.attempts
+            : prev?.attempts ?? [],
+      }));
     } catch (err: any) {
       toast.error(err?.message || "Failed to update unit progress");
     } finally {

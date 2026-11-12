@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -15,40 +15,92 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import api from "../../api/client";
+import { useToast } from "../../context/ToastContext";
 import type {
   AdaptiveQuizSession,
   AdaptiveQuizQuestion,
   DifficultyLevel,
+  Question,
+  QuestionCheckResult,
+  QuestionOption,
 } from "../../types/api.types";
 import RuleReferenceModal from "../theory/RuleReferenceModal";
-import QuestionPromptText from "../exercises/QuestionPromptText";
+import OptionQuestionRenderer from "../exercises/renderers/OptionQuestionRenderer";
+import FillBlankQuestionRenderer from "../exercises/renderers/FillBlankQuestionRenderer";
+import MultiPartQuestionRenderer from "../exercises/renderers/MultiPartQuestionRenderer";
+import SentenceQuestionRenderer from "../exercises/renderers/SentenceQuestionRenderer";
+import WordBankBar from "../exercises/WordBankBar";
+import {
+  isMultiSelectExercise,
+  isSplitBlankSlashOptionQuestion,
+} from "../exercises/QuestionCard";
+import { isEmptyAnswerValue } from "../exercises/ExerciseViewer";
 
 interface AdaptiveQuizModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onProgressUpdated?: () => void;
+}
+
+function normalizeAdaptiveOptions(
+  rawOptions: AdaptiveQuizQuestion["options"]
+): QuestionOption[] {
+  if (!rawOptions || rawOptions.length === 0) return [];
+  return rawOptions.map((opt: any, idx: number) => ({
+    optionKey: opt.optionKey ?? opt.key ?? String.fromCharCode(65 + idx),
+    optionText: opt.optionText ?? opt.text ?? "",
+    displayOrder: opt.displayOrder ?? idx + 1,
+  }));
+}
+
+function toAdaptiveRenderableQuestion(q: AdaptiveQuizQuestion): Question {
+  return {
+    id: q.id || q.questionId,
+    questionId: q.questionId,
+    questionContent: q.questionContent || q.prompt || "",
+    isExample: Boolean(q.isExample),
+    hasVisualContext: Boolean(q.hasVisualContext),
+    visualContextDescription: q.visualContextDescription ?? null,
+    contextClue: q.contextClue ?? null,
+    displayOrder: q.displayOrder ?? 1,
+    options: normalizeAdaptiveOptions(q.options),
+    blanks: q.blanks || [],
+    parts: q.parts || [],
+  };
 }
 
 export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
   isOpen,
   onClose,
+  onProgressUpdated,
 }) => {
+  const toast = useToast();
   const [session, setSession] = useState<AdaptiveQuizSession | null>(null);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("medium");
   const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({});
-  const [isCorrectMap, setIsCorrectMap] = useState<Record<number, boolean>>({});
+  const [answers, setAnswers] = useState<Record<number, unknown>>({});
+  const [checkResults, setCheckResults] = useState<
+    Record<number, QuestionCheckResult & { sessionId?: string | null }>
+  >({});
+  const [isCheckingIndex, setIsCheckingIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [inspectingRule, setInspectingRule] = useState<string | null>(null);
+
+  const inFlightIndicesRef = useRef<Set<number>>(new Set());
+  const focusedTargetRef = useRef<
+    Record<number, { blankIndex?: number; partId?: string }>
+  >({});
 
   const loadAdaptiveQuiz = async (targetDifficulty: DifficultyLevel = difficulty) => {
     setIsLoading(true);
     setError(null);
     setAnswers({});
-    setCheckedQuestions({});
-    setIsCorrectMap({});
+    setCheckResults({});
     setCurrentIndex(0);
+    setIsCheckingIndex(null);
+    inFlightIndicesRef.current.clear();
+    focusedTargetRef.current = {};
 
     try {
       const data = await api.generateAdaptiveQuiz(5, targetDifficulty);
@@ -93,48 +145,124 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
 
   const questions: AdaptiveQuizQuestion[] = session?.questions || [];
   const currentQ: AdaptiveQuizQuestion | undefined = questions[currentIndex];
+  const currentRenderableQ = currentQ ? toAdaptiveRenderableQuestion(currentQ) : null;
+  const currentResult = checkResults[currentIndex];
   const totalQuestions = questions.length;
 
-  const handleAnswerChange = (val: string) => {
-    if (checkedQuestions[currentIndex]) return;
+  const handleAnswerChange = (val: unknown) => {
+    if (checkResults[currentIndex]) return;
     setAnswers((prev) => ({ ...prev, [currentIndex]: val }));
   };
 
-  const normalize = (str: string) =>
-    str
-      .trim()
-      .toLowerCase()
-      .replace(/[\s.?!,;:'"’]/g, "");
+  const handleWordBankSelect = (word: string) => {
+    if (!currentRenderableQ || checkResults[currentIndex]) return;
+    const current = answers[currentIndex];
+    const focus = focusedTargetRef.current[currentIndex];
 
-  const handleCheckCurrent = () => {
-    const studentAns = answers[currentIndex] || "";
-    if (!studentAns.trim()) return;
-
-    let correct = false;
-    if (currentQ?.options && currentQ.options.length > 0) {
-      // Multiple choice option key check or text check
-      const opt = currentQ.options.find(
-        (o) =>
-          o.key.toLowerCase() === studentAns.toLowerCase() ||
-          normalize(o.text) === normalize(studentAns)
-      );
-      if (opt && currentQ.correctAnswer) {
-        correct =
-          opt.key.toLowerCase() === currentQ.correctAnswer.toLowerCase() ||
-          normalize(opt.text) === normalize(currentQ.correctAnswer);
-      }
-    } else if (currentQ?.correctAnswer) {
-      // Text or blank check
-      correct = normalize(studentAns) === normalize(currentQ.correctAnswer);
+    if (currentRenderableQ.parts && currentRenderableQ.parts.length > 0) {
+      const prevMap =
+        current && typeof current === "object" && !Array.isArray(current)
+          ? { ...(current as Record<string, string>) }
+          : {};
+      const targetPartId =
+        focus?.partId ||
+        currentRenderableQ.parts.find(
+          (p, i) => !(prevMap[p.partId || String(i + 1)] || "").trim()
+        )?.partId ||
+        currentRenderableQ.parts[0]?.partId ||
+        "1";
+      prevMap[targetPartId] = word;
+      handleAnswerChange(prevMap);
+      return;
     }
 
-    setCheckedQuestions((prev) => ({ ...prev, [currentIndex]: true }));
-    setIsCorrectMap((prev) => ({ ...prev, [currentIndex]: correct }));
+    if (currentRenderableQ.blanks && currentRenderableQ.blanks.length > 1) {
+      const arr = Array.isArray(current) ? [...current] : [];
+      while (arr.length < currentRenderableQ.blanks.length) arr.push("");
+      const idx =
+        focus?.blankIndex ??
+        Math.max(
+          0,
+          currentRenderableQ.blanks.findIndex((_, i) => !String(arr[i] || "").trim())
+        );
+      arr[idx] = word;
+      handleAnswerChange(arr);
+      return;
+    }
+
+    handleAnswerChange(word);
   };
 
-  const totalChecked = Object.keys(checkedQuestions).length;
-  const correctCount = Object.values(isCorrectMap).filter(Boolean).length;
+  const handleCheckCurrent = async () => {
+    if (!currentQ || checkResults[currentIndex]) return;
+    if (inFlightIndicesRef.current.has(currentIndex)) return;
+
+    const studentAnswer = answers[currentIndex];
+    if (isEmptyAnswerValue(studentAnswer)) return;
+
+    const normalizedAnswer =
+      typeof studentAnswer === "string" ? studentAnswer.trim() : studentAnswer;
+
+    const idxToGrade = currentIndex;
+    const submissionId = `aq-${session?.sessionId || "s"}-${currentQ.questionId}-${Date.now()}`;
+
+    try {
+      inFlightIndicesRef.current.add(idxToGrade);
+      setIsCheckingIndex(idxToGrade);
+      const graded = await api.checkAdaptiveQuizAnswer({
+        sessionId: session?.sessionId,
+        questionId: currentQ.questionId,
+        studentAnswer: normalizedAnswer,
+        submissionId,
+      });
+
+      setCheckResults((prev) => ({
+        ...prev,
+        [idxToGrade]: graded,
+      }));
+      onProgressUpdated?.();
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể chấm đáp án trên máy chủ.");
+    } finally {
+      inFlightIndicesRef.current.delete(idxToGrade);
+      setIsCheckingIndex((prev) => (prev === idxToGrade ? null : prev));
+    }
+  };
+
+  const totalChecked = Object.keys(checkResults).length;
+  const correctCount = Object.values(checkResults).filter((r) => r.isCorrect).length;
   const isCompleted = totalQuestions > 0 && totalChecked === totalQuestions;
+
+  const hasCurrentValue = !isEmptyAnswerValue(answers[currentIndex]);
+  const isCurrentChecking = isCheckingIndex === currentIndex;
+
+  const isSplitSlash = currentRenderableQ
+    ? isSplitBlankSlashOptionQuestion(currentRenderableQ)
+    : false;
+  const hasOptions = Boolean(
+    currentRenderableQ &&
+      (currentRenderableQ.options?.length || 0) > 0 &&
+      !isSplitSlash
+  );
+  const hasParts = Boolean(
+    currentRenderableQ && (currentRenderableQ.parts?.length || 0) > 0
+  );
+  const hasBlanks = Boolean(
+    currentRenderableQ && (currentRenderableQ.blanks?.length || 0) > 0
+  );
+  const allowMultiple = currentQ
+    ? isMultiSelectExercise(currentQ.instruction, currentQ.questionId)
+    : false;
+
+  const expectedLabel = currentResult
+    ? (currentResult.expectedAnswers?.length
+        ? currentResult.expectedAnswers
+        : currentResult.correctAnswers || []
+      ).join(" / ")
+    : "";
+
+  const effectiveRuleRef =
+    currentResult?.ruleReference || currentQ?.ruleReference || null;
 
   const modalContent = (
     <>
@@ -231,7 +359,7 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
                     Đang chuẩn bị đề Quiz ({difficulty === "easy" ? "Cơ bản" : difficulty === "hard" ? "Bẫy 700+" : "TOEIC Chuẩn"})...
                   </p>
                   <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    Hệ thống AI đang tổng hợp các câu hỏi khắc phục nhược điểm từ các Unit bạn hay làm sai.
+                    Hệ thống đang tổng hợp các câu hỏi khắc phục nhược điểm từ các Unit bạn hay làm sai.
                   </p>
                 </div>
                 <button
@@ -263,7 +391,7 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
                   </button>
                 </div>
               </div>
-            ) : currentQ ? (
+            ) : currentQ && currentRenderableQ ? (
               <>
                 {/* Target Units Banner */}
                 {session?.targetUnits && session.targetUnits.length > 0 && (
@@ -291,16 +419,16 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
                 <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {questions.map((_, idx) => {
-                      const isChecked = checkedQuestions[idx];
-                      const isCorrect = isCorrectMap[idx];
+                      const qRes = checkResults[idx];
                       const isCurrent = idx === currentIndex;
+                      const hasAns = !isEmptyAnswerValue(answers[idx]);
 
                       let bgClass = "bg-slate-100 text-slate-600 border-slate-200";
-                      if (isChecked) {
-                        bgClass = isCorrect
+                      if (qRes) {
+                        bgClass = qRes.isCorrect
                           ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold"
                           : "bg-rose-100 text-rose-800 border-rose-300 font-bold";
-                      } else if (answers[idx]) {
+                      } else if (hasAns) {
                         bgClass = "bg-amber-50 text-amber-700 border-amber-200 font-semibold";
                       }
 
@@ -325,8 +453,8 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
                   </div>
                 </div>
 
-                {/* Question Content */}
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-3">
+                {/* Question Meta & Instruction Card */}
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                     <span className="inline-flex items-center gap-1 font-bold text-brand-700 bg-brand-50 border border-brand-100 px-2 py-0.5 rounded-md">
                       <BookOpen className="w-3.5 h-3.5" />
@@ -362,135 +490,91 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
                     </p>
                   )}
 
-                  <QuestionPromptText
-                    content={currentQ.prompt}
-                    className="text-base sm:text-lg font-semibold text-slate-900 leading-relaxed"
-                  />
+                  {currentQ.wordBankItems && currentQ.wordBankItems.length > 0 && (
+                    <WordBankBar
+                      items={currentQ.wordBankItems}
+                      onSelectWord={handleWordBankSelect}
+                    />
+                  )}
 
-                  {currentQ.contextClue && (
-                    <p className="text-xs font-medium text-slate-500 bg-white/70 p-2 rounded-lg border border-slate-200">
-                      💡 Gợi ý: {currentQ.contextClue}
-                    </p>
+                  {/* Polymorphic Input Body */}
+                  {hasOptions ? (
+                    <OptionQuestionRenderer
+                      question={currentRenderableQ}
+                      value={answers[currentIndex] as string | string[] | undefined}
+                      onChange={(val) => handleAnswerChange(val)}
+                      allowMultiple={allowMultiple}
+                      disabled={Boolean(currentResult) || isCurrentChecking}
+                    />
+                  ) : hasParts ? (
+                    <MultiPartQuestionRenderer
+                      question={currentRenderableQ}
+                      value={answers[currentIndex] as Record<string, string> | undefined}
+                      onChange={(val) => handleAnswerChange(val)}
+                      disabled={Boolean(currentResult) || isCurrentChecking}
+                      onFocusField={(partId) => {
+                        focusedTargetRef.current[currentIndex] = { partId };
+                      }}
+                    />
+                  ) : hasBlanks ? (
+                    <FillBlankQuestionRenderer
+                      question={currentRenderableQ}
+                      value={answers[currentIndex] as string | string[] | undefined}
+                      onChange={(val) => handleAnswerChange(val)}
+                      disabled={Boolean(currentResult) || isCurrentChecking}
+                      onFocusField={(blankIndex) => {
+                        focusedTargetRef.current[currentIndex] = { blankIndex };
+                      }}
+                    />
+                  ) : (
+                    <SentenceQuestionRenderer
+                      question={currentRenderableQ}
+                      value={(answers[currentIndex] as string | undefined) ?? ""}
+                      onChange={(val) => handleAnswerChange(val)}
+                      disabled={Boolean(currentResult) || isCurrentChecking}
+                    />
                   )}
                 </div>
 
-                {/* Options (if multiple choice) or text input */}
-                {currentQ.options && currentQ.options.length > 0 ? (
-                  <div className="space-y-2">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                      Chọn đáp án:
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {currentQ.options.map((option) => {
-                        const isSelected = answers[currentIndex] === option.key;
-                        const isChecked = checkedQuestions[currentIndex];
-                        const isCorrectAnswer =
-                          option.key.toLowerCase() ===
-                            (currentQ.correctAnswer || "").toLowerCase() ||
-                          normalize(option.text) ===
-                            normalize(currentQ.correctAnswer || "");
-
-                        let style =
-                          "border-slate-200 hover:border-amber-400 hover:bg-slate-50 text-slate-800";
-
-                        if (isChecked) {
-                          if (isCorrectAnswer) {
-                            style =
-                              "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold ring-1 ring-emerald-500";
-                          } else if (isSelected) {
-                            style =
-                              "border-rose-400 bg-rose-50 text-rose-900 line-through ring-1 ring-rose-400";
-                          } else {
-                            style = "opacity-40 border-slate-200 bg-slate-50 text-slate-500";
-                          }
-                        } else if (isSelected) {
-                          style =
-                            "border-amber-500 bg-amber-50 text-amber-900 font-bold ring-2 ring-amber-400";
-                        }
-
-                        return (
-                          <button
-                            key={option.key}
-                            type="button"
-                            onClick={() => handleAnswerChange(option.key)}
-                            disabled={isChecked}
-                            className={`flex items-center gap-3 p-3.5 rounded-xl border text-left text-sm transition-all cursor-pointer ${style}`}
-                          >
-                            <span
-                              className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 border ${
-                                isSelected
-                                  ? "bg-amber-500 text-white border-amber-500"
-                                  : "bg-white text-slate-700 border-slate-300"
-                              }`}
-                            >
-                              {option.key}
-                            </span>
-                            <span className="grow font-medium">{option.text}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
-                      Nhập câu trả lời:
-                    </label>
-                    <input
-                      type="text"
-                      value={answers[currentIndex] || ""}
-                      onChange={(e) => handleAnswerChange(e.target.value)}
-                      disabled={checkedQuestions[currentIndex]}
-                      placeholder="Nhập đáp án để kiểm tra..."
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !checkedQuestions[currentIndex]) {
-                          handleCheckCurrent();
-                        }
-                      }}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-medium"
-                    />
-                  </div>
-                )}
-
-                {/* Checked Feedback Panel */}
-                {checkedQuestions[currentIndex] && (
+                {/* Server-Graded Checked Feedback Panel */}
+                {currentResult && (
                   <div
                     className={`p-4 rounded-xl border space-y-3 animate-fade-in ${
-                      isCorrectMap[currentIndex]
+                      currentResult.isCorrect
                         ? "bg-emerald-50 border-emerald-200 text-emerald-950"
                         : "bg-amber-50 border-amber-200 text-amber-950"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 flex-wrap font-bold text-xs">
-                      {isCorrectMap[currentIndex] ? (
+                      {currentResult.isCorrect ? (
                         <span className="flex items-center gap-1 text-emerald-700">
                           <CheckCircle2 className="w-4 h-4" />
-                          Chính xác! Đáp án chuẩn: {currentQ.correctAnswer}
+                          Chính xác! Đáp án chuẩn: {expectedLabel}
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-rose-700">
                           <XCircle className="w-4 h-4" />
                           Chưa chính xác! Đáp án đúng:{" "}
-                          <strong className="underline">{currentQ.correctAnswer}</strong>
+                          <strong className="underline">{expectedLabel}</strong>
                         </span>
                       )}
 
                       {/* Rule Reference Clickable Badge */}
-                      {currentQ.ruleReference && (
+                      {effectiveRuleRef && (
                         <button
                           type="button"
-                          onClick={() => setInspectingRule(currentQ.ruleReference!)}
+                          onClick={() => setInspectingRule(effectiveRuleRef)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 shadow-2xs transition-colors cursor-pointer"
                           title="Nhấn để xem lại lý thuyết mục này"
                         >
                           <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Quy tắc {currentQ.ruleReference}</span>
+                          <span>Quy tắc {effectiveRuleRef}</span>
                         </button>
                       )}
                     </div>
-                    {currentQ.explanation && (
+                    {currentResult.explanation && (
                       <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
-                        {currentQ.explanation}
+                        {currentResult.explanation}
                       </p>
                     )}
                   </div>
@@ -563,14 +647,17 @@ export const AdaptiveQuizModal: React.FC<AdaptiveQuizModalProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {!checkedQuestions[currentIndex] ? (
+                {!currentResult ? (
                   <button
                     type="button"
                     onClick={handleCheckCurrent}
-                    disabled={!answers[currentIndex]?.trim()}
-                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                    disabled={!hasCurrentValue || isCurrentChecking}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                   >
-                    Kiểm tra đáp án
+                    {isCurrentChecking && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    <span>Kiểm tra đáp án</span>
                   </button>
                 ) : currentIndex < totalQuestions - 1 ? (
                   <button

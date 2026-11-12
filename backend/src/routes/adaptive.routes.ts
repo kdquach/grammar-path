@@ -5,7 +5,9 @@ import {
   getAdaptiveAnalytics,
   getAdaptiveRecommendations,
   generateToeicPracticeHandler,
+  checkToeicPracticeHandler,
   generateAdaptiveQuizHandler,
+  checkAdaptiveQuizHandler,
 } from "../controllers/adaptive.controller";
 
 const router = Router();
@@ -24,12 +26,26 @@ router.post(
   generateToeicPracticeHandler
 );
 
+// POST /api/v1/adaptive/toeic-practice/check (requireAuth, server-side grading + persistence)
+router.post(
+  "/adaptive/toeic-practice/check",
+  requireAuth,
+  checkToeicPracticeHandler
+);
+
 // POST /api/v1/adaptive/quiz/generate (requireAuth + AI rate limit)
 router.post(
   "/adaptive/quiz/generate",
   requireAuth,
   aiRateLimiter,
   generateAdaptiveQuizHandler
+);
+
+// POST /api/v1/adaptive/quiz/check (requireAuth, server-side canonical grading + persistence)
+router.post(
+  "/adaptive/quiz/check",
+  requireAuth,
+  checkAdaptiveQuizHandler
 );
 
 export default router;

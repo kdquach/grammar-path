@@ -126,7 +126,7 @@ ${input.userQuestion ? "8" : "7"}. Trình bày bằng Markdown sạch đẹp v�
 
   const aiResult = await generateGeminiTextDetailed({
     prompt: promptText,
-    timeoutMs: 15000,
+    timeoutMs: 5000,
     temperature: 0.7,
   });
 

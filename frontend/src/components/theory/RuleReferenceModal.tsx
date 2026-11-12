@@ -49,6 +49,17 @@ export const RuleReferenceModal: React.FC<RuleReferenceModalProps> = ({
     };
   }, [sectionId]);
 
+  useEffect(() => {
+    if (!sectionId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [sectionId, onClose]);
+
   if (!sectionId) return null;
 
   const modalContent = (

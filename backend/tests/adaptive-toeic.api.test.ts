@@ -3,7 +3,7 @@ import request from "supertest";
 import app from "../src/app";
 import { prisma } from "../src/lib/prisma";
 
-describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST APIs", () => {
+describe("Phase 9.2 & 2.1: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST APIs", () => {
   const timestamp = Date.now();
   const testEmail = `toeic-learner-${timestamp}@grammarpath.local`;
   const testPassword = "toeicPassword123!";
@@ -18,16 +18,25 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
         where: { id: testUserId },
       });
 
-      const [userProgressCount, userAttemptsCount, userQuestionAttemptsCount] =
-        await Promise.all([
-          prisma.learningProgress.count({ where: { userId: testUserId } }),
-          prisma.exerciseAttempt.count({ where: { userId: testUserId } }),
-          prisma.questionAttemptItem.count({ where: { userId: testUserId } }),
-        ]);
+      const [
+        userProgressCount,
+        userAttemptsCount,
+        userQuestionAttemptsCount,
+        adaptiveSessionCount,
+        toeicSessionCount,
+      ] = await Promise.all([
+        prisma.learningProgress.count({ where: { userId: testUserId } }),
+        prisma.exerciseAttempt.count({ where: { userId: testUserId } }),
+        prisma.questionAttemptItem.count({ where: { userId: testUserId } }),
+        prisma.adaptiveQuizSession.count({ where: { userId: testUserId } }),
+        prisma.toeicPracticeSession.count({ where: { userId: testUserId } }),
+      ]);
 
       expect(userProgressCount).toBe(0);
       expect(userAttemptsCount).toBe(0);
       expect(userQuestionAttemptsCount).toBe(0);
+      expect(adaptiveSessionCount).toBe(0);
+      expect(toeicSessionCount).toBe(0);
     }
 
     await prisma.$disconnect();
@@ -52,9 +61,12 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
     expect(testUserId).toBeDefined();
   });
 
-  // ─── 2. Feature A: TOEIC-Style Practice Generator Endpoint ──────────────────
+  // ─── 2. Feature A: TOEIC-Style Practice Generator & Server Grading ─────────
 
-  describe("Feature A: POST /api/v1/adaptive/toeic-practice", () => {
+  describe("Feature A: POST /api/v1/adaptive/toeic-practice & /check", () => {
+    let unit1SessionId = "";
+    let unit1ItemId = "";
+
     it("2. Auth Guard: rejects unauthenticated requests with 401 UNAUTHORIZED", async () => {
       const res = await request(app)
         .post("/api/v1/adaptive/toeic-practice")
@@ -76,7 +88,7 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
       expect(res.body.error.code).toBe("VALIDATION_ERROR");
     });
 
-    it("4. Generates 5 TOEIC Part 5 questions for Unit 1 with complete options and Vietnamese explanations", async () => {
+    it("4. Generates 5 anti-spoiler TOEIC Part 5 items for Unit 1 with source metadata & NO pre-submission answers", async () => {
       const res = await request(app)
         .post("/api/v1/adaptive/toeic-practice")
         .set("Authorization", `Bearer ${authToken}`)
@@ -86,41 +98,87 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
       expect(res.body.success).toBe(true);
 
       const data = res.body.data;
+      expect(data.sessionId).toBeDefined();
       expect(data.unitNumber).toBe(1);
       expect(data.title).toContain("Present continuous");
       expect(data.difficulty).toBe("medium");
+      expect(data.isOfficialToeic).toBe(false);
+      expect(typeof data.sourceNotice).toBe("string");
       expect(Array.isArray(data.questions)).toBe(true);
       expect(data.questions.length).toBe(5);
 
+      unit1SessionId = data.sessionId;
+      unit1ItemId = data.questions[0].itemId;
+
       for (const q of data.questions) {
+        expect(q.itemId).toBeDefined();
         expect(typeof q.prompt).toBe("string");
         expect(q.prompt).toContain("_______");
 
         expect(Array.isArray(q.options)).toBe(true);
         expect(q.options.length).toBe(4);
-
         const keys = q.options.map((opt: { key: string }) => opt.key);
         expect(keys).toEqual(["A", "B", "C", "D"]);
 
-        expect(["A", "B", "C", "D"]).toContain(q.correctAnswer);
-        expect(typeof q.explanation).toBe("string");
-        expect(q.explanation.length).toBeGreaterThan(10);
+        // Anti-spoiler checks
+        expect(q.correctAnswer).toBeUndefined();
+        expect(q.explanation).toBeUndefined();
+        expect(q.acceptedAnswers).toBeUndefined();
         expect(q.difficulty).toBe("medium");
         expect(typeof q.ruleReference).toBe("string");
         expect(q.ruleReference.length).toBeGreaterThan(0);
       }
     });
 
-    it("5. Respects custom count parameter (count: 3)", async () => {
-      const res = await request(app)
+    it("4b. Server-grades TOEIC practice item via POST /adaptive/toeic-practice/check and reveals explanation post-submit", async () => {
+      const checkRes = await request(app)
+        .post("/api/v1/adaptive/toeic-practice/check")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          sessionId: unit1SessionId,
+          itemId: unit1ItemId,
+          studentAnswer: "B",
+          submissionId: `toeic-sub-${timestamp}`,
+        });
+
+      expect(checkRes.status).toBe(200);
+      expect(checkRes.body.success).toBe(true);
+      expect(checkRes.body.data.sessionId).toBe(unit1SessionId);
+      expect(checkRes.body.data.itemId).toBe(unit1ItemId);
+      expect(typeof checkRes.body.data.isCorrect).toBe("boolean");
+      expect(["A", "B", "C", "D"]).toContain(checkRes.body.data.correctAnswer);
+      expect(typeof checkRes.body.data.explanation).toBe("string");
+      expect(checkRes.body.data.explanation.length).toBeGreaterThan(5);
+    });
+
+    it("5. Respects custom count=3 on Unit 2 and generates 20 unbiased dynamic drills on non-curated Unit 98", async () => {
+      const res3 = await request(app)
         .post("/api/v1/adaptive/toeic-practice")
         .set("Authorization", `Bearer ${authToken}`)
         .send({ unitNumber: 2, count: 3 });
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.unitNumber).toBe(2);
-      expect(res.body.data.questions.length).toBe(3);
+      expect(res3.status).toBe(200);
+      expect(res3.body.data.unitNumber).toBe(2);
+      expect(res3.body.data.questions.length).toBe(3);
+
+      const res20 = await request(app)
+        .post("/api/v1/adaptive/toeic-practice")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({ unitNumber: 98, count: 20 });
+
+      expect(res20.status).toBe(200);
+      expect(res20.body.data.unitNumber).toBe(98);
+      expect(res20.body.data.questions.length).toBe(20);
+      expect(res20.body.data.isOfficialToeic).toBe(false);
+
+      // Verify DB-stored answers across the 20 items are distributed (not all 'A')
+      const storedItems = await prisma.toeicPracticeItem.findMany({
+        where: { sessionId: res20.body.data.sessionId },
+        orderBy: { itemOrder: "asc" },
+      });
+      expect(storedItems).toHaveLength(20);
+      const distinctAnswers = new Set(storedItems.map((it) => it.correctAnswer));
+      expect(distinctAnswers.size).toBe(4);
     });
 
     it("5b. Supports 3-tier difficulty parameter ('easy' | 'hard')", async () => {
@@ -146,9 +204,9 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
     });
   });
 
-  // ─── 3. Feature B: Adaptive Quiz Generator Endpoint ─────────────────────────
+  // ─── 3. Feature B: Adaptive Quiz Generator & Server Check Endpoint ────────
 
-  describe("Feature B: POST /api/v1/adaptive/quiz/generate", () => {
+  describe("Feature B: POST /api/v1/adaptive/quiz/generate & /check", () => {
     it("6. Auth Guard: rejects unauthenticated requests with 401 UNAUTHORIZED", async () => {
       const res = await request(app)
         .post("/api/v1/adaptive/quiz/generate")
@@ -159,7 +217,7 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
       expect(res.body.error.code).toBe("UNAUTHORIZED");
     });
 
-    it("7. Fresh user with zero mistakes: generates diagnostic quiz session from foundational units", async () => {
+    it("7. Fresh user with zero mistakes: generates anti-spoiler diagnostic quiz session from foundational units", async () => {
       const res = await request(app)
         .post("/api/v1/adaptive/quiz/generate")
         .set("Authorization", `Bearer ${authToken}`)
@@ -183,60 +241,73 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
         expect(q.unitNumber).toBeDefined();
         expect(q.unitTitle).toBeDefined();
         expect(q.prompt).toBeDefined();
-        expect(q.correctAnswer).toBeDefined();
+        // Anti-spoiler checks
+        expect(q.correctAnswer).toBeUndefined();
+        expect(q.correctAnswerText).toBeUndefined();
+        expect(q.acceptedAnswers).toBeUndefined();
+        expect(q.explanation).toBeUndefined();
       }
     });
 
-    it("8. User with mistake history: analyzes errors and generates personalized remedial quiz targeting weak units", async () => {
-      // Simulate 2 errors in Unit 1 and 1 error in Unit 4
+    it("8. User with unresolved mistakes: generates remedial quiz targeting weak units, grades via /quiz/check, and resolves mistakes cleanly", async () => {
+      // Simulate 2 errors in Unit 1 interactive questions
       const wrong1 = await request(app)
-        .post("/api/v1/questions/1.1-q1/check")
+        .post("/api/v1/questions/1.1-q2/check")
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ answer: "wrong answer for 1.1-q1" });
+        .send({ answer: "wrong answer for 1.1-q2" });
       expect(wrong1.status).toBe(200);
       expect(wrong1.body.data.isCorrect).toBe(false);
 
       const wrong2 = await request(app)
-        .post("/api/v1/questions/1.1-q2/check")
+        .post("/api/v1/questions/1.1-q3/check")
         .set("Authorization", `Bearer ${authToken}`)
-        .send({ answer: "wrong answer for 1.1-q2" });
+        .send({ answer: "wrong answer for 1.1-q3" });
       expect(wrong2.status).toBe(200);
       expect(wrong2.body.data.isCorrect).toBe(false);
 
-      // Now request an adaptive remedial quiz
+      // Generate adaptive remedial quiz
       const quizRes = await request(app)
         .post("/api/v1/adaptive/quiz/generate")
         .set("Authorization", `Bearer ${authToken}`)
         .send({ questionCount: 5 });
 
       expect(quizRes.status).toBe(200);
-      expect(quizRes.body.success).toBe(true);
-
       const session = quizRes.body.data;
-      expect(session.sessionId).toBeDefined();
-      expect(session.targetUnits.length).toBeGreaterThan(0);
+      expect(session.targetUnits[0].unitNumber).toBe(1);
+      expect(session.targetUnits[0].errorCount).toBeGreaterThanOrEqual(2);
 
-      // Top weak unit should be Unit 1 with at least 2 errors
-      const topWeakUnit = session.targetUnits[0];
-      expect(topWeakUnit.unitNumber).toBe(1);
-      expect(topWeakUnit.errorCount).toBeGreaterThanOrEqual(2);
-
-      // The generated questions should include items from Unit 1
       const unit1Questions = session.questions.filter(
         (q: { unitNumber: number }) => q.unitNumber === 1
       );
       expect(unit1Questions.length).toBeGreaterThanOrEqual(2);
 
-      // Verify structure of the adaptive questions
       const firstQ = session.questions[0];
-      expect(firstQ.id).toBeDefined();
-      expect(firstQ.questionId).toBeDefined();
-      expect(firstQ.exerciseNumber).toBeDefined();
-      expect(firstQ.questionType).toBeDefined();
-      expect(firstQ.prompt).toBeDefined();
-      expect(firstQ.correctAnswer).toBeDefined();
-      expect(firstQ.difficulty).toBe("medium");
+      expect(firstQ.correctAnswer).toBeUndefined();
+      expect(firstQ.explanation).toBeUndefined();
       expect(firstQ.ruleReference).toBeDefined();
+
+      // Fix 1.1-q2 via POST /adaptive/quiz/check
+      const checkRes = await request(app)
+        .post("/api/v1/adaptive/quiz/check")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          sessionId: session.sessionId,
+          questionId: "1.1-q2",
+          studentAnswer: "e",
+          submissionId: `aq-resolve-${timestamp}`,
+        });
+      expect(checkRes.status).toBe(200);
+      expect(checkRes.body.data.isCorrect).toBe(true);
+      expect(checkRes.body.data.questionId).toBe("1.1-q2");
+
+      // Confirm 1.1-q2 is resolved in /progress/mistakes while 1.1-q3 stays
+      const mistakesRes = await request(app)
+        .get("/api/v1/progress/mistakes")
+        .set("Authorization", `Bearer ${authToken}`);
+      expect(mistakesRes.status).toBe(200);
+      const mistakeIds = mistakesRes.body.data.map((m: any) => m.questionId);
+      expect(mistakeIds).not.toContain("1.1-q2");
+      expect(mistakeIds).toContain("1.1-q3");
     });
 
     it("9. Supports custom difficulty ('hard') on adaptive quiz generation", async () => {
@@ -253,4 +324,3 @@ describe("Phase 9.2: TOEIC-Style Practice Generator & Adaptive Quiz Engine REST 
     });
   });
 });
-

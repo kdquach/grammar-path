@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { AuthProvider } from "../src/context/AuthContext";
+import { ToastProvider } from "../src/context/ToastContext";
 import { WordBankBar } from "../src/components/exercises/WordBankBar";
 import { OptionQuestionRenderer } from "../src/components/exercises/renderers/OptionQuestionRenderer";
 import { FillBlankQuestionRenderer } from "../src/components/exercises/renderers/FillBlankQuestionRenderer";
@@ -15,6 +17,7 @@ import type {
   QuestionCheckResult,
   ExerciseCheckResult,
   QuestionSolution,
+  AuthUser,
 } from "../src/types/api.types";
 
 vi.mock("../src/api/client", () => {
@@ -26,12 +29,27 @@ vi.mock("../src/api/client", () => {
     getQuestionSolution: vi.fn(),
     checkQuestionAnswer: vi.fn(),
     checkExerciseAnswers: vi.fn(),
+    getCurrentUser: vi.fn(),
+    loginUser: vi.fn(),
+    registerUser: vi.fn(),
   };
   return {
     default: mockApi,
     api: mockApi,
+    getStoredToken: vi.fn(() => localStorage.getItem("grammarpath_token")),
+    setStoredToken: vi.fn((token: string | null) => {
+      if (token) localStorage.setItem("grammarpath_token", token);
+      else localStorage.removeItem("grammarpath_token");
+    }),
   };
 });
+
+const mockAuthUser: AuthUser = {
+  id: "user-ex-1",
+  email: "learner@grammarpath.local",
+  displayName: "Learner Ex",
+  createdAt: "2026-11-12T10:00:00Z",
+};
 
 const mockWordBank: WordBankItem[] = [
   { id: "wb-1", word: "hungry", displayOrder: 1 },
@@ -127,6 +145,7 @@ const mockExercise: Exercise = {
 describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
   });
 
   // 1. Word Bank Bar Tests
@@ -304,6 +323,70 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
       fireEvent.change(input, { target: { value: "Turn it off please" } });
       expect(onChange).toHaveBeenCalledWith("Turn it off please");
     });
+    it("QuestionVisualContext renders across Option, FillBlank, MultiPart, and Worked Example renderers", () => {
+      const { rerender } = render(
+        <OptionQuestionRenderer
+          question={{
+            ...mockOptionQuestion,
+            hasVisualContext: true,
+            visualContextDescription: "Picture A: Christine at the bus stop.",
+          }}
+          value={undefined}
+          onChange={vi.fn()}
+        />
+      );
+      expect(screen.getByTestId("question-visual-context")).toHaveTextContent(
+        "Picture A: Christine at the bus stop."
+      );
+
+      rerender(
+        <FillBlankQuestionRenderer
+          question={{
+            ...mockMultiBlankQuestion,
+            hasVisualContext: true,
+            visualContextDescription: "Picture B: Man washing car in driveway.",
+          }}
+          value={[]}
+          onChange={vi.fn()}
+        />
+      );
+      expect(screen.getByTestId("question-visual-context")).toHaveTextContent(
+        "Picture B: Man washing car in driveway."
+      );
+
+      rerender(
+        <MultiPartQuestionRenderer
+          question={{
+            ...mockMultiPartQuestion,
+            hasVisualContext: true,
+            visualContextDescription: "Picture C: Two timelines compared.",
+          }}
+          value={{}}
+          onChange={vi.fn()}
+        />
+      );
+      expect(screen.getByTestId("question-visual-context")).toHaveTextContent(
+        "Picture C: Two timelines compared."
+      );
+
+      rerender(
+        <QuestionCard
+          question={{
+            ...mockExampleQuestion,
+            hasVisualContext: true,
+            visualContextDescription: "Picture D: Example desk scene.",
+          }}
+          questionNumber={1}
+          value="I'm trying to work."
+          onChange={vi.fn()}
+          onCheck={vi.fn()}
+          onShowSolution={vi.fn()}
+        />
+      );
+      expect(screen.getByTestId("question-visual-context")).toHaveTextContent(
+        "Picture D: Example desk scene."
+      );
+    });
   });
 
   // 3. QuestionCard & Worked Example Flow
@@ -375,7 +458,7 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
 
   // 4. ExerciseViewer Whole-Exercise Workflow
   describe("ExerciseViewer Workflow", () => {
-    it("loads unit exercises, handles single question check and full exercise grading", async () => {
+    it("loads unit exercises, blocks empty submission, and handles single question + scoped full exercise grading", async () => {
       vi.mocked(api.getUnitExercises).mockResolvedValue([mockExercise]);
 
       const mockCheckResult: QuestionCheckResult = {
@@ -411,31 +494,49 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
       vi.mocked(api.checkQuestionAnswer).mockResolvedValue(mockCheckResult);
       vi.mocked(api.checkExerciseAnswers).mockResolvedValue(mockExerciseCheckResult);
 
-      render(<ExerciseViewer unitNumber={1} onOpenRuleReference={vi.fn()} />);
+      render(
+        <ToastProvider>
+          <ExerciseViewer unitNumber={1} onOpenRuleReference={vi.fn()} />
+        </ToastProvider>
+      );
 
       // Wait for exercise to load
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /Exercise 1\.1/ })).toBeInTheDocument();
       });
 
+      expect(api.getUnitExercises).toHaveBeenCalledWith(1);
       expect(
         screen.getByText(/"Complete the sentences. Put together the halves:"/)
       ).toBeInTheDocument();
+      expect(screen.getByTestId("exercise-visual-context")).toHaveTextContent(
+        "Pictures 1 to 5 showing various situations."
+      );
 
-      // Check single question
+      // Clicking Check Answer or Check Entire Exercise with empty inputs is blocked
       const checkButtons = screen.getAllByText("Check Answer");
+      fireEvent.click(checkButtons[0]);
+      expect(api.checkQuestionAnswer).not.toHaveBeenCalled();
+
+      const checkAllBtn = screen.getByText("Check Entire Exercise");
+      fireEvent.click(checkAllBtn);
+      expect(api.checkExerciseAnswers).not.toHaveBeenCalled();
+
+      // Select option 'b' and check single question
+      fireEvent.click(screen.getByText("Do you know where she is?").closest("button")!);
       fireEvent.click(checkButtons[0]);
 
       await waitFor(() => {
-        expect(api.checkQuestionAnswer).toHaveBeenCalledWith("1.1-q2", undefined);
+        expect(api.checkQuestionAnswer).toHaveBeenCalledWith("1.1-q2", "b");
       });
 
-      // Check entire exercise
-      const checkAllBtn = screen.getByText("Check Entire Exercise");
+      // Check entire exercise (only active exercise question is sent)
       fireEvent.click(checkAllBtn);
 
       await waitFor(() => {
-        expect(api.checkExerciseAnswers).toHaveBeenCalledWith("1.1", {});
+        expect(api.checkExerciseAnswers).toHaveBeenCalledWith("1.1", {
+          "1.1-q2": "b",
+        });
       });
 
       // Verify Score Summary Banner is shown
@@ -452,7 +553,7 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
       expect(screen.queryByText("Exercise Evaluation Summary")).not.toBeInTheDocument();
     });
 
-    it("reveals all solutions across the exercise when 'Reveal All Solutions' is clicked", async () => {
+    it("enforces anti-spoiler gating before auth/attempt and unlocks Reveal All Solutions after checking", async () => {
       vi.mocked(api.getUnitExercises).mockResolvedValue([mockExercise]);
 
       const mockSolutions: QuestionSolution[] = [
@@ -509,15 +610,51 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
         },
       ];
 
+      vi.mocked(api.getCurrentUser).mockResolvedValue(mockAuthUser);
+      vi.mocked(api.checkQuestionAnswer).mockResolvedValue({
+        questionId: "1.1-q2",
+        isCorrect: true,
+        studentAnswer: "b",
+        correctAnswers: ["b"],
+        expectedAnswers: ["b"],
+        explanation: null,
+        ruleReference: "1B",
+      });
       vi.mocked(api.getExerciseSolutions).mockResolvedValue(mockSolutions);
 
-      render(<ExerciseViewer unitNumber={1} onOpenRuleReference={vi.fn()} />);
+      // Authenticated user MUST check at least once before Reveal All Solutions fires API
+      localStorage.setItem("grammarpath_token", "test-jwt-token");
+      const onOpenAuthModal = vi.fn();
+
+      render(
+        <ToastProvider>
+          <AuthProvider>
+            <ExerciseViewer
+              unitNumber={1}
+              onOpenRuleReference={vi.fn()}
+              onOpenAuthModal={onOpenAuthModal}
+            />
+          </AuthProvider>
+        </ToastProvider>
+      );
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /Exercise 1\.1/ })).toBeInTheDocument();
       });
 
-      const revealBtn = screen.getByText("Reveal All Solutions");
+      // Clicking Reveal All Solutions before any attempt is blocked client-side
+      const revealBtn = screen.getByText("Reveal All Solutions").closest("button")!;
+      fireEvent.click(revealBtn);
+      expect(api.getExerciseSolutions).not.toHaveBeenCalled();
+
+      // Answer interactive question and check it -> now exercise solutions are unlocked
+      fireEvent.click(screen.getByText("Do you know where she is?").closest("button")!);
+      fireEvent.click(screen.getByText("Check Answer"));
+
+      await waitFor(() => {
+        expect(api.checkQuestionAnswer).toHaveBeenCalledWith("1.1-q2", "b");
+      });
+
       fireEvent.click(revealBtn);
 
       await waitFor(() => {
@@ -708,6 +845,164 @@ describe("Polymorphic Exercise Renderers & Interactive Grading UI", () => {
 
       fireEvent.click(screen.getByRole("button", { name: /Reset Exercise/i }));
       expect(hungryBtn).not.toHaveClass("line-through");
+    });
+
+    it("renders distinct contextNotes, supports WordBankBar click-to-insert into focused inputs, preserves per-exercise scores across tabs, and guards double-submit", async () => {
+      const textExercise1: Exercise = {
+        id: "ex-1-2",
+        exerciseId: "1.2",
+        exerciseNumber: "1.2",
+        questionType: "fill_blank",
+        instruction: "Complete the sentences using the verbs from the word bank.",
+        hasVisualContext: true,
+        visualContextDescription: "Office desks scene",
+        contextNotes: "Use present continuous where appropriate.",
+        displayOrder: 1,
+        wordBankItems: mockWordBank,
+        questions: [
+          {
+            id: "q-12-1",
+            questionId: "1.2-q1",
+            questionContent: "Tom is [___] today.",
+            isExample: false,
+            hasVisualContext: false,
+            displayOrder: 1,
+            options: [],
+            blanks: [{ blankIndex: 1 }],
+            parts: [],
+          },
+          {
+            id: "q-12-2",
+            questionId: "1.2-q2",
+            questionContent: "Ann is [___] now.",
+            isExample: false,
+            hasVisualContext: false,
+            displayOrder: 2,
+            options: [],
+            blanks: [{ blankIndex: 1 }],
+            parts: [],
+          },
+        ],
+      };
+
+      const textExercise2: Exercise = {
+        id: "ex-1-3",
+        exerciseId: "1.3",
+        exerciseNumber: "1.3",
+        questionType: "sentence_transformation",
+        instruction: "Write sentences about the picture.",
+        hasVisualContext: false,
+        visualContextDescription: null,
+        contextNotes: "Pay attention to negative forms.",
+        displayOrder: 2,
+        wordBankItems: [],
+        questions: [
+          {
+            id: "q-13-1",
+            questionId: "1.3-q1",
+            questionContent: "The water is boiling.",
+            isExample: false,
+            hasVisualContext: false,
+            displayOrder: 1,
+            options: [],
+            blanks: [],
+            parts: [],
+          },
+        ],
+      };
+
+      vi.mocked(api.getUnitExercises).mockResolvedValue([textExercise1, textExercise2]);
+
+      let resolveCheck!: (val: ExerciseCheckResult) => void;
+      vi.mocked(api.checkExerciseAnswers).mockImplementationOnce(
+        () =>
+          new Promise((res) => {
+            resolveCheck = res;
+          })
+      );
+
+      render(
+        <ToastProvider>
+          <ExerciseViewer unitNumber={1} onOpenRuleReference={vi.fn()} />
+        </ToastProvider>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId("exercise-context-notes")).toHaveTextContent(
+          "Use present continuous where appropriate."
+        );
+      });
+      expect(screen.getByTestId("exercise-visual-context")).toHaveTextContent(
+        "Office desks scene"
+      );
+
+      // Focus 2nd question's blank input and click 'thirsty' from WordBankBar
+      const inputs = screen.getAllByPlaceholderText("Type your answer here...");
+      fireEvent.focus(inputs[1]);
+      fireEvent.click(
+        within(screen.getByTestId("word-bank-bar")).getByRole("button", {
+          name: "thirsty",
+        })
+      );
+      expect(inputs[1]).toHaveValue("thirsty");
+      expect(inputs[0]).toHaveValue("");
+
+      // Rapid double-click Check Entire Exercise -> only 1 API call fired
+      const checkAllBtn = screen.getByText("Check Entire Exercise").closest("button")!;
+      fireEvent.click(checkAllBtn);
+      fireEvent.click(checkAllBtn);
+      expect(api.checkExerciseAnswers).toHaveBeenCalledTimes(1);
+      expect(api.checkExerciseAnswers).toHaveBeenCalledWith("1.2", {
+        "1.2-q2": "thirsty",
+      });
+
+      resolveCheck({
+        exerciseId: "1.2",
+        exerciseNumber: "1.2",
+        totalQuestions: 2,
+        correctCount: 1,
+        scorePercentage: 50,
+        results: [
+          {
+            questionId: "1.2-q1",
+            isCorrect: false,
+            studentAnswer: null,
+            correctAnswers: ["hungry"],
+            expectedAnswers: ["hungry"],
+            explanation: null,
+            ruleReference: null,
+          },
+          {
+            questionId: "1.2-q2",
+            isCorrect: true,
+            studentAnswer: "thirsty",
+            correctAnswers: ["thirsty"],
+            expectedAnswers: ["thirsty"],
+            explanation: null,
+            ruleReference: null,
+          },
+        ],
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("Exercise Evaluation Summary")).toBeInTheDocument();
+        expect(screen.getByText("50%")).toBeInTheDocument();
+      });
+
+      // Switch to Exercise 1.3 -> 1.2 score banner must NOT leak onto 1.3, 1.3 contextNotes renders
+      fireEvent.click(screen.getByRole("button", { name: /Exercise 1\.3/ }));
+      expect(screen.queryByText("Exercise Evaluation Summary")).not.toBeInTheDocument();
+      expect(screen.getByTestId("exercise-context-notes")).toHaveTextContent(
+        "Pay attention to negative forms."
+      );
+
+      // Switch back to 1.2 -> its score banner (50%) and entered answer ('thirsty') are preserved!
+      fireEvent.click(screen.getByRole("button", { name: /Exercise 1\.2/ }));
+      expect(screen.getByText("Exercise Evaluation Summary")).toBeInTheDocument();
+      expect(screen.getByText("50%")).toBeInTheDocument();
+      expect(
+        screen.getAllByPlaceholderText("Type your answer here...")[1]
+      ).toHaveValue("thirsty");
     });
   });
 });

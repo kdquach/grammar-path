@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   X,
@@ -14,11 +14,14 @@ import {
   Trophy,
   BookOpen,
   SlidersHorizontal,
+  Info,
 } from "lucide-react";
 import api from "../../api/client";
+import { useToast } from "../../context/ToastContext";
 import type {
   ToeicPracticeSession,
   ToeicQuestion,
+  ToeicPracticeCheckResult,
   DifficultyLevel,
 } from "../../types/api.types";
 import RuleReferenceModal from "../theory/RuleReferenceModal";
@@ -30,30 +33,53 @@ interface ToeicPracticeModalProps {
   unitTitle: string;
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  curated: "Ngân hàng biên soạn theo Unit",
+  dynamic: "Chuyển thể động từ Unit DB / AI",
+  mixed: "Kết hợp biên soạn + Unit DB",
+  fallback: "Bài tập chuẩn hóa theo Unit",
+};
+
 export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
   isOpen,
   onClose,
   unitNumber,
   unitTitle,
 }) => {
+  const toast = useToast();
   const [session, setSession] = useState<ToeicPracticeSession | null>(null);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("medium");
+  const [questionCount, setQuestionCount] = useState<number>(5);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
-  const [checkedQuestions, setCheckedQuestions] = useState<Record<number, boolean>>({});
+  const [checkResults, setCheckResults] = useState<
+    Record<number, ToeicPracticeCheckResult>
+  >({});
+  const [isCheckingIndex, setIsCheckingIndex] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [inspectingRule, setInspectingRule] = useState<string | null>(null);
 
-  const loadToeicQuestions = async (targetDifficulty: DifficultyLevel = difficulty) => {
+  const inFlightIndicesRef = useRef<Set<number>>(new Set());
+
+  const loadToeicQuestions = async (
+    targetDifficulty: DifficultyLevel = difficulty,
+    targetCount: number = questionCount
+  ) => {
     setIsLoading(true);
     setError(null);
     setSelectedAnswers({});
-    setCheckedQuestions({});
+    setCheckResults({});
     setCurrentIndex(0);
+    setIsCheckingIndex(null);
+    inFlightIndicesRef.current.clear();
 
     try {
-      const data = await api.generateToeicPractice(unitNumber, 5, targetDifficulty);
+      const data = await api.generateToeicPractice(
+        unitNumber,
+        targetCount,
+        targetDifficulty
+      );
       setSession(data);
     } catch (err: any) {
       setError(err.message || "Không thể tải bộ câu hỏi luyện thi TOEIC.");
@@ -65,12 +91,18 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
   const handleDifficultyChange = (newDifficulty: DifficultyLevel) => {
     if (newDifficulty === difficulty && session) return;
     setDifficulty(newDifficulty);
-    loadToeicQuestions(newDifficulty);
+    loadToeicQuestions(newDifficulty, questionCount);
+  };
+
+  const handleCountChange = (newCount: number) => {
+    if (newCount === questionCount && session) return;
+    setQuestionCount(newCount);
+    loadToeicQuestions(difficulty, newCount);
   };
 
   useEffect(() => {
     if (isOpen) {
-      loadToeicQuestions(difficulty);
+      loadToeicQuestions(difficulty, questionCount);
     }
   }, [isOpen, unitNumber]);
 
@@ -95,26 +127,53 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
 
   const questions: ToeicQuestion[] = session?.questions || [];
   const currentQ: ToeicQuestion | undefined = questions[currentIndex];
+  const currentResult = checkResults[currentIndex];
   const totalQuestions = questions.length;
 
   const handleSelectOption = (key: "A" | "B" | "C" | "D") => {
-    if (checkedQuestions[currentIndex]) return; // locked after checking
+    if (checkResults[currentIndex] || isCheckingIndex === currentIndex) return;
     setSelectedAnswers((prev) => ({ ...prev, [currentIndex]: key }));
   };
 
-  const handleCheckCurrent = () => {
-    if (!selectedAnswers[currentIndex]) return;
-    setCheckedQuestions((prev) => ({ ...prev, [currentIndex]: true }));
+  const handleCheckCurrent = async () => {
+    if (!session || !currentQ || checkResults[currentIndex]) return;
+    if (inFlightIndicesRef.current.has(currentIndex)) return;
+
+    const studentAnswer = selectedAnswers[currentIndex];
+    if (!studentAnswer) return;
+
+    const idxToGrade = currentIndex;
+    const submissionId = `toeic-${session.sessionId}-${currentQ.itemId}-${Date.now()}`;
+
+    try {
+      inFlightIndicesRef.current.add(idxToGrade);
+      setIsCheckingIndex(idxToGrade);
+      const graded = await api.checkToeicPracticeAnswer({
+        sessionId: session.sessionId,
+        itemId: currentQ.itemId,
+        studentAnswer,
+        submissionId,
+      });
+
+      setCheckResults((prev) => ({
+        ...prev,
+        [idxToGrade]: graded,
+      }));
+    } catch (err: any) {
+      toast.error(err?.message || "Không thể kiểm tra đáp án TOEIC.");
+    } finally {
+      inFlightIndicesRef.current.delete(idxToGrade);
+      setIsCheckingIndex((prev) => (prev === idxToGrade ? null : prev));
+    }
   };
 
-  const totalChecked = Object.keys(checkedQuestions).length;
-  const correctCount = questions.reduce((count, q, idx) => {
-    return checkedQuestions[idx] && selectedAnswers[idx] === q.correctAnswer
-      ? count + 1
-      : count;
-  }, 0);
-
+  const totalChecked = Object.keys(checkResults).length;
+  const correctCount = Object.values(checkResults).filter((r) => r.isCorrect).length;
   const isCompleted = totalQuestions > 0 && totalChecked === totalQuestions;
+  const isCurrentChecking = isCheckingIndex === currentIndex;
+
+  const effectiveRuleRef =
+    currentResult?.ruleReference || currentQ?.ruleReference || null;
 
   const modalContent = (
     <>
@@ -159,60 +218,80 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
             </button>
           </div>
 
-          {/* 3-Tier Difficulty Selector Bar */}
-          <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Cấp độ đề:</span>
+          {/* 3-Tier Difficulty + Question Count Selector Bar */}
+          <div className="bg-slate-50 border-b border-slate-200 px-6 py-2.5 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Cấp độ đề:</span>
+              </div>
+              <div className="inline-flex rounded-xl p-1 bg-slate-200/80 border border-slate-200 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => handleDifficultyChange("easy")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    difficulty === "easy"
+                      ? "bg-white text-emerald-700 shadow-xs ring-1 ring-slate-200"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Dễ (Cơ bản)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDifficultyChange("medium")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    difficulty === "medium"
+                      ? "bg-white text-indigo-700 shadow-xs ring-1 ring-slate-200"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Trung bình (TOEIC Chuẩn)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDifficultyChange("hard")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    difficulty === "hard"
+                      ? "bg-white text-rose-700 shadow-xs ring-1 ring-slate-200"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Khó (Bẫy TOEIC 700+)
+                </button>
+              </div>
             </div>
-            <div className="inline-flex rounded-xl p-1 bg-slate-200/80 border border-slate-200 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => handleDifficultyChange("easy")}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  difficulty === "easy"
-                    ? "bg-white text-emerald-700 shadow-xs ring-1 ring-slate-200"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Dễ (Cơ bản)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDifficultyChange("medium")}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  difficulty === "medium"
-                    ? "bg-white text-indigo-700 shadow-xs ring-1 ring-slate-200"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Trung bình (TOEIC Chuẩn)
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDifficultyChange("hard")}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  difficulty === "hard"
-                    ? "bg-white text-rose-700 shadow-xs ring-1 ring-slate-200"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Khó (Bẫy TOEIC 700+)
-              </button>
+
+            <div className="inline-flex items-center gap-1 text-xs">
+              <span className="font-semibold text-slate-500">Số câu:</span>
+              {[5, 10, 20].map((cnt) => (
+                <button
+                  key={cnt}
+                  type="button"
+                  onClick={() => handleCountChange(cnt)}
+                  className={`px-2 py-0.5 rounded-md font-bold text-xs border transition-colors cursor-pointer ${
+                    questionCount === cnt
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  {cnt}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* Modal Body */}
-          <div className="p-6 overflow-y-auto grow space-y-6">
+          <div className="p-6 overflow-y-auto grow space-y-5">
             {isLoading ? (
               <div className="py-20 flex flex-col items-center justify-center text-center space-y-4">
                 <Loader2 className="w-10 h-10 animate-spin text-indigo-600" />
                 <div className="space-y-1">
                   <p className="text-sm font-bold text-slate-800">
-                    Gia sư AI đang tạo đề thi TOEIC Part 5 ({difficulty === "easy" ? "Cơ bản" : difficulty === "hard" ? "Bẫy 700+" : "TOEIC Chuẩn"})...
+                    Đang chuẩn bị bộ câu hỏi dạng TOEIC Part 5 ({difficulty === "easy" ? "Cơ bản" : difficulty === "hard" ? "Bẫy 700+" : "TOEIC Chuẩn"})...
                   </p>
                   <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    Thiết kế các câu hỏi tình huống công sở chuẩn hóa theo ngữ pháp Unit {unitNumber}.
+                    Thiết kế {questionCount} câu hỏi bám sát trọng tâm ngữ pháp Unit {unitNumber}.
                   </p>
                 </div>
                 <button
@@ -230,7 +309,7 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
                 <div className="flex items-center justify-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => loadToeicQuestions(difficulty)}
+                    onClick={() => loadToeicQuestions(difficulty, questionCount)}
                     className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-colors cursor-pointer shadow-xs"
                   >
                     Thử lại
@@ -246,17 +325,34 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
               </div>
             ) : currentQ ? (
               <>
+                {/* Source Provenance & Non-Official Notice */}
+                {(session?.sourceNotice || session?.source) && (
+                  <div className="flex flex-wrap items-start gap-2 p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80 text-[11px] text-indigo-900">
+                    <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      {session.source && (
+                        <span className="inline-block font-bold uppercase tracking-wider text-[10px] px-1.5 py-0.5 rounded bg-white border border-indigo-200 text-indigo-700 mr-2">
+                          {SOURCE_LABELS[session.source] || session.source}
+                        </span>
+                      )}
+                      <span>
+                        {session.sourceNotice ||
+                          "Câu hỏi luyện tập ngữ pháp theo định dạng TOEIC Part 5 (không phải đề thi chính thức của ETS)."}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {/* Question Stepper Navigation Bar */}
                 <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {questions.map((q, idx) => {
-                      const isChecked = checkedQuestions[idx];
-                      const isCorrect = isChecked && selectedAnswers[idx] === q.correctAnswer;
+                    {questions.map((_, idx) => {
+                      const qRes = checkResults[idx];
                       const isCurrent = idx === currentIndex;
 
                       let bgClass = "bg-slate-100 text-slate-600 border-slate-200";
-                      if (isChecked) {
-                        bgClass = isCorrect
+                      if (qRes) {
+                        bgClass = qRes.isCorrect
                           ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold"
                           : "bg-rose-100 text-rose-800 border-rose-300 font-bold";
                       } else if (selectedAnswers[idx]) {
@@ -310,20 +406,34 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
                     )}
                   </div>
                   <p className="text-base sm:text-lg font-semibold text-slate-900 leading-relaxed">
-                    {currentQ.prompt.split("_______").map((part, index, array) => (
-                      <React.Fragment key={index}>
-                        {part}
-                        {index < array.length - 1 && (
-                          <span className="inline-block px-3 py-0.5 mx-1 font-mono font-bold bg-indigo-100 text-indigo-800 rounded border border-indigo-200 underline decoration-indigo-400">
-                            {selectedAnswers[currentIndex]
-                              ? currentQ.options.find(
-                                  (o) => o.key === selectedAnswers[currentIndex]
-                                )?.text
-                              : "_______"}
-                          </span>
-                        )}
-                      </React.Fragment>
-                    ))}
+                    {currentQ.prompt.split("_______").map((part, index, array) => {
+                      const totalBlanks = array.length - 1;
+                      const selectedText = selectedAnswers[currentIndex]
+                        ? currentQ.options.find(
+                            (o) => o.key === selectedAnswers[currentIndex]
+                          )?.text
+                        : undefined;
+                      const splitSegments =
+                        selectedText &&
+                        totalBlanks > 1 &&
+                        selectedText.includes(" / ")
+                          ? selectedText.split(/\s*\/\s*/)
+                          : null;
+                      const blankDisplay = selectedText
+                        ? splitSegments?.[index] ?? selectedText
+                        : "_______";
+
+                      return (
+                        <React.Fragment key={index}>
+                          {part}
+                          {index < totalBlanks && (
+                            <span className="inline-block px-3 py-0.5 mx-1 font-mono font-bold bg-indigo-100 text-indigo-800 rounded border border-indigo-200 underline decoration-indigo-400">
+                              {blankDisplay}
+                            </span>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </p>
                 </div>
 
@@ -335,8 +445,9 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {currentQ.options.map((option) => {
                       const isSelected = selectedAnswers[currentIndex] === option.key;
-                      const isChecked = checkedQuestions[currentIndex];
-                      const isCorrectAnswer = option.key === currentQ.correctAnswer;
+                      const isChecked = Boolean(currentResult);
+                      const isCorrectAnswer =
+                        isChecked && option.key === currentResult?.correctAnswer;
 
                       let optionStyle =
                         "border-slate-200 hover:border-brand-400 hover:bg-slate-50 text-slate-800";
@@ -361,7 +472,7 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
                           key={option.key}
                           type="button"
                           onClick={() => handleSelectOption(option.key)}
-                          disabled={isChecked}
+                          disabled={isChecked || isCurrentChecking}
                           className={`flex items-center gap-3 p-3.5 rounded-xl border text-left text-sm transition-all cursor-pointer ${optionStyle}`}
                         >
                           <span
@@ -390,43 +501,43 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
                   </div>
                 </div>
 
-                {/* Checked Question Feedback & Explanation */}
-                {checkedQuestions[currentIndex] && (
+                {/* Server-Graded Checked Question Feedback & Explanation */}
+                {currentResult && (
                   <div
                     className={`p-4 rounded-xl border space-y-3 animate-fade-in ${
-                      selectedAnswers[currentIndex] === currentQ.correctAnswer
+                      currentResult.isCorrect
                         ? "bg-emerald-50 border-emerald-200 text-emerald-950"
                         : "bg-amber-50 border-amber-200 text-amber-950"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2 flex-wrap font-bold text-xs">
-                      {selectedAnswers[currentIndex] === currentQ.correctAnswer ? (
+                      {currentResult.isCorrect ? (
                         <span className="flex items-center gap-1 text-emerald-700">
                           <CheckCircle2 className="w-4 h-4" />
-                          Chính xác! Đáp án đúng là ({currentQ.correctAnswer})
+                          Chính xác! Đáp án đúng là ({currentResult.correctAnswer})
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-amber-800">
                           <HelpCircle className="w-4 h-4" />
-                          Chưa chính xác! Đáp án đúng là ({currentQ.correctAnswer})
+                          Chưa chính xác! Đáp án đúng là ({currentResult.correctAnswer})
                         </span>
                       )}
 
                       {/* Rule Reference Clickable Badge */}
-                      {currentQ.ruleReference && (
+                      {effectiveRuleRef && (
                         <button
                           type="button"
-                          onClick={() => setInspectingRule(currentQ.ruleReference!)}
+                          onClick={() => setInspectingRule(effectiveRuleRef)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 shadow-2xs transition-colors cursor-pointer"
                           title="Nhấn để xem lại lý thuyết mục này"
                         >
                           <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Quy tắc {currentQ.ruleReference}</span>
+                          <span>Quy tắc {effectiveRuleRef}</span>
                         </button>
                       )}
                     </div>
                     <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-normal">
-                      {currentQ.explanation}
+                      {currentResult.explanation}
                     </p>
                   </div>
                 )}
@@ -453,7 +564,7 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
                     <div className="flex items-center justify-center gap-3 pt-1">
                       <button
                         type="button"
-                        onClick={() => loadToeicQuestions(difficulty)}
+                        onClick={() => loadToeicQuestions(difficulty, questionCount)}
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -498,14 +609,17 @@ export const ToeicPracticeModal: React.FC<ToeicPracticeModalProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                {!checkedQuestions[currentIndex] ? (
+                {!currentResult ? (
                   <button
                     type="button"
                     onClick={handleCheckCurrent}
-                    disabled={!selectedAnswers[currentIndex]}
-                    className="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                    disabled={!selectedAnswers[currentIndex] || isCurrentChecking}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                   >
-                    Kiểm tra đáp án
+                    {isCurrentChecking && (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    )}
+                    <span>Kiểm tra đáp án</span>
                   </button>
                 ) : currentIndex < totalQuestions - 1 ? (
                   <button

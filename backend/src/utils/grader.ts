@@ -1,11 +1,43 @@
 export interface EvaluatedQuestionResult {
   questionId: string;
+  status?: "correct" | "incorrect" | "unanswered";
   isCorrect: boolean;
   studentAnswer: unknown;
   correctAnswers: string[];
   expectedAnswers: string[];
   explanation: string | null;
   ruleReference: string | null;
+}
+
+/**
+ * Determines whether a submitted student answer is completely empty/unattempted.
+ * Used to reject empty-probe answer harvesting and redact unattempted items.
+ */
+export function isEmptyStudentAnswer(answer: unknown): boolean {
+  if (answer === undefined || answer === null) {
+    return true;
+  }
+  if (typeof answer === "string") {
+    return answer.trim().length === 0;
+  }
+  if (Array.isArray(answer)) {
+    return (
+      answer.length === 0 ||
+      answer.every(
+        (item) => typeof item !== "string" || item.trim().length === 0
+      )
+    );
+  }
+  if (typeof answer === "object") {
+    const values = Object.values(answer as Record<string, unknown>);
+    return (
+      values.length === 0 ||
+      values.every(
+        (val) => typeof val !== "string" || val.trim().length === 0
+      )
+    );
+  }
+  return true;
 }
 
 /**
@@ -185,6 +217,21 @@ function pushUniqueAnswer(target: string[], candidate: string | null | undefined
   }
 }
 
+function pushUniqueAcceptedAnswer(
+  target: string[],
+  candidate: string | null | undefined
+): void {
+  if (typeof candidate === "string" && !target.includes(candidate)) {
+    target.push(candidate);
+  }
+}
+
+function pickPrimaryDisplayAnswer(acceptable: string[]): string {
+  const nonEmpty = acceptable.find((item) => item.trim().length > 0);
+  if (nonEmpty !== undefined) return nonEmpty;
+  return acceptable[0] ?? "";
+}
+
 /**
  * Evaluates a single question against a student's submitted answer.
  * Follows the same structural precedence as QuestionCard:
@@ -211,7 +258,7 @@ export function evaluateQuestion(
 
     if (Array.isArray(question.acceptedAnswers)) {
       for (const a of question.acceptedAnswers) {
-        pushUniqueAnswer(acceptableList, a?.answerText);
+        pushUniqueAcceptedAnswer(acceptableList, a?.answerText);
       }
     }
 
@@ -225,7 +272,7 @@ export function evaluateQuestion(
       pushUniqueAnswer(acceptableList, b?.correctAnswerText);
       if (Array.isArray(b?.acceptedAnswers)) {
         for (const a of b.acceptedAnswers) {
-          pushUniqueAnswer(acceptableList, a?.answerText);
+          pushUniqueAcceptedAnswer(acceptableList, a?.answerText);
         }
       }
     } else if (
@@ -312,7 +359,7 @@ export function evaluateQuestion(
           pushUniqueAnswer(blankAcceptable, b?.correctAnswerText);
           if (Array.isArray(b?.acceptedAnswers)) {
             for (const a of b.acceptedAnswers) {
-              pushUniqueAnswer(blankAcceptable, a?.answerText);
+              pushUniqueAcceptedAnswer(blankAcceptable, a?.answerText);
             }
           }
           return matchesAnyExpected(sub, blankAcceptable);
@@ -322,6 +369,7 @@ export function evaluateQuestion(
 
     return {
       questionId,
+      status: isCorrect ? "correct" : "incorrect",
       isCorrect,
       studentAnswer,
       correctAnswers: acceptableList,
@@ -345,7 +393,7 @@ export function evaluateQuestion(
       pushUniqueAnswer(partAcceptable, p.correctAnswerText);
       if (Array.isArray(p.acceptedAnswers)) {
         for (const a of p.acceptedAnswers) {
-          pushUniqueAnswer(partAcceptable, a?.answerText);
+          pushUniqueAcceptedAnswer(partAcceptable, a?.answerText);
         }
       }
       if (hasEqualBlanks) {
@@ -353,11 +401,11 @@ export function evaluateQuestion(
         pushUniqueAnswer(partAcceptable, b?.correctAnswerText);
         if (Array.isArray(b?.acceptedAnswers)) {
           for (const a of b.acceptedAnswers) {
-            pushUniqueAnswer(partAcceptable, a?.answerText);
+            pushUniqueAcceptedAnswer(partAcceptable, a?.answerText);
           }
         }
       }
-      expectedAnswers.push(partAcceptable[0] || "");
+      expectedAnswers.push(pickPrimaryDisplayAnswer(partAcceptable));
     }
 
     if (studentAnswer === undefined || studentAnswer === null) {
@@ -371,7 +419,7 @@ export function evaluateQuestion(
         pushUniqueAnswer(partAcceptable, p.correctAnswerText);
         if (Array.isArray(p.acceptedAnswers)) {
           for (const a of p.acceptedAnswers) {
-            pushUniqueAnswer(partAcceptable, a?.answerText);
+            pushUniqueAcceptedAnswer(partAcceptable, a?.answerText);
           }
         }
         if (hasEqualBlanks) {
@@ -379,7 +427,7 @@ export function evaluateQuestion(
           pushUniqueAnswer(partAcceptable, b?.correctAnswerText);
           if (Array.isArray(b?.acceptedAnswers)) {
             for (const a of b.acceptedAnswers) {
-              pushUniqueAnswer(partAcceptable, a?.answerText);
+              pushUniqueAcceptedAnswer(partAcceptable, a?.answerText);
             }
           }
         }
@@ -415,6 +463,7 @@ export function evaluateQuestion(
 
     return {
       questionId,
+      status: allPartsCorrect ? "correct" : "incorrect",
       isCorrect: allPartsCorrect,
       studentAnswer,
       correctAnswers: expectedAnswers,
@@ -436,10 +485,10 @@ export function evaluateQuestion(
       pushUniqueAnswer(blankAcceptable, b.correctAnswerText);
       if (Array.isArray(b.acceptedAnswers)) {
         for (const a of b.acceptedAnswers) {
-          pushUniqueAnswer(blankAcceptable, a?.answerText);
+          pushUniqueAcceptedAnswer(blankAcceptable, a?.answerText);
         }
       }
-      expectedAnswers.push(blankAcceptable[0] || "");
+      expectedAnswers.push(pickPrimaryDisplayAnswer(blankAcceptable));
     }
 
     // Allow compound string (e.g. "No-one ... anyone") on multi-blank questions with string retry input
@@ -449,7 +498,7 @@ export function evaluateQuestion(
       pushUniqueAnswer(topLevelAcceptable, question.correctAnswerText);
       if (Array.isArray(question.acceptedAnswers)) {
         for (const a of question.acceptedAnswers) {
-          pushUniqueAnswer(topLevelAcceptable, a?.answerText);
+          pushUniqueAcceptedAnswer(topLevelAcceptable, a?.answerText);
         }
       }
       if (matchesAnyExpected(studentAnswer, topLevelAcceptable)) {
@@ -480,7 +529,7 @@ export function evaluateQuestion(
         pushUniqueAnswer(blankAcceptable, b.correctAnswerText);
         if (Array.isArray(b.acceptedAnswers)) {
           for (const a of b.acceptedAnswers) {
-            pushUniqueAnswer(blankAcceptable, a?.answerText);
+            pushUniqueAcceptedAnswer(blankAcceptable, a?.answerText);
           }
         }
 
@@ -518,6 +567,7 @@ export function evaluateQuestion(
 
     return {
       questionId,
+      status: allBlanksCorrect ? "correct" : "incorrect",
       isCorrect: allBlanksCorrect,
       studentAnswer,
       correctAnswers: expectedAnswers,
@@ -532,7 +582,7 @@ export function evaluateQuestion(
   pushUniqueAnswer(acceptableList, question.correctAnswerText);
   if (Array.isArray(question.acceptedAnswers)) {
     for (const a of question.acceptedAnswers) {
-      pushUniqueAnswer(acceptableList, a?.answerText);
+      pushUniqueAcceptedAnswer(acceptableList, a?.answerText);
     }
   }
   if (question.isExample && question.exampleAnswer) {
@@ -552,6 +602,7 @@ export function evaluateQuestion(
 
   return {
     questionId,
+    status: isCorrect ? "correct" : "incorrect",
     isCorrect,
     studentAnswer,
     correctAnswers: acceptableList,

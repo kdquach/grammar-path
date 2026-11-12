@@ -25,6 +25,7 @@ vi.mock("../src/api/client", () => {
     getProgressOverview: vi.fn(),
     getAdaptiveAnalytics: vi.fn(),
     generateToeicPractice: vi.fn(),
+    checkToeicPracticeAnswer: vi.fn(),
     getTheorySection: vi.fn(),
     loginUser: vi.fn(),
     registerUser: vi.fn(),
@@ -156,11 +157,18 @@ const mockAnalytics: AdaptiveAnalytics = {
 };
 
 const mockToeicSession: ToeicPracticeSession = {
+  sessionId: "toeic_roadmap_98",
   unitNumber: 98,
   title: "Adjectives and adverbs 1 (quick/quickly)",
   difficulty: "medium",
+  requestedCount: 5,
+  actualCount: 1,
+  source: "dynamic",
+  isOfficialToeic: false,
+  sourceNotice: "Câu hỏi chuyển thể từ Unit 98 (không phải đề thi chính thức của ETS).",
   questions: [
     {
+      itemId: "toeic-item-98-1",
       difficulty: "medium",
       prompt: "The marketing team reviewed the quarterly report _______ before the board meeting.",
       options: [
@@ -169,8 +177,6 @@ const mockToeicSession: ToeicPracticeSession = {
         { key: "C", text: "carefulness" },
         { key: "D", text: "caring" },
       ],
-      correctAnswer: "B",
-      explanation: "Cần trạng từ bổ nghĩa cho động từ 'reviewed'.",
       ruleReference: "98A",
     },
   ],

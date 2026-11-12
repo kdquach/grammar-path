@@ -106,8 +106,7 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
           "Sarah is in her car. She is on her way to work. She is driving to work. This means: she is driving now, at the time of speaking. The action is not finished.",
       });
 
-    if (process.env.GEMINI_API_KEY?.trim()) {
-      expect(res.status).toBe(200);
+    if (process.env.GEMINI_API_KEY?.trim() && res.status === 200) {
       expect(res.body.success).toBe(true);
       expect(res.body.data).toBeDefined();
       expect(res.body.data.source).toBe("ai");

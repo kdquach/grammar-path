@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BookmarkCheck,
@@ -9,14 +9,63 @@ import {
   AlertCircle,
   LogIn,
   Layers,
+  BookOpen,
 } from "lucide-react";
 import api from "../api/client";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import type { MistakeItem, QuestionSolution, QuestionCheckResult } from "../types/api.types";
+import type {
+  MistakeItem,
+  Question,
+  QuestionSolution,
+  QuestionCheckResult,
+} from "../types/api.types";
 import AuthModal from "../components/auth/AuthModal";
 import AdaptiveReviewPanel from "../components/adaptive/AdaptiveReviewPanel";
-import QuestionPromptText from "../components/exercises/QuestionPromptText";
+import RuleReferenceModal from "../components/theory/RuleReferenceModal";
+import OptionQuestionRenderer from "../components/exercises/renderers/OptionQuestionRenderer";
+import FillBlankQuestionRenderer from "../components/exercises/renderers/FillBlankQuestionRenderer";
+import MultiPartQuestionRenderer from "../components/exercises/renderers/MultiPartQuestionRenderer";
+import SentenceQuestionRenderer from "../components/exercises/renderers/SentenceQuestionRenderer";
+import WordBankBar from "../components/exercises/WordBankBar";
+import QuestionFeedbackPanel from "../components/exercises/QuestionFeedbackPanel";
+import {
+  isMultiSelectExercise,
+  isSplitBlankSlashOptionQuestion,
+} from "../components/exercises/QuestionCard";
+import { isEmptyAnswerValue } from "../components/exercises/ExerciseViewer";
+
+function formatStudentAnswerSummary(ans: unknown): string {
+  if (ans === null || ans === undefined) return "(empty)";
+  if (typeof ans === "string") return ans.trim() ? ans : "(empty)";
+  if (Array.isArray(ans)) {
+    const clean = ans.map((v) => String(v ?? "").trim()).filter(Boolean);
+    return clean.length > 0 ? clean.join(" / ") : "(empty)";
+  }
+  if (typeof ans === "object") {
+    const entries = Object.entries(ans as Record<string, unknown>)
+      .map(([k, v]) => `${k}: ${String(v ?? "").trim()}`)
+      .filter((s) => !s.endsWith(": "));
+    return entries.length > 0 ? entries.join(" | ") : "(empty)";
+  }
+  return String(ans);
+}
+
+function toMistakeRenderableQuestion(item: MistakeItem): Question {
+  return {
+    id: item.questionId,
+    questionId: item.questionId,
+    questionContent: item.questionContent,
+    isExample: Boolean(item.isExample),
+    hasVisualContext: Boolean(item.hasVisualContext),
+    visualContextDescription: item.visualContextDescription ?? null,
+    contextClue: item.contextClue ?? null,
+    displayOrder: item.displayOrder ?? 1,
+    options: item.options || [],
+    blanks: item.blanks || [],
+    parts: item.parts || [],
+  };
+}
 
 export const MistakeReviewPage: React.FC = () => {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -26,14 +75,21 @@ export const MistakeReviewPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
 
-  // Per-mistake state: retry input, evaluation result, solution
-  const [retryAnswers, setRetryAnswers] = useState<Record<string, string>>({});
+  // Per-mistake state: retry input (polymorphic: string | string[] | Record<string, string>), evaluation result, solution
+  const [retryAnswers, setRetryAnswers] = useState<Record<string, unknown>>({});
   const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
   const [checkResults, setCheckResults] = useState<Record<string, QuestionCheckResult>>({});
   const [revealedSolutions, setRevealedSolutions] = useState<Record<string, QuestionSolution>>({});
   const [loadingSolutionId, setLoadingSolutionId] = useState<string | null>(null);
   const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState<number>(0);
+  const [inspectingRule, setInspectingRule] = useState<string | null>(null);
+
+  const inFlightChecksRef = useRef<Set<string>>(new Set());
+  const focusedRetryFieldRef = useRef<
+    Record<string, { blankIndex?: number; partId?: string }>
+  >({});
 
   useEffect(() => {
     if (isAuthLoading) return;
@@ -134,17 +190,68 @@ export const MistakeReviewPage: React.FC = () => {
     );
   }
 
+  const handleRetryAnswerChange = (questionId: string, val: unknown) => {
+    setRetryAnswers((prev) => ({
+      ...prev,
+      [questionId]: val,
+    }));
+  };
+
+  const handleWordBankSelectForMistake = (item: MistakeItem, word: string) => {
+    const q = toMistakeRenderableQuestion(item);
+    const current = retryAnswers[item.questionId];
+    const focus = focusedRetryFieldRef.current[item.questionId];
+
+    if (q.parts && q.parts.length > 0) {
+      const prevMap =
+        current && typeof current === "object" && !Array.isArray(current)
+          ? { ...(current as Record<string, string>) }
+          : {};
+      const targetPartId =
+        focus?.partId ||
+        q.parts.find((p, i) => !(prevMap[p.partId || String(i + 1)] || "").trim())
+          ?.partId ||
+        q.parts[0]?.partId ||
+        "1";
+      prevMap[targetPartId] = word;
+      handleRetryAnswerChange(item.questionId, prevMap);
+      return;
+    }
+
+    if (q.blanks && q.blanks.length > 1) {
+      const arr = Array.isArray(current) ? [...current] : [];
+      while (arr.length < q.blanks.length) arr.push("");
+      const targetBlankIdx =
+        focus?.blankIndex ??
+        Math.max(
+          0,
+          q.blanks.findIndex((_, i) => !String(arr[i] || "").trim())
+        );
+      arr[targetBlankIdx] = word;
+      handleRetryAnswerChange(item.questionId, arr);
+      return;
+    }
+
+    handleRetryAnswerChange(item.questionId, word);
+  };
+
   const handleRetrySubmit = async (questionId: string) => {
+    if (inFlightChecksRef.current.has(questionId)) return;
     const answer = retryAnswers[questionId];
-    if (!answer || !answer.trim()) return;
+    if (isEmptyAnswerValue(answer)) return;
+
+    const normalizedAnswer =
+      typeof answer === "string" ? answer.trim() : answer;
 
     try {
+      inFlightChecksRef.current.add(questionId);
       setCheckingQuestionId(questionId);
-      const res = await api.checkQuestionAnswer(questionId, answer.trim());
+      const res = await api.checkQuestionAnswer(questionId, normalizedAnswer);
       setCheckResults((prev) => ({
         ...prev,
         [questionId]: res,
       }));
+      setAnalyticsRefreshKey((k) => k + 1);
 
       if (res.isCorrect) {
         setResolvedIds((prev) => new Set(prev).add(questionId));
@@ -152,6 +259,7 @@ export const MistakeReviewPage: React.FC = () => {
     } catch (err: any) {
       toast.error(err?.message || "Failed to check question correction");
     } finally {
+      inFlightChecksRef.current.delete(questionId);
       setCheckingQuestionId(null);
     }
   };
@@ -247,6 +355,19 @@ export const MistakeReviewPage: React.FC = () => {
             const result = checkResults[item.questionId];
             const solution = revealedSolutions[item.questionId];
             const isResolved = resolvedIds.has(item.questionId);
+            const renderableQuestion = toMistakeRenderableQuestion(item);
+            const retryValue = retryAnswers[item.questionId];
+            const hasRetryValue = !isEmptyAnswerValue(retryValue);
+
+            const isSplitSlash = isSplitBlankSlashOptionQuestion(renderableQuestion);
+            const hasOptions =
+              (renderableQuestion.options?.length || 0) > 0 && !isSplitSlash;
+            const hasParts = (renderableQuestion.parts?.length || 0) > 0;
+            const hasBlanks = (renderableQuestion.blanks?.length || 0) > 0;
+            const allowMultiple = isMultiSelectExercise(
+              item.instruction || undefined,
+              item.questionId
+            );
 
             return (
               <div
@@ -259,7 +380,7 @@ export const MistakeReviewPage: React.FC = () => {
               >
                 {/* Meta Strip */}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 font-bold flex items-center justify-center text-[11px]">
                       {index + 1}
                     </span>
@@ -273,6 +394,16 @@ export const MistakeReviewPage: React.FC = () => {
                     <span className="font-semibold text-slate-500">
                       Exercise {item.exerciseNumber}
                     </span>
+                    {item.ruleReference && (
+                      <button
+                        type="button"
+                        onClick={() => setInspectingRule(item.ruleReference!)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[11px] hover:bg-indigo-100 cursor-pointer"
+                      >
+                        <BookOpen className="w-3 h-3" />
+                        <span>Rule {item.ruleReference}</span>
+                      </button>
+                    )}
                   </div>
 
                   <span className="text-[11px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
@@ -280,19 +411,18 @@ export const MistakeReviewPage: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Question Content */}
+                {/* Instruction & Previous Wrong Attempt */}
                 <div className="space-y-2">
-                  <QuestionPromptText
-                    content={item.questionContent}
-                    className="text-sm sm:text-base font-bold text-slate-900 leading-relaxed"
-                  />
+                  {item.instruction && (
+                    <p className="text-xs text-slate-500 italic">
+                      {item.instruction}
+                    </p>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                     <span className="font-semibold">Your previous answer:</span>
                     <code className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 font-mono text-xs">
-                      {typeof item.lastStudentAnswer === "object"
-                        ? JSON.stringify(item.lastStudentAnswer)
-                        : String(item.lastStudentAnswer || "(empty)")}
+                      {formatStudentAnswerSummary(item.lastStudentAnswer)}
                     </code>
                     <span className="text-slate-400 text-[11px]">
                       ({new Date(item.lastAttemptedAt).toLocaleDateString()})
@@ -300,34 +430,68 @@ export const MistakeReviewPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Interactive Retry Area */}
+                {/* Word Bank if present on the source exercise */}
+                {!isResolved && item.wordBankItems && item.wordBankItems.length > 0 && (
+                  <WordBankBar
+                    items={item.wordBankItems}
+                    onSelectWord={(word) => handleWordBankSelectForMistake(item, word)}
+                  />
+                )}
+
+                {/* Interactive Polymorphic Retry Area */}
                 {!isResolved && (
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Type your correction..."
-                        value={retryAnswers[item.questionId] || ""}
-                        onChange={(e) =>
-                          setRetryAnswers((prev) => ({
-                            ...prev,
-                            [item.questionId]: e.target.value,
-                          }))
+                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
+                    {hasOptions ? (
+                      <OptionQuestionRenderer
+                        question={renderableQuestion}
+                        value={retryValue as string | string[] | undefined}
+                        onChange={(val) =>
+                          handleRetryAnswerChange(item.questionId, val)
                         }
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            handleRetrySubmit(item.questionId);
-                          }
-                        }}
-                        className="flex-1 px-3.5 py-2 text-xs sm:text-sm bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-brand-500 text-slate-900"
+                        allowMultiple={allowMultiple}
                         disabled={checkingQuestionId === item.questionId}
                       />
+                    ) : hasParts ? (
+                      <MultiPartQuestionRenderer
+                        question={renderableQuestion}
+                        value={retryValue as Record<string, string> | undefined}
+                        onChange={(val) =>
+                          handleRetryAnswerChange(item.questionId, val)
+                        }
+                        disabled={checkingQuestionId === item.questionId}
+                        onFocusField={(partId) => {
+                          focusedRetryFieldRef.current[item.questionId] = { partId };
+                        }}
+                      />
+                    ) : hasBlanks ? (
+                      <FillBlankQuestionRenderer
+                        question={renderableQuestion}
+                        value={retryValue as string | string[] | undefined}
+                        onChange={(val) =>
+                          handleRetryAnswerChange(item.questionId, val)
+                        }
+                        disabled={checkingQuestionId === item.questionId}
+                        onFocusField={(blankIndex) => {
+                          focusedRetryFieldRef.current[item.questionId] = { blankIndex };
+                        }}
+                      />
+                    ) : (
+                      <SentenceQuestionRenderer
+                        question={renderableQuestion}
+                        value={(retryValue as string | undefined) ?? ""}
+                        onChange={(val) =>
+                          handleRetryAnswerChange(item.questionId, val)
+                        }
+                        disabled={checkingQuestionId === item.questionId}
+                      />
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => handleRetrySubmit(item.questionId)}
                         disabled={
-                          checkingQuestionId === item.questionId ||
-                          !retryAnswers[item.questionId]?.trim()
+                          checkingQuestionId === item.questionId || !hasRetryValue
                         }
                         className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-2xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                       >
@@ -367,9 +531,9 @@ export const MistakeReviewPage: React.FC = () => {
                 )}
 
                 {/* Resolved Banner */}
-                {isResolved && (
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 animate-fade-in">
-                    <div className="flex items-center justify-between">
+                {isResolved && result && (
+                  <div className="space-y-3 animate-fade-in">
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs sm:text-sm">
                         <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                         <span>Resolved! Cleared from mistakes list</span>
@@ -384,34 +548,75 @@ export const MistakeReviewPage: React.FC = () => {
                         Dismiss
                       </button>
                     </div>
-                    {result?.explanation && (
-                      <p className="text-xs text-emerald-900 pl-7 leading-relaxed">
-                        {result.explanation}
-                      </p>
-                    )}
+
+                    <QuestionFeedbackPanel
+                      feedback={{
+                        isCorrect: result.isCorrect,
+                        isOrderedMultiExpected: Boolean(
+                          hasParts || (!hasOptions && (renderableQuestion.blanks?.length || 0) > 1)
+                        ),
+                        partLabelPrefix: hasParts ? "Part #" : "Blank #",
+                        studentAnswer: result.studentAnswer,
+                        expectedAnswers: result.expectedAnswers,
+                        correctAnswers: result.correctAnswers,
+                        explanation: result.explanation,
+                        ruleReference: result.ruleReference,
+                      }}
+                      onOpenRuleReference={(secId) => setInspectingRule(secId)}
+                    />
                   </div>
                 )}
 
                 {/* Revealed Solution & Explanation */}
-                {solution && (
+                {solution && (() => {
+                  const solutionChips =
+                    solution.parts && solution.parts.length > 0
+                      ? solution.parts.map(
+                          (p, idx) =>
+                            `Part #${idx + 1}: ${
+                              p.correctAnswerText || p.acceptedAnswers?.[0] || ""
+                            }`
+                        )
+                      : !hasOptions && solution.blanks && solution.blanks.length > 1
+                      ? solution.blanks.map(
+                          (b, idx) =>
+                            `Blank #${idx + 1}: ${
+                              b.correctAnswerText || b.acceptedAnswers?.[0] || ""
+                            }`
+                        )
+                      : solution.acceptedAnswers.length > 0
+                      ? solution.acceptedAnswers
+                      : solution.correctAnswerText
+                      ? [solution.correctAnswerText]
+                      : [];
+
+                  return (
                   <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2.5 text-xs text-amber-900 animate-fade-in">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-amber-800 uppercase tracking-wider text-[11px]">
                         Pedagogical Solution & Cambridge Answer Key
                       </span>
                       {solution.explanation?.ruleReference && (
-                        <span className="font-bold bg-amber-200/80 px-2 py-0.5 rounded text-amber-900 font-mono text-[11px]">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setInspectingRule(solution.explanation!.ruleReference!)
+                          }
+                          className="font-bold bg-amber-200/80 hover:bg-amber-300/80 px-2 py-0.5 rounded text-amber-900 font-mono text-[11px] cursor-pointer"
+                        >
                           Rule {solution.explanation.ruleReference}
-                        </span>
+                        </button>
                       )}
                     </div>
 
                     <div className="space-y-1">
                       <p className="font-semibold text-slate-800">
-                        Accepted Answers:
+                        {hasParts || (!hasOptions && (solution.blanks?.length || 0) > 1)
+                          ? "Expected Answers:"
+                          : "Accepted Answers:"}
                       </p>
                       <div className="flex flex-wrap gap-1.5">
-                        {solution.acceptedAnswers.map((ans, idx) => (
+                        {solutionChips.map((ans, idx) => (
                           <code
                             key={idx}
                             className="bg-white px-2 py-0.5 rounded border border-amber-200 font-mono text-slate-900 font-bold"
@@ -433,7 +638,8 @@ export const MistakeReviewPage: React.FC = () => {
                       </div>
                     )}
                   </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })}
@@ -442,8 +648,13 @@ export const MistakeReviewPage: React.FC = () => {
 
       {/* ─── Phase 9: Adaptive Error Pattern Analytics & Recommendations ── */}
       <div className="pt-6 border-t border-slate-200">
-        <AdaptiveReviewPanel />
+        <AdaptiveReviewPanel refreshKey={analyticsRefreshKey} />
       </div>
+
+      <RuleReferenceModal
+        sectionId={inspectingRule}
+        onClose={() => setInspectingRule(null)}
+      />
     </div>
   );
 };
