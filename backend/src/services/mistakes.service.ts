@@ -49,6 +49,8 @@ export async function getLatestUnresolvedMistakes(
         qai.is_correct AS "isCorrect"
       FROM question_attempt_items qai
       WHERE qai.user_id = ${userId}::uuid
+        AND qai.attempt_status <> 'unanswered'::"attempt_status_enum"
+        AND qai.is_correct IS NOT NULL
         AND qai.student_answer IS NOT NULL
         AND qai.student_answer::text <> 'null'
       ORDER BY qai.question_id, qai.created_at DESC, qai.id DESC

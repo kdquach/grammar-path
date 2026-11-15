@@ -1,0 +1,2936 @@
+{
+  "generatedAt": "2026-11-14T05:30:39.595Z",
+  "totalBankItems": 37,
+  "detailedItemAudits": [
+    {
+      "id": "33581778-c58e-40ed-b138-cfebece4f823",
+      "rootQuestionId": "0fda8409-0926-49c0-8b86-1564d83497ac",
+      "version": 1,
+      "reviewStatus": "archived",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1A",
+      "difficulty": "easy",
+      "prompt": "Look! The marketing director _______ the main conference hall with our new client.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "is entering",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 120,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][easy]",
+      "contentHash": "3a1c82f6b602764501d1a6150486d2fba2102e74bbd73b7cad96e4085e404655",
+      "reviewedBy": "3338d926-a9dd-4e26-8e3e-bc6f26e1d087",
+      "reviewedAt": "2026-11-13T17:42:05.451Z",
+      "withdrawnReason": null,
+      "reviewNotes": "Editorial review complete: high business realism, unambiguous key.",
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "marketing_sales",
+      "assignedClusterId": "cluster-1",
+      "clusterDomain": "marketing_sales",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "is entering",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "enters",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "entered",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "enter",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "7d9abd94-df89-4762-8a86-a3217f0217b0",
+      "rootQuestionId": "0fda8409-0926-49c0-8b86-1564d83497ac",
+      "version": 2,
+      "reviewStatus": "approved",
+      "isLatestApproved": true,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1A",
+      "difficulty": "easy",
+      "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "is entering",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 47,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "Revision of v1 (root: 0fda8409-0926-49c0-8b86-1564d83497ac)",
+      "contentHash": "bc88c0284809d17b3172faf33d2f78035c9f96e9a426ccc83cfd4f6bd8442483",
+      "reviewedBy": "3338d926-a9dd-4e26-8e3e-bc6f26e1d087",
+      "reviewedAt": "2026-11-13T17:42:06.798Z",
+      "withdrawnReason": null,
+      "reviewNotes": "Approved updated Version 2.",
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "it_technology",
+      "isTauEligible": true,
+      "options": [
+        {
+          "key": "A",
+          "text": "is entering",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "enters",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "entered",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "enter",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "b7c4793c-ba61-4ae6-92e2-74096f6a8557",
+      "rootQuestionId": "35f70d43-1a56-446c-b49b-9ad72b6185ce",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1E",
+      "difficulty": "medium",
+      "prompt": "According to the corporate announcement, our international market share _______ steadily this quarter.",
+      "correctAnswerKey": "C",
+      "correctAnswerText": "is growing",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 114,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][medium]",
+      "contentHash": "b1e1ab7e74a57df2da1b0d9a89e7f08a0bc40a6782a1f7c8502f5ba49019c65d",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "marketing_sales",
+      "assignedClusterId": "cluster-3",
+      "clusterDomain": "marketing_sales",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "grew",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "grows",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "is growing",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "was grown",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "a716fc0f-edb9-4f98-9b5b-d3e4092a47fe",
+      "rootQuestionId": "3d71c0d1-6a2d-498a-b6f2-c5abad85657e",
+      "version": 1,
+      "reviewStatus": "archived",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1B",
+      "difficulty": "easy",
+      "prompt": "Please be quiet. I _______ to finish this quarterly report right now.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "am trying",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 157,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][easy]",
+      "contentHash": "46bac4b234a6011c212939b98d8555dd52120e2070af57e00e963ad878f96795",
+      "reviewedBy": "f52ff8f5-00f8-4ff2-9dde-5339114f62ba",
+      "reviewedAt": "2026-11-13T17:34:54.644Z",
+      "withdrawnReason": null,
+      "reviewNotes": "Editorial review complete: high business realism, unambiguous key.",
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "finance_accounting",
+      "assignedClusterId": "cluster-4",
+      "clusterDomain": "finance_accounting",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "try",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "am trying",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "tried",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "was trying",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "7d24582b-ca20-4c7a-a828-530f4852e80a",
+      "rootQuestionId": "3d71c0d1-6a2d-498a-b6f2-c5abad85657e",
+      "version": 2,
+      "reviewStatus": "withdrawn",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1B",
+      "difficulty": "easy",
+      "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "am trying",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 47,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "Revision of v1 (root: 3d71c0d1-6a2d-498a-b6f2-c5abad85657e)",
+      "contentHash": "1562167654f9deb453eae0dc611fe42da1830eb3c6bed98c38fa7eb14ef830a6",
+      "reviewedBy": "f52ff8f5-00f8-4ff2-9dde-5339114f62ba",
+      "reviewedAt": "2026-11-13T17:34:56.098Z",
+      "withdrawnReason": "Withdrawn in Phase 3.4C.1 audit: ungrammatical answer key (Option B 'am trying' with 3rd-person subject 'he'). Originally approved by f52ff8f5-00f8-4ff2-9dde-5339114f62ba at 2026-11-13T17:34:56.098Z.",
+      "reviewNotes": "Approved updated Version 2.",
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "it_technology",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "try",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "am trying",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "tried",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "was trying",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "c46da3b7-ec0c-4fa3-b22f-4eb88fe4815c",
+      "rootQuestionId": "3dc27726-1100-4e84-959f-66ac95e7e588",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1C",
+      "difficulty": "medium",
+      "prompt": "Why _______ so many employees _______ over the recent changes to the annual leave policy today?",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "are / debating",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 107,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][medium]",
+      "contentHash": "bf646cc029259f7f9cd6ec02a5a6b27e76aff1532e036a50c2cbf0e66f28b553",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "corporate_management",
+      "assignedClusterId": "cluster-5",
+      "clusterDomain": "corporate_management",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "do / debate",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "are / debating",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "have / debated",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "were / debating",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "0f51d836-b360-4423-b19e-71ea358be557",
+      "rootQuestionId": "4a75a575-197c-446e-bfdf-0beccd61277b",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1B",
+      "difficulty": "medium",
+      "prompt": "Please speak quietly in the lobby because the marketing director _______ an important client on the phone.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "is calling",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 125,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][medium]",
+      "contentHash": "29cada8621c60a4336025812051e1e762ac15670835d4209fae19312e7e28b43",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "marketing_sales",
+      "assignedClusterId": "cluster-1",
+      "clusterDomain": "marketing_sales",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "is calling",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "calls",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "called",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "was calling",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "5131bba7-4156-4ce0-b6bb-858c20ff4d48",
+      "rootQuestionId": "634add4d-5982-4de8-99de-6c4561c6ee44",
+      "version": 1,
+      "reviewStatus": "archived",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1B",
+      "difficulty": "easy",
+      "prompt": "Listen! Our team leader _______ the new safety protocols in the auditorium.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "is explaining",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 89,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][easy]",
+      "contentHash": "e5a9bca295f6ea1055b57cd8af6534010b7fd8b5912078f9042ba567381553fd",
+      "reviewedBy": "f9960bfe-0c6b-49a6-a813-894d5ad237ed",
+      "reviewedAt": "2026-11-13T19:13:15.590Z",
+      "withdrawnReason": null,
+      "reviewNotes": "Editorial review complete: high business realism, unambiguous key.",
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-6",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "explains",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is explaining",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "explained",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "explain",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+      "rootQuestionId": "634add4d-5982-4de8-99de-6c4561c6ee44",
+      "version": 2,
+      "reviewStatus": "approved",
+      "isLatestApproved": true,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1B",
+      "difficulty": "easy",
+      "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "is explaining",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 47,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "Revision of v1 (root: 634add4d-5982-4de8-99de-6c4561c6ee44)",
+      "contentHash": "119ee66d615ce638e30d8e41a548f1c5c5b9004ee7255f3f5f38f0664ab05681",
+      "reviewedBy": "f9960bfe-0c6b-49a6-a813-894d5ad237ed",
+      "reviewedAt": "2026-11-13T19:13:16.644Z",
+      "withdrawnReason": null,
+      "reviewNotes": "Approved updated Version 2.",
+      "attemptCount": 3,
+      "practiceItemCount": 8,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "it_technology",
+      "isTauEligible": true,
+      "options": [
+        {
+          "key": "A",
+          "text": "explains",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is explaining",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "explained",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "explain",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "8b8d431d-e682-4e96-bde3-227dc089b272",
+      "rootQuestionId": "6a54a874-c48b-4651-a3f5-b686dd51fb6b",
+      "version": 1,
+      "reviewStatus": "archived",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1C",
+      "difficulty": "easy",
+      "prompt": "Why _______ you _______ the project schedule today?",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "are / updating",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 101,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][easy]",
+      "contentHash": "07394265cab1c90ffe38ea3b635b8cb1cc26ac9222a814cb3170c3b75c0b8eb0",
+      "reviewedBy": "fc2c140a-fa60-4146-b9f9-4b7f687e27c2",
+      "reviewedAt": "2026-11-13T19:15:43.720Z",
+      "withdrawnReason": null,
+      "reviewNotes": "Editorial review complete: high business realism, unambiguous key.",
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-7",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "are / updating",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "do / update",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "did / update",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "have / updated",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "4a1223fc-84c4-4f57-8efa-dcc6d03d1fb2",
+      "rootQuestionId": "6a54a874-c48b-4651-a3f5-b686dd51fb6b",
+      "version": 2,
+      "reviewStatus": "withdrawn",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1C",
+      "difficulty": "easy",
+      "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "are / updating",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 47,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "Revision of v1 (root: 6a54a874-c48b-4651-a3f5-b686dd51fb6b)",
+      "contentHash": "31041805d363e57addbab07fbcc1270dfe90b892440d8174c4019cafdee29b3a",
+      "reviewedBy": "fc2c140a-fa60-4146-b9f9-4b7f687e27c2",
+      "reviewedAt": "2026-11-13T19:15:44.925Z",
+      "withdrawnReason": "Withdrawn in Phase 3.4C.3 preflight audit: ungrammatical answer key (Option A 'are / updating' with 3rd-person singular subject 'he'). Originally approved by fc2c140a-fa60-4146-b9f9-4b7f687e27c2 at 2026-11-13T19:15:44.925Z.",
+      "reviewNotes": "Approved updated Version 2.",
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "it_technology",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "are / updating",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "do / update",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "did / update",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "have / updated",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "2afc939e-9d24-40d8-98c3-75a198006930",
+      "rootQuestionId": "7a347a67-1fb9-4fae-9dc0-c2405091e20d",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1A",
+      "difficulty": "medium",
+      "prompt": "Ms. Patterson _______ a comprehensive quarterly financial review in Conference Room B right now.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "is conducting",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 140,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][medium]",
+      "contentHash": "cd27bcdef43f06ecc5e1cc94e049f6477adafa4195250e6145a5d64dd114785f",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "finance_accounting",
+      "assignedClusterId": "cluster-8",
+      "clusterDomain": "finance_accounting",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "conducts",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is conducting",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "conducted",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "has conducted",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "2997562b-8ae1-4e19-8dd2-f110d41865e0",
+      "rootQuestionId": "8c00e8d7-ac3d-4455-9c8f-fe6e141df4c4",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1E",
+      "difficulty": "hard",
+      "prompt": "Noticeably, the automotive manufacturing plant _______ more and more automated robotic units to accelerate assembly.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "is incorporating",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 106,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][hard]",
+      "contentHash": "0720a634782819051e50d9333dfb0b73464458a7c0c03164922341f85af33ac4",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "manufacturing_production",
+      "assignedClusterId": "cluster-9",
+      "clusterDomain": "manufacturing_production",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "incorporates",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is incorporating",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "has incorporated",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "incorporate",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "fa201c0b-4173-453b-8fd8-4df4019e6ca9",
+      "rootQuestionId": "944ee279-5118-4fa1-8675-34c0d1b96161",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1D",
+      "difficulty": "hard",
+      "prompt": "Although the regional director usually _______ conservative investments, she is currently considering higher-yield instruments.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "prefers",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 117,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][hard]",
+      "contentHash": "b7251aa9278727cb873cd227d09f414b7c541060a063172cc105cdae7b097178",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "corporate_management",
+      "assignedClusterId": "cluster-10",
+      "clusterDomain": "corporate_management",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "prefers",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is preferring",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "preferred",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "prefer",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "7a3359ae-c5a5-4b99-b2db-1fed3c1fbf83",
+      "rootQuestionId": "ac251f52-c528-47e3-95d5-69eed90530f6",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1C",
+      "difficulty": "hard",
+      "prompt": "Our executive committee _______ foreign representatives all afternoon to negotiate the cross-border merger terms.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "is meeting",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 115,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][hard]",
+      "contentHash": "b1a74b433fcbd2c800f19c855cd6112bad667d03145fb0198691cc200a87ccb5",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "corporate_management",
+      "assignedClusterId": "cluster-11",
+      "clusterDomain": "corporate_management",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "meets",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is meeting",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "has met",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "meet",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "79355b82-e2db-4857-b78f-53716b0b7f39",
+      "rootQuestionId": "b19ebb8c-9912-4cd7-8705-155d847282b0",
+      "version": 1,
+      "reviewStatus": "archived",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1A",
+      "difficulty": "easy",
+      "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "is repairing",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 108,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][easy]",
+      "contentHash": "29b80e82c9eaed6b2e93015fa02485eaa48bb159f8648d7bc0657935f679ff65",
+      "reviewedBy": "02b63e3a-aecf-4185-aee7-bf0022636a4c",
+      "reviewedAt": "2026-11-13T17:49:31.848Z",
+      "withdrawnReason": null,
+      "reviewNotes": "Editorial review complete: high business realism, unambiguous key.",
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "it_technology",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "repairs",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is repairing",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "repaired",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "repair",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "45e751fd-4915-4bac-a386-c7bae5295911",
+      "rootQuestionId": "b19ebb8c-9912-4cd7-8705-155d847282b0",
+      "version": 2,
+      "reviewStatus": "approved",
+      "isLatestApproved": true,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1A",
+      "difficulty": "easy",
+      "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "is repairing",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 47,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "Revision of v1 (root: b19ebb8c-9912-4cd7-8705-155d847282b0)",
+      "contentHash": "720607a279020d60bc58d590e30eea8e116958cfc2bff73b8079a7d8d94b7660",
+      "reviewedBy": "02b63e3a-aecf-4185-aee7-bf0022636a4c",
+      "reviewedAt": "2026-11-13T17:49:32.973Z",
+      "withdrawnReason": null,
+      "reviewNotes": "Approved updated Version 2.",
+      "attemptCount": 0,
+      "practiceItemCount": 2,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "it_technology",
+      "isTauEligible": true,
+      "options": [
+        {
+          "key": "A",
+          "text": "repairs",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is repairing",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "repaired",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "repair",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "322c0e5c-d12b-4617-b88d-cace81c8e545",
+      "rootQuestionId": "bf8e0dc4-1ae2-4206-afb9-ad49bcee84f3",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1B",
+      "difficulty": "hard",
+      "prompt": "Our overseas logistics hubs _______ unusually severe customs delays these weeks due to the new maritime trade treaty.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "are experiencing",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 94,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][hard]",
+      "contentHash": "eb7a735813adeebdde5e39aa3d8811cbc18a04836d6e577278ef77700b1a1db3",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "logistics_shipping",
+      "assignedClusterId": "cluster-12",
+      "clusterDomain": "logistics_shipping",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "experience",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "are experiencing",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "experienced",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "experiences",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "fe5dcc57-9a64-48a6-9ae3-2f4a5ebcecea",
+      "rootQuestionId": "eb2ee69f-1207-473d-8769-f7242a27a400",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 1,
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "1C",
+      "difficulty": "medium",
+      "prompt": "The IT support team _______ a new cybersecurity protocol across all company computers this week.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "is installing",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 104,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[1][medium]",
+      "contentHash": "bdeded7a5b4fe162d02324041a251d67b8f926455743fd52f5fdfe228545b13e",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-13",
+      "clusterDomain": "it_technology",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "is installing",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "installed",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "installs",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "install",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "32ed699c-127b-49b5-abbf-6898328aa84c",
+      "rootQuestionId": "08503402-54c6-4e10-9164-736c49560eb2",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 2,
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "2A",
+      "difficulty": "easy",
+      "prompt": "The mail courier always _______ packages to the reception desk before 10 A.M.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "delivers",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 110,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[2][easy]",
+      "contentHash": "3c7805a01f81b42a6676607cba0bde0964f2b6b0ca58cd3746d2d6d16c2dad94",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "logistics_shipping",
+      "assignedClusterId": "cluster-1",
+      "clusterDomain": "logistics_shipping",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "delivers",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is delivering",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "delivered",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "delivering",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "a47fbe81-3f4d-4f1f-8de5-6a66e91b8f13",
+      "rootQuestionId": "1c97a716-7e30-477e-b23e-10e8fd4f383a",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 2,
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "2A",
+      "difficulty": "easy",
+      "prompt": "Most software developers in our branch _______ in modern open-space cubicles.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "work",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 77,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[2][easy]",
+      "contentHash": "cecc13e267cc700a0b29cb21327086880b8bbf46d3732b306593cadb34518de5",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "it_technology",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "works",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "work",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "is working",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "working",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "eb746b7c-3490-4292-9c32-c3c7524ebca6",
+      "rootQuestionId": "4f3ffc86-0f16-43cb-a9ad-8d59f7a70931",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 2,
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "2B",
+      "difficulty": "medium",
+      "prompt": "Our regional express shuttle _______ from the central station every thirty minutes.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "departs",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 76,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[2][medium]",
+      "contentHash": "5b1ac9474ef3b6f3d8354f0663e1a4fa9198791e1484c413da883358bdb2fc03",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "hospitality_travel",
+      "assignedClusterId": "cluster-3",
+      "clusterDomain": "hospitality_travel",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "departing",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "departs",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "is departing",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "has departed",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "a6c7ae58-9658-4d22-a94a-04220ab3c813",
+      "rootQuestionId": "9704b1cc-6f3b-44de-94d7-2db6ba17f72d",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 2,
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "2C",
+      "difficulty": "medium",
+      "prompt": "The legal department _______ contracts that contain ambiguous termination clauses.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "does not approve",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 69,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[2][medium]",
+      "contentHash": "df180d945c00f0252e825cb6268b7d4dbb4350a03c19f2ea82facff5808f17eb",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-4",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "does not approve",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "do not approve",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "is not approved",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "not approving",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "f5381446-1fc7-4aa3-9e9b-8780dd4e4ccd",
+      "rootQuestionId": "9899139c-46f8-4f3b-ba62-2d1465642228",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 2,
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "2C",
+      "difficulty": "hard",
+      "prompt": "Seldom _______ the senior partner endorse investments without conducting thorough due diligence.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "does",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 84,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[2][hard]",
+      "contentHash": "7801ab28dc92613cda99e62433ab9639b3171a730ce5484dfa46c2523aa8454b",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-5",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "does",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "do",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "has",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "f89aceea-dc75-4503-ac9e-96eb968b9517",
+      "rootQuestionId": "de3db8cc-9852-41b2-908f-e112f2c62514",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 2,
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "2B",
+      "difficulty": "easy",
+      "prompt": "Our office _______ at 8:00 A.M. and closes at 6:00 P.M. every Monday through Friday.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "opens",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 53,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[2][easy]",
+      "contentHash": "7329b83031dfcee28738d3403755d09c8564c5fdf87183215752cfd0bfc20f08",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-6",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "opens",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is opening",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "opened",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "open",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "92a0e4b0-2db2-406b-a71d-53683e93bc0c",
+      "rootQuestionId": "e15832a7-1284-4a01-b1c4-9d908149a08d",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 2,
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "2A",
+      "difficulty": "medium",
+      "prompt": "The human resources manager usually _______ employment verification letters within two business days.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "issues",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 80,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[2][medium]",
+      "contentHash": "a8284a4b7621d72d93fa4ba823ccf654e7f845754b981139175ba2891676012c",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "corporate_management",
+      "assignedClusterId": "cluster-7",
+      "clusterDomain": "corporate_management",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "issues",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is issuing",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "issued",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "has been issuing",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "a9d29ec3-bd55-4cd4-87b1-31b6cb9fde6a",
+      "rootQuestionId": "fd6b2d49-6611-4a45-92bb-c44f608b33dd",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 2,
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "2B",
+      "difficulty": "hard",
+      "prompt": "The chief economist emphasizes that currency volatility _______ directly to fluctuating crude oil pricing.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "relates",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 91,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[2][hard]",
+      "contentHash": "b592ee2aa838b6b4ac2e383fdcce7cf011489058fc3a223addacbdc56b7e9b21",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-8",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "relates",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is relating",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "related",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "relate",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "6948841f-9dc6-487c-83ed-04c6ebfbc9fe",
+      "rootQuestionId": "23644090-7aa8-4694-9234-e6b4affd5433",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 3,
+      "conceptId": "7296dbb8-1ee8-4a52-a7e9-b6f132921da4",
+      "conceptCode": "unit.003",
+      "conceptName": "Present continuous and present simple 1 (I am doing and I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "3B",
+      "difficulty": "medium",
+      "prompt": "Mr. Lin _______ at his desk when the fire alarm suddenly sounded throughout the building.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "was working",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 66,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[3][medium]",
+      "contentHash": "729f48fc24f485502af66f966acc43a0d36ad091a9f99b80906569a8c40bec49",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-1",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "worked",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "was working",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "works",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "has worked",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "c10918d0-496f-4766-a6c5-923445203650",
+      "rootQuestionId": "4acd072c-7aea-4223-bd8e-fdf67f45bf23",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 3,
+      "conceptId": "7296dbb8-1ee8-4a52-a7e9-b6f132921da4",
+      "conceptCode": "unit.003",
+      "conceptName": "Present continuous and present simple 1 (I am doing and I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "3B",
+      "difficulty": "medium",
+      "prompt": "While the project coordinator _______ the contract terms, the client asked for clarification on payment schedules.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "was reviewing",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 128,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[3][medium]",
+      "contentHash": "b091889acdef087af7ec0235cfe19951e2eb67366e44e135b1160b8177600b2a",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "marketing_sales",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "marketing_sales",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "reviewed",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "was reviewing",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "has reviewed",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "is reviewing",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "77299aeb-93d6-483e-9f77-4d5a8c67496a",
+      "rootQuestionId": "73bd1efe-4277-4014-8f3b-18e10bd53822",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 3,
+      "conceptId": "7296dbb8-1ee8-4a52-a7e9-b6f132921da4",
+      "conceptCode": "unit.003",
+      "conceptName": "Present continuous and present simple 1 (I am doing and I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "3B",
+      "difficulty": "hard",
+      "prompt": "Had the compliance inspector _______ the discrepancy earlier, the company would not have faced regulatory fines.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "noticed",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 57,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[3][hard]",
+      "contentHash": "188820d74b4704ceff44a9875b55fbba2fc6d5785b10de218e480b860371e87d",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-3",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "noticed",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "notice",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "noticing",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "was noticing",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "43753724-dcb3-4681-adb5-5d0c71d34b7c",
+      "rootQuestionId": "d083530a-2bbd-4e68-b6d0-04303efe59b8",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 3,
+      "conceptId": "7296dbb8-1ee8-4a52-a7e9-b6f132921da4",
+      "conceptCode": "unit.003",
+      "conceptName": "Present continuous and present simple 1 (I am doing and I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "3A",
+      "difficulty": "easy",
+      "prompt": "Last Friday, the board members _______ to approve the proposed budget.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "voted",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 68,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[3][easy]",
+      "contentHash": "d6143e32299ac47351a0c9e9f2c61defd57794fcb3a7de917695118eee7c1a84",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "finance_accounting",
+      "assignedClusterId": "cluster-4",
+      "clusterDomain": "finance_accounting",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "vote",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "voted",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "were voting",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "are voting",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "fe61381a-7e1b-495f-a388-804cb27ea8f5",
+      "rootQuestionId": "1c40b1b4-3443-4af5-82e9-f10ee16e6df1",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 4,
+      "conceptId": "de168594-622f-4543-ab04-5d22a5dfe7cf",
+      "conceptCode": "unit.004",
+      "conceptName": "Present continuous and present simple 2 (I am doing and I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "4C",
+      "difficulty": "hard",
+      "prompt": "The chief scientist _______ whether the synthesized compound remains chemically stable under extreme pressure.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "doubts",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 64,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[4][hard]",
+      "contentHash": "b8d87bd07e7af21c7354c4a63432625badf644b2a40604cbd66e13c165cb7365",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-1",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "doubts",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is doubting",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "doubted",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "doubt",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "ac0c643a-f264-4991-b5ae-08c0e8eb2848",
+      "rootQuestionId": "4735cd82-f9bc-46f2-9d2d-f6ec468afce9",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 4,
+      "conceptId": "de168594-622f-4543-ab04-5d22a5dfe7cf",
+      "conceptCode": "unit.004",
+      "conceptName": "Present continuous and present simple 2 (I am doing and I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "4B",
+      "difficulty": "medium",
+      "prompt": "Dr. Evans _______ three medical research articles every year for the international cardiology journal.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "publishes",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 74,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[4][medium]",
+      "contentHash": "48f8b8472e374c43a1eb6bcf6a2adea540814aa248fa677f267314efc9ed059c",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "publishes",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "is publishing",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "publish",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "has published",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "6e803d45-15fe-4fb7-8f35-5f7636947888",
+      "rootQuestionId": "8fadde25-da30-4891-bcf4-1d952603deaf",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 4,
+      "conceptId": "de168594-622f-4543-ab04-5d22a5dfe7cf",
+      "conceptCode": "unit.004",
+      "conceptName": "Present continuous and present simple 2 (I am doing and I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "4A",
+      "difficulty": "easy",
+      "prompt": "Listen to the speaker; she _______ the summary of today's meeting.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "is giving",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 67,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[4][easy]",
+      "contentHash": "ab6bec81992eec7883191dd9ebb7f2923ae0453e1c2d88d72758af802278c07c",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "corporate_management",
+      "assignedClusterId": "cluster-3",
+      "clusterDomain": "corporate_management",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "is giving",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "gives",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "gave",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "give",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "7addbaf6-e0f1-47c4-a31d-f0196200c087",
+      "rootQuestionId": "a87ba2aa-96df-4fe9-b174-2d1851640b88",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 4,
+      "conceptId": "de168594-622f-4543-ab04-5d22a5dfe7cf",
+      "conceptCode": "unit.004",
+      "conceptName": "Present continuous and present simple 2 (I am doing and I do)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "4A",
+      "difficulty": "medium",
+      "prompt": "Listen to the CEO's keynote address; she _______ the company's visionary five-year expansion plan.",
+      "correctAnswerKey": "A",
+      "correctAnswerText": "is explaining",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": false,
+      "explanationLength": 77,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 1,
+      "conceptMappingSource": "curated_metadata",
+      "source": "legacy_seed",
+      "sourceReference": "toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[4][medium]",
+      "contentHash": "1123a86a5453e7ae6ab678b87bc265812e29075586730392a0e14e373face88c",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "general_business",
+      "assignedClusterId": "cluster-4",
+      "clusterDomain": "general_business",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "is explaining",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "B",
+          "text": "explains",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "explained",
+          "isCorrect": false,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "has explained",
+          "isCorrect": false,
+          "rationale": null
+        }
+      ]
+    },
+    {
+      "id": "0707bbd2-7ee1-46c5-b285-55ead26e9c7f",
+      "rootQuestionId": "6e6e0452-dc31-4386-b162-713e312c4a0d",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 5,
+      "conceptId": "9f16b6e4-d5fd-48f2-ae12-ed721c924df9",
+      "conceptCode": "unit.005",
+      "conceptName": "Past simple (I did)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "5A",
+      "difficulty": "easy",
+      "prompt": "The technician _______ the problem with the network server during his visit last week.",
+      "correctAnswerKey": "C",
+      "correctAnswerText": "found",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": true,
+      "explanationLength": 124,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 0.9,
+      "conceptMappingSource": "queue_generator",
+      "source": "ai_generated",
+      "sourceReference": "Run f16fa7fb-e205-4995-b1ec-b05a25be5b1f",
+      "contentHash": "5c749e2de26fa88305063db13e0eb8125d69c1475cd0b191533c6a989d8e479c",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "it_technology",
+      "assignedClusterId": "cluster-1",
+      "clusterDomain": "it_technology",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "find",
+          "isCorrect": false,
+          "rationale": "Đây là dạng nguyên mẫu của động từ bất quy tắc."
+        },
+        {
+          "key": "B",
+          "text": "finds",
+          "isCorrect": false,
+          "rationale": "Đây là thì hiện tại đơn."
+        },
+        {
+          "key": "C",
+          "text": "found",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "D",
+          "text": "founded",
+          "isCorrect": false,
+          "rationale": "Đây là quá khứ của động từ 'found' (thành lập), không phù hợp về nghĩa."
+        }
+      ]
+    },
+    {
+      "id": "4ce8fea3-4481-4b96-abf9-79f2d8eb398d",
+      "rootQuestionId": "b14c1c53-88bd-4f47-a456-2caaf945750e",
+      "version": 1,
+      "reviewStatus": "validated",
+      "isLatestApproved": false,
+      "unitNumber": 5,
+      "conceptId": "9f16b6e4-d5fd-48f2-ae12-ed721c924df9",
+      "conceptCode": "unit.005",
+      "conceptName": "Past simple (I did)",
+      "primarySkill": "direct_grammar",
+      "subSkill": null,
+      "ruleReference": "5A",
+      "difficulty": "easy",
+      "prompt": "Ms. Tanaka _______ the marketing report to the manager's office yesterday afternoon.",
+      "correctAnswerKey": "B",
+      "correctAnswerText": "delivered",
+      "hasSingleCorrect": true,
+      "hasFourOptions": true,
+      "hasBlankInPrompt": true,
+      "answerKeyValid": true,
+      "allDistractorsUnique": true,
+      "allDistractorsHaveRationale": true,
+      "explanationLength": 174,
+      "explanationQuality": "adequate",
+      "conceptMappingConfidence": 0.9,
+      "conceptMappingSource": "queue_generator",
+      "source": "ai_generated",
+      "sourceReference": "Run f16fa7fb-e205-4995-b1ec-b05a25be5b1f",
+      "contentHash": "771e8720be514d894307ac2d7bfb72ae85bb24cc343320f28b66a0af6f89a122",
+      "reviewedBy": null,
+      "reviewedAt": null,
+      "withdrawnReason": null,
+      "reviewNotes": null,
+      "attemptCount": 0,
+      "practiceItemCount": 0,
+      "domain": "marketing_sales",
+      "assignedClusterId": "cluster-2",
+      "clusterDomain": "marketing_sales",
+      "isTauEligible": false,
+      "options": [
+        {
+          "key": "A",
+          "text": "deliver",
+          "isCorrect": false,
+          "rationale": "Đây là dạng nguyên mẫu, không phù hợp với trạng từ thời gian 'yesterday'."
+        },
+        {
+          "key": "B",
+          "text": "delivered",
+          "isCorrect": true,
+          "rationale": null
+        },
+        {
+          "key": "C",
+          "text": "delivering",
+          "isCorrect": false,
+          "rationale": "Dạng V-ing không thể làm động từ chính trong câu nếu không có trợ động từ to be."
+        },
+        {
+          "key": "D",
+          "text": "delivers",
+          "isCorrect": false,
+          "rationale": "Đây là thì hiện tại đơn, không dùng cho hành động đã kết thúc trong quá khứ."
+        }
+      ]
+    }
+  ],
+  "chainingTest": {
+    "metricsAB": {
+      "sNorm": 0.603,
+      "sSlot": 0.75,
+      "sDist": 1,
+      "sRule": 1,
+      "sSem": 0.864,
+      "sCarrier": 0.796,
+      "dCtx": 0.204,
+      "relationship": "TEMPLATE_DUPLICATE",
+      "isUncertain": false,
+      "workplaceDomainA": "it_technology",
+      "workplaceDomainB": "it_technology"
+    },
+    "metricsBC": {
+      "sNorm": 0.258,
+      "sSlot": 0.1,
+      "sDist": 1,
+      "sRule": 1,
+      "sSem": 0.059,
+      "sCarrier": 0.258,
+      "dCtx": 0.742,
+      "relationship": "SAME_RULE_NOVEL_CONTEXT",
+      "isUncertain": false,
+      "workplaceDomainA": "it_technology",
+      "workplaceDomainB": "logistics_shipping"
+    },
+    "metricsAC": {
+      "sNorm": 0.291,
+      "sSlot": 0.2,
+      "sDist": 1,
+      "sRule": 1,
+      "sSem": 0.063,
+      "sCarrier": 0.291,
+      "dCtx": 0.709,
+      "relationship": "SAME_RULE_NOVEL_CONTEXT",
+      "isUncertain": false,
+      "workplaceDomainA": "it_technology",
+      "workplaceDomainB": "logistics_shipping"
+    },
+    "chainClustering": [
+      {
+        "id": "cluster-1",
+        "domain": "it_technology",
+        "items": [
+          "synthetic-A",
+          "synthetic-B"
+        ]
+      },
+      {
+        "id": "cluster-2",
+        "domain": "logistics_shipping",
+        "items": [
+          "synthetic-C"
+        ]
+      }
+    ]
+  },
+  "root3dItems": [
+    {
+      "id": "a716fc0f-edb9-4f98-9b5b-d3e4092a47fe",
+      "version": 1,
+      "reviewStatus": "archived",
+      "isLatestApproved": false,
+      "prompt": "Please be quiet. I _______ to finish this quarterly report right now.",
+      "withdrawnReason": null
+    },
+    {
+      "id": "7d24582b-ca20-4c7a-a828-530f4852e80a",
+      "version": 2,
+      "reviewStatus": "withdrawn",
+      "isLatestApproved": false,
+      "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+      "withdrawnReason": "Withdrawn in Phase 3.4C.1 audit: ungrammatical answer key (Option B 'am trying' with 3rd-person subject 'he'). Originally approved by f52ff8f5-00f8-4ff2-9dde-5339114f62ba at 2026-11-13T17:34:56.098Z."
+    }
+  ],
+  "root6aItems": [
+    {
+      "id": "8b8d431d-e682-4e96-bde3-227dc089b272",
+      "version": 1,
+      "reviewStatus": "archived",
+      "isLatestApproved": false,
+      "prompt": "Why _______ you _______ the project schedule today?",
+      "withdrawnReason": null
+    },
+    {
+      "id": "4a1223fc-84c4-4f57-8efa-dcc6d03d1fb2",
+      "version": 2,
+      "reviewStatus": "withdrawn",
+      "isLatestApproved": false,
+      "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+      "withdrawnReason": "Withdrawn in Phase 3.4C.3 preflight audit: ungrammatical answer key (Option A 'are / updating' with 3rd-person singular subject 'he'). Originally approved by fc2c140a-fa60-4146-b9f9-4b7f687e27c2 at 2026-11-13T19:15:44.925Z."
+    }
+  ],
+  "conceptCoverageList": [
+    {
+      "conceptId": "201b07e6-1731-4105-ac7e-e1d763f54049",
+      "conceptCode": "unit.001",
+      "conceptName": "Present continuous (I am doing)",
+      "unitNumber": 1,
+      "totalCount": 19,
+      "approvedCount": 3,
+      "validatedCount": 9,
+      "withdrawnCount": 2,
+      "archivedCount": 5,
+      "kCtxAll": 13,
+      "kCtxApproved": 1,
+      "uncertainCount": 0,
+      "isEvidenceSufficient": false,
+      "allClusters": [
+        {
+          "id": "cluster-1",
+          "domain": "marketing_sales",
+          "itemCount": 2,
+          "itemIds": [
+            "33581778-c58e-40ed-b138-cfebece4f823",
+            "0f51d836-b360-4423-b19e-71ea358be557"
+          ]
+        },
+        {
+          "id": "cluster-2",
+          "domain": "it_technology",
+          "itemCount": 6,
+          "itemIds": [
+            "7d9abd94-df89-4762-8a86-a3217f0217b0",
+            "7d24582b-ca20-4c7a-a828-530f4852e80a",
+            "44931eb1-344b-4ec8-aceb-5524a952ed59",
+            "4a1223fc-84c4-4f57-8efa-dcc6d03d1fb2",
+            "79355b82-e2db-4857-b78f-53716b0b7f39",
+            "45e751fd-4915-4bac-a386-c7bae5295911"
+          ]
+        },
+        {
+          "id": "cluster-3",
+          "domain": "marketing_sales",
+          "itemCount": 1,
+          "itemIds": [
+            "b7c4793c-ba61-4ae6-92e2-74096f6a8557"
+          ]
+        },
+        {
+          "id": "cluster-4",
+          "domain": "finance_accounting",
+          "itemCount": 1,
+          "itemIds": [
+            "a716fc0f-edb9-4f98-9b5b-d3e4092a47fe"
+          ]
+        },
+        {
+          "id": "cluster-5",
+          "domain": "corporate_management",
+          "itemCount": 1,
+          "itemIds": [
+            "c46da3b7-ec0c-4fa3-b22f-4eb88fe4815c"
+          ]
+        },
+        {
+          "id": "cluster-6",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "5131bba7-4156-4ce0-b6bb-858c20ff4d48"
+          ]
+        },
+        {
+          "id": "cluster-7",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "8b8d431d-e682-4e96-bde3-227dc089b272"
+          ]
+        },
+        {
+          "id": "cluster-8",
+          "domain": "finance_accounting",
+          "itemCount": 1,
+          "itemIds": [
+            "2afc939e-9d24-40d8-98c3-75a198006930"
+          ]
+        },
+        {
+          "id": "cluster-9",
+          "domain": "manufacturing_production",
+          "itemCount": 1,
+          "itemIds": [
+            "2997562b-8ae1-4e19-8dd2-f110d41865e0"
+          ]
+        },
+        {
+          "id": "cluster-10",
+          "domain": "corporate_management",
+          "itemCount": 1,
+          "itemIds": [
+            "fa201c0b-4173-453b-8fd8-4df4019e6ca9"
+          ]
+        },
+        {
+          "id": "cluster-11",
+          "domain": "corporate_management",
+          "itemCount": 1,
+          "itemIds": [
+            "7a3359ae-c5a5-4b99-b2db-1fed3c1fbf83"
+          ]
+        },
+        {
+          "id": "cluster-12",
+          "domain": "logistics_shipping",
+          "itemCount": 1,
+          "itemIds": [
+            "322c0e5c-d12b-4617-b88d-cace81c8e545"
+          ]
+        },
+        {
+          "id": "cluster-13",
+          "domain": "it_technology",
+          "itemCount": 1,
+          "itemIds": [
+            "fe5dcc57-9a64-48a6-9ae3-2f4a5ebcecea"
+          ]
+        }
+      ],
+      "approvedClusters": [
+        {
+          "id": "cluster-1",
+          "domain": "it_technology",
+          "itemCount": 3,
+          "itemIds": [
+            "7d9abd94-df89-4762-8a86-a3217f0217b0",
+            "44931eb1-344b-4ec8-aceb-5524a952ed59",
+            "45e751fd-4915-4bac-a386-c7bae5295911"
+          ]
+        }
+      ]
+    },
+    {
+      "conceptId": "89591d03-85a9-4992-a951-f5d06f767d89",
+      "conceptCode": "unit.002",
+      "conceptName": "Present simple (I do)",
+      "unitNumber": 2,
+      "totalCount": 8,
+      "approvedCount": 0,
+      "validatedCount": 8,
+      "withdrawnCount": 0,
+      "archivedCount": 0,
+      "kCtxAll": 8,
+      "kCtxApproved": 0,
+      "uncertainCount": 0,
+      "isEvidenceSufficient": false,
+      "allClusters": [
+        {
+          "id": "cluster-1",
+          "domain": "logistics_shipping",
+          "itemCount": 1,
+          "itemIds": [
+            "32ed699c-127b-49b5-abbf-6898328aa84c"
+          ]
+        },
+        {
+          "id": "cluster-2",
+          "domain": "it_technology",
+          "itemCount": 1,
+          "itemIds": [
+            "a47fbe81-3f4d-4f1f-8de5-6a66e91b8f13"
+          ]
+        },
+        {
+          "id": "cluster-3",
+          "domain": "hospitality_travel",
+          "itemCount": 1,
+          "itemIds": [
+            "eb746b7c-3490-4292-9c32-c3c7524ebca6"
+          ]
+        },
+        {
+          "id": "cluster-4",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "a6c7ae58-9658-4d22-a94a-04220ab3c813"
+          ]
+        },
+        {
+          "id": "cluster-5",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "f5381446-1fc7-4aa3-9e9b-8780dd4e4ccd"
+          ]
+        },
+        {
+          "id": "cluster-6",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "f89aceea-dc75-4503-ac9e-96eb968b9517"
+          ]
+        },
+        {
+          "id": "cluster-7",
+          "domain": "corporate_management",
+          "itemCount": 1,
+          "itemIds": [
+            "92a0e4b0-2db2-406b-a71d-53683e93bc0c"
+          ]
+        },
+        {
+          "id": "cluster-8",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "a9d29ec3-bd55-4cd4-87b1-31b6cb9fde6a"
+          ]
+        }
+      ],
+      "approvedClusters": []
+    },
+    {
+      "conceptId": "7296dbb8-1ee8-4a52-a7e9-b6f132921da4",
+      "conceptCode": "unit.003",
+      "conceptName": "Present continuous and present simple 1 (I am doing and I do)",
+      "unitNumber": 3,
+      "totalCount": 4,
+      "approvedCount": 0,
+      "validatedCount": 4,
+      "withdrawnCount": 0,
+      "archivedCount": 0,
+      "kCtxAll": 4,
+      "kCtxApproved": 0,
+      "uncertainCount": 0,
+      "isEvidenceSufficient": false,
+      "allClusters": [
+        {
+          "id": "cluster-1",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "6948841f-9dc6-487c-83ed-04c6ebfbc9fe"
+          ]
+        },
+        {
+          "id": "cluster-2",
+          "domain": "marketing_sales",
+          "itemCount": 1,
+          "itemIds": [
+            "c10918d0-496f-4766-a6c5-923445203650"
+          ]
+        },
+        {
+          "id": "cluster-3",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "77299aeb-93d6-483e-9f77-4d5a8c67496a"
+          ]
+        },
+        {
+          "id": "cluster-4",
+          "domain": "finance_accounting",
+          "itemCount": 1,
+          "itemIds": [
+            "43753724-dcb3-4681-adb5-5d0c71d34b7c"
+          ]
+        }
+      ],
+      "approvedClusters": []
+    },
+    {
+      "conceptId": "de168594-622f-4543-ab04-5d22a5dfe7cf",
+      "conceptCode": "unit.004",
+      "conceptName": "Present continuous and present simple 2 (I am doing and I do)",
+      "unitNumber": 4,
+      "totalCount": 4,
+      "approvedCount": 0,
+      "validatedCount": 4,
+      "withdrawnCount": 0,
+      "archivedCount": 0,
+      "kCtxAll": 4,
+      "kCtxApproved": 0,
+      "uncertainCount": 0,
+      "isEvidenceSufficient": false,
+      "allClusters": [
+        {
+          "id": "cluster-1",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "fe61381a-7e1b-495f-a388-804cb27ea8f5"
+          ]
+        },
+        {
+          "id": "cluster-2",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "ac0c643a-f264-4991-b5ae-08c0e8eb2848"
+          ]
+        },
+        {
+          "id": "cluster-3",
+          "domain": "corporate_management",
+          "itemCount": 1,
+          "itemIds": [
+            "6e803d45-15fe-4fb7-8f35-5f7636947888"
+          ]
+        },
+        {
+          "id": "cluster-4",
+          "domain": "general_business",
+          "itemCount": 1,
+          "itemIds": [
+            "7addbaf6-e0f1-47c4-a31d-f0196200c087"
+          ]
+        }
+      ],
+      "approvedClusters": []
+    },
+    {
+      "conceptId": "9f16b6e4-d5fd-48f2-ae12-ed721c924df9",
+      "conceptCode": "unit.005",
+      "conceptName": "Past simple (I did)",
+      "unitNumber": 5,
+      "totalCount": 2,
+      "approvedCount": 0,
+      "validatedCount": 2,
+      "withdrawnCount": 0,
+      "archivedCount": 0,
+      "kCtxAll": 2,
+      "kCtxApproved": 0,
+      "uncertainCount": 0,
+      "isEvidenceSufficient": false,
+      "allClusters": [
+        {
+          "id": "cluster-1",
+          "domain": "it_technology",
+          "itemCount": 1,
+          "itemIds": [
+            "0707bbd2-7ee1-46c5-b285-55ead26e9c7f"
+          ]
+        },
+        {
+          "id": "cluster-2",
+          "domain": "marketing_sales",
+          "itemCount": 1,
+          "itemIds": [
+            "4ce8fea3-4481-4b96-abf9-79f2d8eb398d"
+          ]
+        }
+      ],
+      "approvedClusters": []
+    }
+  ]
+}

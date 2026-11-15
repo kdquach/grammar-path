@@ -1,0 +1,82 @@
+[
+  {
+    "id": "3d33663c-ad50-45ab-a16f-736097db8f9b",
+    "userId": "dab843f0-8184-44de-9bf1-65b02aa8f4d6",
+    "unitNumber": 1,
+    "difficulty": "easy",
+    "source": "mixed",
+    "requestedCount": 2,
+    "actualCount": 2,
+    "createdAt": "2026-11-13T19:13:11.795Z"
+  },
+  {
+    "id": "f8347441-6aa0-46fc-8d26-e7bc61871e01",
+    "userId": "dab843f0-8184-44de-9bf1-65b02aa8f4d6",
+    "unitNumber": 1,
+    "difficulty": "easy",
+    "source": "curated",
+    "requestedCount": 1,
+    "actualCount": 1,
+    "createdAt": "2026-11-13T19:13:12.913Z"
+  },
+  {
+    "id": "f85a10c5-7584-4405-8b34-b72e01f36a2a",
+    "userId": "4f9e4b8d-c56d-4450-9bfc-f6b20ba70984",
+    "unitNumber": 1,
+    "difficulty": "easy",
+    "source": "mixed",
+    "requestedCount": 2,
+    "actualCount": 2,
+    "createdAt": "2026-11-13T19:13:42.329Z"
+  },
+  {
+    "id": "260fade4-0bf1-42f1-956e-c0a26c53074a",
+    "userId": "4f9e4b8d-c56d-4450-9bfc-f6b20ba70984",
+    "unitNumber": 1,
+    "difficulty": "easy",
+    "source": "curated",
+    "requestedCount": 1,
+    "actualCount": 1,
+    "createdAt": "2026-11-13T19:13:43.383Z"
+  },
+  {
+    "id": "f1551831-1dd4-4df0-a2e3-059bc2328e1d",
+    "userId": "a8750eab-1291-435b-b76b-11f7f5333b25",
+    "unitNumber": 1,
+    "difficulty": "easy",
+    "source": "mixed",
+    "requestedCount": 2,
+    "actualCount": 2,
+    "createdAt": "2026-11-13T19:14:03.985Z"
+  },
+  {
+    "id": "94742cf2-3d52-4b37-9295-01549a6b06e1",
+    "userId": "a8750eab-1291-435b-b76b-11f7f5333b25",
+    "unitNumber": 1,
+    "difficulty": "easy",
+    "source": "curated",
+    "requestedCount": 1,
+    "actualCount": 1,
+    "createdAt": "2026-11-13T19:14:05.009Z"
+  },
+  {
+    "id": "3b62e4ef-bdb6-4118-a47a-0d1902ec1d4b",
+    "userId": "31e34f5f-8571-4b87-a293-9d9a344eb2dc",
+    "unitNumber": 1,
+    "difficulty": "easy",
+    "source": "mixed",
+    "requestedCount": 2,
+    "actualCount": 2,
+    "createdAt": "2026-11-13T19:15:37.258Z"
+  },
+  {
+    "id": "13d699be-795b-4540-a8a1-80c8c9d1b6b1",
+    "userId": "31e34f5f-8571-4b87-a293-9d9a344eb2dc",
+    "unitNumber": 1,
+    "difficulty": "easy",
+    "source": "curated",
+    "requestedCount": 1,
+    "actualCount": 1,
+    "createdAt": "2026-11-13T19:15:38.414Z"
+  }
+]

@@ -90,6 +90,49 @@ export const aiRateLimiter = createTrackedLimiter({
     req.user?.id ? `user:${req.user.id}` : `ip:${extractClientIpKey(req)}`,
 });
 
+/**
+ * Rate limiter protecting critical grading, review, check, and diagnostic submission
+ * endpoints against automated brute-forcing, scraping, and DoS attacks.
+ * Scopes limits by authenticated user ID when available, falling back to normalized client IP.
+ *
+ * MULTI-INSTANCE / PRODUCTION HORIZONTAL SCALING NOTE:
+ * Uses process-local MemoryStore for staging and single-node instances. In multi-replica
+ * or auto-scaled environments (e.g., Kubernetes, AWS ECS, multiple cloud containers),
+ * replace MemoryStore with a distributed shared store such as `rate-limit-redis`
+ * (Redis / Valkey / AWS ElastiCache) so counters are coordinated across all application replicas.
+ */
+export const submissionRateLimiter = createTrackedLimiter({
+  message: "Too many submission attempts. Please slow down and wait a moment before trying again.",
+  getWindowMs: () => {
+    try {
+      return getEnv().rateLimitWindowMs;
+    } catch {
+      return 15 * 60 * 1000;
+    }
+  },
+  getLimit: () => getEnv().rateLimitSubmissionMax,
+  keyGenerator: (req: Request) =>
+    req.user?.id ? `user:${req.user.id}` : `ip:${extractClientIpKey(req)}`,
+});
+
+/**
+ * Broad baseline rate limiter protecting the entire API v1 surface against excessive
+ * crawler, scraper, or Denial of Service hammering.
+ */
+export const generalApiRateLimiter = createTrackedLimiter({
+  message: "Too many requests to the API. Please wait a moment before trying again.",
+  getWindowMs: () => {
+    try {
+      return getEnv().rateLimitWindowMs;
+    } catch {
+      return 15 * 60 * 1000;
+    }
+  },
+  getLimit: () => getEnv().rateLimitGeneralMax,
+  keyGenerator: (req: Request) =>
+    req.user?.id ? `user:${req.user.id}` : `ip:${extractClientIpKey(req)}`,
+});
+
 export async function resetRateLimitersForTests(): Promise<void> {
   await Promise.all(registeredStores.map((store) => store.resetAll()));
 }

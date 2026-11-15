@@ -58,6 +58,133 @@ enum LearningStatus {
   @@map("learning_status_enum")
 }
 
+enum AttemptStatus {
+  correct
+  incorrect
+  unanswered
+
+  @@map("attempt_status_enum")
+}
+
+enum AttemptSource {
+  single_check
+  exercise_submission
+  adaptive_quiz
+  mistake_retry
+  toeic_practice
+  legacy_unknown
+
+  @@map("attempt_source_enum")
+}
+
+enum ConceptTheoryRole {
+  primary
+  secondary
+
+  @@map("concept_theory_role_enum")
+}
+
+enum MappingConfidence {
+  high
+  medium
+  low
+  needs_review
+
+  @@map("mapping_confidence_enum")
+}
+
+enum ToeicUnitPriority {
+  core
+  recommended
+  advanced
+
+  @@map("toeic_unit_priority_enum")
+}
+
+enum MasteryStatus {
+  not_started
+  insufficient_data
+  developing
+  practicing
+  proficient
+  mastered
+  needs_review
+
+  @@map("mastery_status_enum")
+}
+
+enum ReviewState {
+  new
+  scheduled
+  due
+  completed
+  suspended
+
+  @@map("review_state_enum")
+}
+
+enum ToeicPart {
+  PART_1
+  PART_2
+  PART_3
+  PART_4
+  PART_5
+  PART_6
+  PART_7
+
+  @@map("toeic_part_enum")
+}
+
+enum ToeicQuestionFormat {
+  PART5_INCOMPLETE_SENTENCE
+  PART6_TEXT_COMPLETION
+  PART7_READING_SINGLE
+  PART7_READING_DOUBLE
+  PART7_READING_TRIPLE
+
+  @@map("toeic_question_format_enum")
+}
+
+enum ToeicItemSource {
+  curated_expert
+  ai_generated
+  corpus_derived
+  legacy_seed
+
+  @@map("toeic_item_source_enum")
+}
+
+enum ToeicReviewStatus {
+  draft
+  validated
+  approved
+  rejected
+  archived
+  withdrawn
+
+  @@map("toeic_review_status_enum")
+}
+
+enum ToeicPrimarySkill {
+  direct_grammar
+  word_form_morphology
+  vocabulary_collocation
+  reading_comprehension
+  listening_comprehension
+
+  @@map("toeic_primary_skill_enum")
+}
+
+enum ToeicGenerationJobStatus {
+  pending
+  in_progress
+  completed
+  failed
+  paused
+
+  @@map("toeic_generation_job_status_enum")
+}
+
 // ─── Books ────────────────────────────────────────────────────────────────────
 
 model Book {
@@ -99,14 +226,16 @@ model Unit {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  book             Book               @relation(fields: [bookId], references: [id], onDelete: Restrict)
+  book             Book                @relation(fields: [bookId], references: [id], onDelete: Restrict)
   sourcePages      UnitSourcePage[]
   theorySections   TheorySection[]
   textbookExamples TextbookExample[]
   exercises        Exercise[]
   validation       UnitValidation?
   unresolvedItems  UnresolvedItem[]
-  learningProgress LearningProgress[]
+  learningProgress      LearningProgress[]
+  toeicMetadata         UnitToeicMetadata?
+  diagnosticAssessments DiagnosticAssessment[]
 
   @@unique([bookId, unitNumber])
   @@index([unitNumber])
@@ -137,8 +266,10 @@ model TheorySection {
   displayOrder  Int      @map("display_order")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  unit        Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  sourcePages TheorySectionSourcePage[]
+  unit         Unit                      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  sourcePages  TheorySectionSourcePage[]
+  explanations Explanation[]
+  conceptLinks ConceptTheoryLink[]
 
   @@unique([unitId, sectionId])
   @@unique([unitId, displayOrder])
@@ -256,6 +387,7 @@ model Question {
   answerKey        AnswerKey?
   explanation      Explanation?
   questionAttempts QuestionAttemptItem[]
+  diagnosticItems  DiagnosticAssessmentItem[]
 
   @@unique([exerciseId, displayOrder])
   @@index([exerciseId])
@@ -401,6 +533,7 @@ model AnswerKeySourcePage {
 model Explanation {
   id                  String        @id @default(uuid()) @db.Uuid
   questionId          String        @unique @map("question_id") @db.Uuid
+  theorySectionId     String?       @map("theory_section_id") @db.Uuid
   aiExplanation       String        @map("ai_explanation") @db.Text
   explanationLanguage String        @default("vi") @map("explanation_language") @db.VarChar(10)
   basedOnSource       Boolean       @default(true) @map("based_on_source")
@@ -409,9 +542,11 @@ model Explanation {
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  question      Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  theorySection TheorySection? @relation(fields: [theorySectionId], references: [id], onDelete: SetNull)
 
   @@index([ruleReference])
+  @@index([theorySectionId])
   @@map("explanations")
 }
 
@@ -459,6 +594,12 @@ model User {
   questionAttempts      QuestionAttemptItem[]
   adaptiveQuizSessions  AdaptiveQuizSession[]
   toeicPracticeSessions ToeicPracticeSession[]
+  conceptMasteries      UserConceptMastery[]
+  masteryEvents         ConceptMasteryEvent[]
+  reviewSchedules       ConceptReviewSchedule[]
+  preferences           UserLearningPreferences?
+  diagnosticAssessments DiagnosticAssessment[]
+  dailyPlans            DailyLearningPlan[]
 
   @@map("users")
 }
@@ -500,20 +641,27 @@ model ExerciseAttempt {
 }
 
 model QuestionAttemptItem {
-  id            String   @id @default(uuid()) @db.Uuid
-  attemptId     String?  @map("attempt_id") @db.Uuid
-  userId        String   @map("user_id") @db.Uuid
-  questionId    String   @map("question_id") @db.Uuid
-  studentAnswer Json     @map("student_answer")
-  isCorrect     Boolean  @map("is_correct")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id                 String                 @id @default(uuid()) @db.Uuid
+  attemptId          String?                @map("attempt_id") @db.Uuid
+  userId             String                 @map("user_id") @db.Uuid
+  questionId         String?                @map("question_id") @db.Uuid
+  questionBankItemId String?                @map("question_bank_item_id") @db.Uuid
+  studentAnswer      Json?                  @map("student_answer")
+  isCorrect          Boolean?               @map("is_correct")
+  attemptStatus      AttemptStatus          @default(incorrect) @map("attempt_status")
+  attemptSource      AttemptSource          @default(legacy_unknown) @map("attempt_source")
+  createdAt          DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  attempt  ExerciseAttempt? @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  question Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  attempt          ExerciseAttempt?       @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question         Question?              @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  questionBankItem ToeicQuestionBankItem? @relation(fields: [questionBankItemId], references: [id], onDelete: Restrict)
 
   @@index([userId, isCorrect])
   @@index([userId, questionId])
+  @@index([userId, questionBankItemId])
+  @@index([userId, attemptStatus, createdAt])
+  @@index([userId, attemptSource])
   @@map("question_attempt_items")
 }
 
@@ -552,22 +700,420 @@ model ToeicPracticeSession {
 }
 
 model ToeicPracticeItem {
-  id            String    @id @default(uuid()) @db.Uuid
-  sessionId     String    @map("session_id") @db.Uuid
-  itemOrder     Int       @map("item_order")
-  source        String    @db.VarChar(20)
-  prompt        String    @db.Text
-  options       Json
-  correctAnswer String    @map("correct_answer") @db.VarChar(10)
-  explanation   String    @db.Text
-  ruleReference String?   @map("rule_reference") @db.VarChar(32)
-  studentAnswer String?   @map("student_answer") @db.VarChar(10)
-  isCorrect     Boolean?  @map("is_correct")
-  attemptCount  Int       @default(0) @map("attempt_count")
-  answeredAt    DateTime? @map("answered_at") @db.Timestamptz(6)
+  id                 String                 @id @default(uuid()) @db.Uuid
+  sessionId          String                 @map("session_id") @db.Uuid
+  questionBankItemId String?                @map("question_bank_item_id") @db.Uuid
+  itemOrder          Int                    @map("item_order")
+  source             String                 @db.VarChar(20)
+  prompt             String                 @db.Text
+  options            Json
+  correctAnswer      String                 @map("correct_answer") @db.VarChar(10)
+  explanation        String                 @db.Text
+  ruleReference      String?                @map("rule_reference") @db.VarChar(32)
+  studentAnswer      String?                @map("student_answer") @db.VarChar(10)
+  isCorrect          Boolean?               @map("is_correct")
+  attemptCount       Int                    @default(0) @map("attempt_count")
+  answeredAt         DateTime?              @map("answered_at") @db.Timestamptz(6)
 
-  session ToeicPracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  session          ToeicPracticeSession   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionBankItem ToeicQuestionBankItem? @relation(fields: [questionBankItemId], references: [id], onDelete: Restrict)
 
   @@index([sessionId, itemOrder])
+  @@index([questionBankItemId])
   @@map("toeic_practice_items")
+}
+
+// ─── Phase 3.1: Grammar Concepts & Normalized TOEIC Metadata ──────────────────
+
+model GrammarConcept {
+  id              String   @id @default(uuid()) @db.Uuid
+  code            String   @unique @db.VarChar(80)
+  name            String   @db.VarChar(255)
+  description     String?  @db.Text
+  category        String   @db.VarChar(80)
+  parentConceptId String?  @map("parent_concept_id") @db.Uuid
+  displayOrder    Int      @default(0) @map("display_order")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  parentConcept   GrammarConcept?            @relation("ConceptHierarchy", fields: [parentConceptId], references: [id], onDelete: SetNull)
+  childConcepts   GrammarConcept[]           @relation("ConceptHierarchy")
+  theoryLinks     ConceptTheoryLink[]
+  toeicUnits      UnitToeicMetadata[]
+  userMasteries   UserConceptMastery[]
+  masteryEvents   ConceptMasteryEvent[]
+  reviewSchedules ConceptReviewSchedule[]
+  diagnosticItems DiagnosticAssessmentItem[]
+  toeicBankItems  ToeicQuestionBankItem[]
+
+  @@index([category])
+  @@index([parentConceptId])
+  @@map("grammar_concepts")
+}
+
+model ConceptTheoryLink {
+  id              String            @id @default(uuid()) @db.Uuid
+  conceptId       String            @map("concept_id") @db.Uuid
+  theorySectionId String            @map("theory_section_id") @db.Uuid
+  role            ConceptTheoryRole @default(primary)
+  confidence      MappingConfidence @default(high)
+  provenance      String            @db.VarChar(120)
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  concept       GrammarConcept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+  theorySection TheorySection  @relation(fields: [theorySectionId], references: [id], onDelete: Cascade)
+
+  @@unique([conceptId, theorySectionId])
+  @@index([theorySectionId])
+  @@index([confidence])
+  @@map("concept_theory_links")
+}
+
+model ToeicRoadmapStage {
+  id                String @id @default(uuid()) @db.Uuid
+  stageKey          String @unique @map("stage_key") @db.VarChar(40)
+  stageNumber       Int    @unique @map("stage_number")
+  titleVi           String @map("title_vi") @db.VarChar(255)
+  targetBand        String @map("target_band") @db.VarChar(60)
+  goalBandKey       String @map("goal_band_key") @db.VarChar(20)
+  durationEstimate  String @map("duration_estimate") @db.VarChar(80)
+  accent            String @db.VarChar(30)
+  summaryVi         String @map("summary_vi") @db.Text
+  whyForBeginnersVi String @map("why_for_beginners_vi") @db.Text
+  outcomeVi         String @map("outcome_vi") @db.Text
+
+  modules ToeicRoadmapModule[]
+
+  @@index([goalBandKey])
+  @@map("toeic_roadmap_stages")
+}
+
+model ToeicRoadmapModule {
+  id            String @id @default(uuid()) @db.Uuid
+  stageId       String @map("stage_id") @db.Uuid
+  moduleKey     String @unique @map("module_key") @db.VarChar(40)
+  code          String @unique @db.VarChar(20)
+  titleVi       String @map("title_vi") @db.VarChar(255)
+  subtitleEn    String @map("subtitle_en") @db.VarChar(255)
+  toeicParts    Json   @map("toeic_parts")
+  descriptionVi String @map("description_vi") @db.Text
+  trapTipVi     String @map("trap_tip_vi") @db.Text
+  displayOrder  Int    @map("display_order")
+
+  stage ToeicRoadmapStage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  units UnitToeicMetadata[]
+
+  @@unique([stageId, displayOrder])
+  @@map("toeic_roadmap_modules")
+}
+
+model UnitToeicMetadata {
+  id              String            @id @default(uuid()) @db.Uuid
+  unitId          String            @unique @map("unit_id") @db.Uuid
+  moduleId        String            @map("module_id") @db.Uuid
+  conceptId       String?           @map("concept_id") @db.Uuid
+  priority        ToeicUnitPriority
+  toeicTag        String            @map("toeic_tag") @db.VarChar(120)
+  toeicParts      Json              @map("toeic_parts")
+  grammarFocus    String            @map("grammar_focus") @db.VarChar(120)
+  noteVi          String            @map("note_vi") @db.Text
+  isOfficialToeic Boolean           @default(false) @map("is_official_toeic")
+  displayOrder    Int               @map("display_order")
+
+  unit    Unit               @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  module  ToeicRoadmapModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  concept GrammarConcept?    @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+
+  @@index([moduleId, displayOrder])
+  @@index([priority])
+  @@index([conceptId])
+  @@map("unit_toeic_metadata")
+}
+
+// ─── Phase 3.2: Learning Mastery Engine & Review Scheduling ──────────────────
+
+model UserConceptMastery {
+  id                    String        @id @default(uuid()) @db.Uuid
+  userId                String        @map("user_id") @db.Uuid
+  conceptId             String        @map("concept_id") @db.Uuid
+  masteryScore          Float?        @map("mastery_score")
+  masteryStatus         MasteryStatus @default(not_started) @map("mastery_status")
+  retentionScore        Float         @default(1.0) @map("retention_score")
+  evidenceCount         Int           @default(0) @map("evidence_count")
+  distinctQuestionCount Int           @default(0) @map("distinct_question_count")
+  correctCount          Int           @default(0) @map("correct_count")
+  incorrectCount        Int           @default(0) @map("incorrect_count")
+  repeatedAttemptCount  Int           @default(0) @map("repeated_attempt_count")
+  modelVersion          String        @default("v1.0") @map("model_version") @db.VarChar(20)
+  lastPracticedAt       DateTime?     @map("last_practiced_at") @db.Timestamptz(6)
+  lastCalculatedAt      DateTime      @default(now()) @map("last_calculated_at") @db.Timestamptz(6)
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  concept GrammarConcept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, conceptId])
+  @@index([userId, masteryStatus])
+  @@map("user_concept_mastery")
+}
+
+model ConceptMasteryEvent {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  conceptId      String         @map("concept_id") @db.Uuid
+  previousStatus MasteryStatus? @map("previous_status")
+  newStatus      MasteryStatus  @map("new_status")
+  previousScore  Float?         @map("previous_score")
+  newScore       Float?         @map("new_score")
+  reason         String         @db.VarChar(120)
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  concept GrammarConcept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@index([userId, conceptId, createdAt])
+  @@map("concept_mastery_events")
+}
+
+model ConceptReviewSchedule {
+  id                 String      @id @default(uuid()) @db.Uuid
+  userId             String      @map("user_id") @db.Uuid
+  conceptId          String      @map("concept_id") @db.Uuid
+  dueAt              DateTime    @map("due_at") @db.Timestamptz(6)
+  lastReviewedAt     DateTime?   @map("last_reviewed_at") @db.Timestamptz(6)
+  stabilityDays      Float       @default(2.0) @map("stability_days")
+  intervalDays       Int         @default(2) @map("interval_days")
+  reviewCount        Int         @default(0) @map("review_count")
+  consecutiveCorrect Int         @default(0) @map("consecutive_correct")
+  reviewState        ReviewState @default(new) @map("review_state")
+  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  concept GrammarConcept @relation(fields: [conceptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, conceptId])
+  @@index([userId, reviewState, dueAt])
+  @@index([dueAt])
+  @@map("concept_review_schedules")
+}
+
+// ─── Phase 3.3: Learning Experience, Onboarding & Daily Plans ──────────────────
+
+model UserLearningPreferences {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @unique @map("user_id") @db.Uuid
+  grammarConfidence   String    @default("elementary") @map("grammar_confidence") @db.VarChar(30)
+  learningObjective   String    @default("foundation") @map("learning_objective") @db.VarChar(50)
+  dailyStudyMinutes   Int       @default(20) @map("daily_study_minutes")
+  preferredDays       Json      @default("[\"mon\",\"tue\",\"wed\",\"thu\",\"fri\"]") @map("preferred_days")
+  targetToeicScore    Int?      @map("target_toeic_score")
+  targetDate          DateTime? @map("target_date") @db.Timestamptz(6)
+  onboardingCompleted Boolean   @default(false) @map("onboarding_completed")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_learning_preferences")
+}
+
+model DiagnosticAssessment {
+  id                String    @id @default(uuid()) @db.Uuid
+  userId            String    @map("user_id") @db.Uuid
+  startedAt         DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  completedAt       DateTime? @map("completed_at") @db.Timestamptz(6)
+  status            String    @default("in_progress") @db.VarChar(30)
+  totalQuestions    Int       @default(0) @map("total_questions")
+  correctCount      Int       @default(0) @map("correct_count")
+  scorePercentage   Float?    @map("score_percentage")
+  estimatedLevel    String?   @map("estimated_level") @db.VarChar(50)
+  recommendedUnitId String?   @map("recommended_unit_id") @db.Uuid
+  summaryNotes      String?   @map("summary_notes") @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user            User                       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recommendedUnit Unit?                      @relation(fields: [recommendedUnitId], references: [id], onDelete: SetNull)
+  items           DiagnosticAssessmentItem[]
+
+  @@index([userId, createdAt])
+  @@map("diagnostic_assessments")
+}
+
+model DiagnosticAssessmentItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  assessmentId  String   @map("assessment_id") @db.Uuid
+  questionId    String   @map("question_id") @db.Uuid
+  conceptId     String?  @map("concept_id") @db.Uuid
+  studentAnswer Json?    @map("student_answer")
+  isCorrect     Boolean? @map("is_correct")
+  displayOrder  Int      @default(0) @map("display_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  assessment DiagnosticAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question   Question             @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  concept    GrammarConcept?      @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+
+  @@unique([assessmentId, questionId])
+  @@index([assessmentId])
+  @@map("diagnostic_assessment_items")
+}
+
+model DailyLearningPlan {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  planDate         String   @map("plan_date") @db.VarChar(10)
+  status           String   @default("not_started") @db.VarChar(30)
+  targetMinutes    Int      @default(20) @map("target_minutes")
+  completedMinutes Int      @default(0) @map("completed_minutes")
+  summaryVi        String?  @map("summary_vi") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items DailyLearningPlanItem[]
+
+  @@unique([userId, planDate])
+  @@index([userId, planDate])
+  @@map("daily_learning_plans")
+}
+
+model DailyLearningPlanItem {
+  id               String    @id @default(uuid()) @db.Uuid
+  planId           String    @map("plan_id") @db.Uuid
+  activityType     String    @map("activity_type") @db.VarChar(50)
+  status           String    @default("not_started") @db.VarChar(30)
+  title            String    @db.VarChar(255)
+  description      String?   @db.Text
+  estimatedMinutes Int       @default(5) @map("estimated_minutes")
+  targetId         String?   @map("target_id") @db.VarChar(100)
+  targetNumber     String?   @map("target_number") @db.VarChar(50)
+  metadata         Json?     @map("metadata")
+  displayOrder     Int       @default(0) @map("display_order")
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  plan DailyLearningPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId, displayOrder])
+  @@map("daily_learning_plan_items")
+}
+
+// ─── Phase 3.4B: Dedicated TOEIC Question Bank, Quality Gates & Jobs ───────────
+
+model ToeicQuestionGenerationRun {
+  id                    String                  @id @default(uuid()) @db.Uuid
+  provider              String                  @db.VarChar(50)
+  modelName             String                  @map("model_name") @db.VarChar(100)
+  promptVersion         String                  @map("prompt_version") @db.VarChar(50)
+  promptTemplate        String                  @map("prompt_template") @db.Text
+  targetUnitNumber      Int?                    @map("target_unit_number")
+  targetDifficulty      String                  @map("target_difficulty") @db.VarChar(20)
+  targetSkill           ToeicPrimarySkill       @default(direct_grammar) @map("target_skill")
+  itemsRequested        Int                     @map("items_requested")
+  itemsGenerated        Int                     @default(0) @map("items_generated")
+  itemsPassedValidation Int                     @default(0) @map("items_passed_validation")
+  promptTokens          Int?                    @map("prompt_tokens")
+  completionTokens      Int?                    @map("completion_tokens")
+  latencyMs             Int?                    @map("latency_ms")
+  executedBy            String                  @default("system") @map("executed_by") @db.VarChar(100)
+  executedAt            DateTime                @default(now()) @map("executed_at") @db.Timestamptz(6)
+
+  generatedItems        ToeicQuestionBankItem[]
+  jobs                  ToeicGenerationJob[]
+
+  @@index([targetUnitNumber, targetDifficulty])
+  @@index([executedAt])
+  @@map("toeic_question_generation_runs")
+}
+
+model ToeicQuestionBankItem {
+  id                       String                  @id @default(uuid()) @db.Uuid
+  rootQuestionId           String                  @default(uuid()) @map("root_question_id") @db.Uuid
+  version                  Int                     @default(1)
+  isLatestApproved         Boolean                 @default(false) @map("is_latest_approved")
+
+  part                     ToeicPart               @default(PART_5)
+  format                   ToeicQuestionFormat     @default(PART5_INCOMPLETE_SENTENCE)
+  prompt                   String                  @db.Text
+  explanation              String                  @db.Text
+  difficulty               String                  @default("medium") @db.VarChar(20)
+
+  primarySkill             ToeicPrimarySkill       @default(direct_grammar) @map("primary_skill")
+  subSkill                 String?                 @map("sub_skill") @db.VarChar(100)
+  unitNumber               Int?                    @map("unit_number")
+  ruleReference            String?                 @map("rule_reference") @db.VarChar(32)
+  conceptId                String?                 @map("concept_id") @db.Uuid
+  conceptMappingConfidence Float?                  @map("concept_mapping_confidence")
+  conceptMappingSource     String?                 @map("concept_mapping_source") @db.VarChar(50)
+
+  reviewStatus             ToeicReviewStatus       @default(draft) @map("review_status")
+  qualityScore             Float?                  @map("quality_score")
+  validationScores         Json?                   @map("validation_scores")
+  source                   ToeicItemSource         @default(ai_generated)
+  sourceReference          String?                 @map("source_reference") @db.VarChar(255)
+  contentHash              String                  @unique @map("content_hash") @db.VarChar(64)
+
+  generationRunId          String?                 @map("generation_run_id") @db.Uuid
+  reviewedBy               String?                 @map("reviewed_by") @db.VarChar(100)
+  reviewedAt               DateTime?               @map("reviewed_at") @db.Timestamptz(6)
+  reviewNotes              String?                 @map("review_notes") @db.Text
+  withdrawnReason          String?                 @map("withdrawn_reason") @db.Text
+
+  createdAt                DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  generationRun            ToeicQuestionGenerationRun? @relation(fields: [generationRunId], references: [id], onDelete: SetNull)
+  concept                  GrammarConcept?             @relation(fields: [conceptId], references: [id], onDelete: SetNull)
+  options                  ToeicQuestionOption[]
+  practiceItems            ToeicPracticeItem[]
+  attemptItems             QuestionAttemptItem[]
+
+  @@unique([rootQuestionId, version])
+  @@index([unitNumber, difficulty, reviewStatus])
+  @@index([conceptId, reviewStatus])
+  @@index([reviewStatus, isLatestApproved])
+  @@map("toeic_question_bank_items")
+}
+
+model ToeicQuestionOption {
+  id                 String                @id @default(uuid()) @db.Uuid
+  questionBankItemId String                @map("question_bank_item_id") @db.Uuid
+  optionKey          String                @map("option_key") @db.VarChar(10)
+  optionText         String                @map("option_text") @db.Text
+  isCorrect          Boolean               @default(false) @map("is_correct")
+  rationale          String?               @db.Text
+  displayOrder       Int                   @default(0) @map("display_order")
+
+  question           ToeicQuestionBankItem @relation(fields: [questionBankItemId], references: [id], onDelete: Cascade)
+
+  @@unique([questionBankItemId, optionKey])
+  @@index([questionBankItemId, isCorrect])
+  @@map("toeic_question_options")
+}
+
+model ToeicGenerationJob {
+  id             String                   @id @default(uuid()) @db.Uuid
+  unitNumber     Int                      @map("unit_number")
+  difficulty     String                   @db.VarChar(20)
+  targetSkill    ToeicPrimarySkill        @default(direct_grammar) @map("target_skill")
+  status         ToeicGenerationJobStatus @default(pending)
+  attempts       Int                      @default(0)
+  maxAttempts    Int                      @default(5) @map("max_attempts")
+  lastError      String?                  @map("last_error") @db.Text
+  checkpointData Json?                    @map("checkpoint_data")
+  runId          String?                  @map("run_id") @db.Uuid
+  nextRetryAt    DateTime?                @map("next_retry_at") @db.Timestamptz(6)
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  run            ToeicQuestionGenerationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([status, nextRetryAt])
+  @@index([unitNumber, difficulty])
+  @@map("toeic_generation_jobs")
 }

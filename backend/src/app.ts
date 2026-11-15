@@ -4,6 +4,7 @@ import helmet from "helmet";
 import apiV1Router from "./routes";
 import { errorHandler, AppError } from "./middleware/error-handler";
 import { getEnv, AppEnvConfig } from "./config/env";
+import { generalApiRateLimiter } from "./middleware/rate-limit";
 
 export function createApp(envOverride?: AppEnvConfig): Express {
   const env = envOverride ?? getEnv();
@@ -42,8 +43,8 @@ export function createApp(envOverride?: AppEnvConfig): Express {
   app.use(express.json({ limit: env.bodyLimit }));
   app.use(express.urlencoded({ extended: false, limit: env.bodyLimit }));
 
-  // Mount API v1 routes
-  app.use("/api/v1", apiV1Router);
+  // Mount API v1 routes protected by general baseline rate limiter
+  app.use("/api/v1", generalApiRateLimiter, apiV1Router);
 
   // 404 handler for undefined routes
   app.use((req, _res, next) => {

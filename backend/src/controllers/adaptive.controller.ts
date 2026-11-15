@@ -8,9 +8,14 @@ import { evaluateQuestion, isEmptyStudentAnswer } from "../utils/grader";
 import { runDeduplicatedSubmission, stableSerialize } from "../utils/idempotency";
 import { getLatestUnresolvedMistakes } from "../services/mistakes.service";
 import {
+  computeNullableAccuracy,
+  deriveAttemptStatus,
+} from "../utils/attempt-telemetry";
+import {
   DifficultyLevel,
   generateToeicQuestionsForUnit,
 } from "../services/toeic-generator.service";
+import { triggerToeicMasteryUpdate } from "../services/mastery.service";
 
 export interface WeakestUnitSummary {
   unitNumber: number;
@@ -44,7 +49,7 @@ export interface ReviewRecommendation {
   priority: "high" | "medium" | "low";
   reason: string;
   errorCount: number;
-  accuracyPercentage: number;
+  accuracyPercentage: number | null;
   weakestQuestionTypes: string[];
   targetRules: string[];
   suggestedActions: string[];
@@ -64,7 +69,11 @@ export async function getAdaptiveAnalytics(
     const userId = req.user!.id;
 
     const attemptItems = await prisma.questionAttemptItem.findMany({
-      where: { userId },
+      where: {
+        userId,
+        attemptStatus: { not: "unanswered" },
+        isCorrect: { not: null },
+      },
       include: {
         question: {
           select: {
@@ -73,6 +82,12 @@ export async function getAdaptiveAnalytics(
             explanation: {
               select: {
                 ruleReference: true,
+                theorySection: {
+                  select: {
+                    sectionId: true,
+                    heading: true,
+                  },
+                },
               },
             },
             exercise: {
@@ -97,12 +112,9 @@ export async function getAdaptiveAnalytics(
     });
 
     const totalEvaluated = attemptItems.length;
-    const totalCorrect = attemptItems.filter((i) => i.isCorrect).length;
-    const totalErrors = attemptItems.filter((i) => !i.isCorrect).length;
-    const accuracyPercentage =
-      totalEvaluated > 0
-        ? Math.round((totalCorrect / totalEvaluated) * 1000) / 10
-        : 0;
+    const totalCorrect = attemptItems.filter((i) => i.isCorrect === true).length;
+    const totalErrors = attemptItems.filter((i) => i.isCorrect === false).length;
+    const accuracyPercentage = computeNullableAccuracy(totalCorrect, totalEvaluated);
 
     const unitMap = new Map<
       number,
@@ -137,6 +149,7 @@ export async function getAdaptiveAnalytics(
     >();
 
     for (const item of attemptItems) {
+      if (!item.question) continue;
       const exercise = item.question.exercise;
       const unit = exercise.unit;
       const qType = exercise.questionType;
@@ -318,7 +331,11 @@ export async function getAdaptiveRecommendations(
     const userId = req.user!.id;
 
     const attemptItems = await prisma.questionAttemptItem.findMany({
-      where: { userId },
+      where: {
+        userId,
+        attemptStatus: { not: "unanswered" },
+        isCorrect: { not: null },
+      },
       include: {
         question: {
           select: {
@@ -375,6 +392,7 @@ export async function getAdaptiveRecommendations(
     >();
 
     for (const item of attemptItems) {
+      if (!item.question) continue;
       const unit = item.question.exercise.unit;
       const qType = item.question.exercise.questionType;
       const ruleRef = item.question.explanation?.ruleReference?.trim();
@@ -470,7 +488,7 @@ export async function getAdaptiveRecommendations(
           priority: "medium",
           reason: "Bài học đang học dở dang, cần hoàn thành các bài tập còn lại.",
           errorCount: 0,
-          accuracyPercentage: 100,
+          accuracyPercentage: null,
           weakestQuestionTypes: [],
           targetRules: defaultRules,
           suggestedActions: [
@@ -503,7 +521,7 @@ export async function getAdaptiveRecommendations(
           reason:
             "Khởi đầu lộ trình học với thì Hiện tại tiếp diễn (Present continuous) — nền tảng thiết yếu trong ngữ pháp tiếng Anh.",
           errorCount: 0,
-          accuracyPercentage: 0,
+          accuracyPercentage: null,
           weakestQuestionTypes: [],
           targetRules: defaultRules,
           suggestedActions: [
@@ -637,6 +655,7 @@ export async function generateToeicPracticeHandler(
         items: {
           create: generated.questions.map((q, idx) => ({
             itemOrder: idx + 1,
+            questionBankItemId: q.questionBankItemId || null,
             source: q.source,
             prompt: q.prompt,
             options: q.options as any,
@@ -706,6 +725,11 @@ export async function checkToeicPracticeHandler(
         items: {
           where: { id: parsed.itemId },
           take: 1,
+          include: {
+            questionBankItem: {
+              include: { concept: true },
+            },
+          },
         },
       },
     });
@@ -733,12 +757,32 @@ export async function checkToeicPracticeHandler(
       );
     }
 
+    // Emergency withdrawal protocol: if question was withdrawn, award void credit without penalty
+    if (item.questionBankItem?.reviewStatus === "withdrawn") {
+      sendSuccess(res, {
+        sessionId: session.id,
+        itemId: item.id,
+        isCorrect: true,
+        isVoided: true,
+        voidReason: "QUESTION_WITHDRAWN_DEFECT",
+        message: "Câu hỏi này đã được thu hồi do lỗi kỹ thuật. Bạn được tính điểm tối đa cho câu hỏi này.",
+        studentAnswer: rawAnswer,
+        correctAnswer: item.correctAnswer,
+        explanation: item.explanation,
+        ruleReference: item.ruleReference,
+        attemptCount: item.attemptCount + 1,
+      });
+      return;
+    }
+
     const dedupeKey = parsed.submissionId
       ? `toeic-check:${userId}:${item.id}:sub:${parsed.submissionId}`
       : `toeic-check:${userId}:${item.id}:${rawAnswer}`;
 
     const graded = await runDeduplicatedSubmission(dedupeKey, async () => {
       const isCorrect = rawAnswer === item.correctAnswer.trim().toUpperCase();
+      const isFirstAttempt = item.attemptCount === 0 || !item.answeredAt;
+
       const updated = await prisma.toeicPracticeItem.update({
         where: { id: item.id },
         data: {
@@ -748,6 +792,60 @@ export async function checkToeicPracticeHandler(
           attemptCount: { increment: 1 },
         },
       });
+
+      // ─── Mastery Telemetry Bridge (Phase 3.4B) ──────────────────────────────
+      // Gate 1: Only first graded interaction emits mastery evidence
+      // Gate 2: Question must be approved
+      // Gate 3: Skill must be direct_grammar or word_form_morphology (vocabulary/reading/listening isolated)
+      // Gate 4: conceptId must exist
+      // Gate 5: mapping confidence >= 0.85
+      if (isFirstAttempt) {
+        let targetConceptId: string | null = null;
+        let isMasteryEligible = false;
+
+        const bankItem = item.questionBankItem;
+        if (bankItem) {
+          const isApproved = bankItem.reviewStatus === "approved";
+          const isGrammarOrMorphology =
+            bankItem.primarySkill === "direct_grammar" ||
+            bankItem.primarySkill === "word_form_morphology";
+          const hasHighConfidence = (bankItem.conceptMappingConfidence ?? 0) >= 0.85;
+
+          if (isApproved && isGrammarOrMorphology && bankItem.conceptId && hasHighConfidence) {
+            targetConceptId = bankItem.conceptId;
+            isMasteryEligible = true;
+          }
+        } else {
+          // Fallback / legacy dynamic item: check UnitToeicMetadata
+          const unitMeta = await prisma.unitToeicMetadata.findFirst({
+            where: { unit: { unitNumber: session.unitNumber } },
+            select: { conceptId: true, grammarFocus: true },
+          });
+
+          if (unitMeta?.conceptId) {
+            targetConceptId = unitMeta.conceptId;
+            isMasteryEligible = true;
+          }
+        }
+
+        if (isMasteryEligible && targetConceptId) {
+          await prisma.questionAttemptItem.create({
+            data: {
+              userId,
+              questionBankItemId: item.questionBankItemId || null,
+              attemptSource: "toeic_practice",
+              attemptStatus: isCorrect ? "correct" : "incorrect",
+              studentAnswer: rawAnswer,
+              isCorrect,
+            },
+          });
+
+          // Trigger asynchronous mastery calculation for the concept
+          triggerToeicMasteryUpdate(userId, targetConceptId).catch((err) =>
+            console.error("[Mastery] Failed incremental update for TOEIC item:", err)
+          );
+        }
+      }
 
       return {
         sessionId: session.id,
@@ -1118,6 +1216,11 @@ export async function checkAdaptiveQuizHandler(
       ? `adaptive-check:${userId}:${parsed.sessionId || "none"}:${question.id}:sub:${parsed.submissionId}`
       : `adaptive-check:${userId}:${parsed.sessionId || "none"}:${question.id}:${stableSerialize(rawAnswer)}`;
 
+    const derived = deriveAttemptStatus({
+      hasAttempted: true,
+      isCorrect: Boolean(evaluation.isCorrect),
+    });
+
     const attemptItemId = await runDeduplicatedSubmission(dedupeKey, async () => {
       const created = await prisma.questionAttemptItem.create({
         data: {
@@ -1127,7 +1230,9 @@ export async function checkAdaptiveQuizHandler(
           studentAnswer: (evaluation.studentAnswer !== undefined
             ? evaluation.studentAnswer
             : null) as any,
-          isCorrect: evaluation.isCorrect,
+          isCorrect: derived.isCorrect,
+          attemptStatus: derived.attemptStatus,
+          attemptSource: "adaptive_quiz",
           createdAt: new Date(),
         },
       });

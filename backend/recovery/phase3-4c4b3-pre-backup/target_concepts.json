@@ -1,0 +1,79 @@
+[
+  {
+    "id": "201b07e6-1731-4105-ac7e-e1d763f54049",
+    "code": "unit.001",
+    "name": "Present continuous (I am doing)",
+    "description": "Present & Past Simple/Continuous Tenses — Unit 1: Nền tảng tả hành động đang diễn ra trong ảnh Listening Part 1 (is holding, are walking).",
+    "category": "present_past_tenses",
+    "parentConceptId": "6bb5d1f5-bb40-414c-a786-a02ce3d85b68",
+    "displayOrder": 1,
+    "createdAt": "2026-11-12T21:27:09.281Z",
+    "updatedAt": "2026-11-13T04:39:03.253Z"
+  },
+  {
+    "id": "89591d03-85a9-4992-a951-f5d06f767d89",
+    "code": "unit.002",
+    "name": "Present simple (I do)",
+    "description": "Present & Past Simple/Continuous Tenses — Unit 2: Chia đúng S số ít/số nhiều cho lịch trình, quy định công ty và sự thật hiển nhiên.",
+    "category": "present_past_tenses",
+    "parentConceptId": "6bb5d1f5-bb40-414c-a786-a02ce3d85b68",
+    "displayOrder": 2,
+    "createdAt": "2026-11-12T21:27:09.281Z",
+    "updatedAt": "2026-11-13T04:39:03.253Z"
+  },
+  {
+    "id": "7296dbb8-1ee8-4a52-a7e9-b6f132921da4",
+    "code": "unit.003",
+    "name": "Present continuous and present simple 1 (I am doing and I do)",
+    "description": "Present & Past Simple/Continuous Tenses — Unit 3: Phân biệt sự việc tạm thời với thói quen cố định để không chọn nhầm thì.",
+    "category": "present_past_tenses",
+    "parentConceptId": "6bb5d1f5-bb40-414c-a786-a02ce3d85b68",
+    "displayOrder": 3,
+    "createdAt": "2026-11-12T21:27:09.282Z",
+    "updatedAt": "2026-11-13T04:39:03.253Z"
+  },
+  {
+    "id": "de168594-622f-4543-ab04-5d22a5dfe7cf",
+    "code": "unit.004",
+    "name": "Present continuous and present simple 2 (I am doing and I do)",
+    "description": "Present & Past Simple/Continuous Tenses — Unit 4: Tránh bẫy chia V-ing với động từ trạng thái (include, own, belong, prefer, consist).",
+    "category": "present_past_tenses",
+    "parentConceptId": "6bb5d1f5-bb40-414c-a786-a02ce3d85b68",
+    "displayOrder": 4,
+    "createdAt": "2026-11-12T21:27:09.281Z",
+    "updatedAt": "2026-11-13T04:39:03.253Z"
+  },
+  {
+    "id": "9f16b6e4-d5fd-48f2-ae12-ed721c924df9",
+    "code": "unit.005",
+    "name": "Past simple (I did)",
+    "description": "Present & Past Simple/Continuous Tenses — Unit 5: Dấu hiệu: last week, ago, yesterday, in 2022 -> chọn ngay V-ed / cột 2.",
+    "category": "present_past_tenses",
+    "parentConceptId": "6bb5d1f5-bb40-414c-a786-a02ce3d85b68",
+    "displayOrder": 5,
+    "createdAt": "2026-11-12T21:27:09.282Z",
+    "updatedAt": "2026-11-13T04:39:03.254Z"
+  },
+  {
+    "id": "54010bbc-eb52-45ea-af6f-daba266f8fe0",
+    "code": "unit.006",
+    "name": "Past continuous (I was doing)",
+    "description": "Present & Past Simple/Continuous Tenses — Unit 6: Diễn tả hành động đang xảy ra tại một thời điểm quá khứ khi hành động khác xen vào.",
+    "category": "present_past_tenses",
+    "parentConceptId": "6bb5d1f5-bb40-414c-a786-a02ce3d85b68",
+    "displayOrder": 6,
+    "createdAt": "2026-11-12T21:27:09.282Z",
+    "updatedAt": "2026-11-13T04:39:03.253Z"
+  },
+  {
+    "id": "63aff2d7-8f78-4551-a81c-87e5ae43db0d",
+    "code": "unit.040",
+    "name": "If I had known ... I wish I had known ...",
+    "description": "Conditionals, Wish & Reported Speech — Unit 40: Nhận diện giả định quá khứ: 'If S + had V3, S + would have V3' (và dạng đảo ngữ Had S + V3!).",
+    "category": "conditionals_reported",
+    "parentConceptId": "4ef3b1a2-6012-4128-a0fe-f48f39b99080",
+    "displayOrder": 40,
+    "createdAt": "2026-11-12T21:27:09.438Z",
+    "updatedAt": "2026-11-13T04:39:03.418Z"
+  }
+]

@@ -1,5 +1,6 @@
 import { generateGeminiText } from "../lib/gemini";
 import { AppError } from "../middleware/error-handler";
+import { ToeicQuestionBankService } from "./toeic-question-bank.service";
 
 export type DifficultyLevel = "easy" | "medium" | "hard";
 export type ToeicQuestionSource = "curated" | "dynamic" | "fallback";
@@ -18,6 +19,7 @@ export interface ToeicQuestion {
   difficulty: DifficultyLevel;
   ruleReference: string;
   source: ToeicQuestionSource;
+  questionBankItemId?: string;
 }
 
 export interface CanonicalUnitQuestionInput {
@@ -124,7 +126,7 @@ export function rebalanceBatchOptionDistribution(
 type CuratedSeedQuestion = Omit<ToeicQuestion, "source">;
 
 // ─── Curated Unit-Specific Question Bank for Core Units 1–4 ─────────────────
-const CURATED_TOEIC_UNIT_QUESTIONS: Record<
+export const CURATED_TOEIC_UNIT_QUESTIONS: Record<
   number,
   Record<DifficultyLevel, CuratedSeedQuestion[]>
 > = {
@@ -1384,10 +1386,40 @@ export async function generateToeicQuestionsForUnit(
   } = options;
 
   const curatedPool: ToeicQuestion[] = [];
-  if (CURATED_TOEIC_UNIT_QUESTIONS[unitNumber]) {
+
+  // 1. Check Authoritative Database Question Bank (strictly approved items)
+  try {
+    const approvedBankItems = await ToeicQuestionBankService.getApprovedQuestionsForPractice({
+      unitNumber,
+      difficulty,
+      count,
+    });
+
+    for (const bankItem of approvedBankItems) {
+      const correctOpt = bankItem.options.find((o) => o.isCorrect);
+      curatedPool.push({
+        prompt: bankItem.prompt,
+        options: bankItem.options.map((o) => ({ key: o.optionKey as any, text: o.optionText })),
+        correctAnswer: (correctOpt?.optionKey as any) || "A",
+        explanation: bankItem.explanation,
+        difficulty: bankItem.difficulty as any,
+        ruleReference: bankItem.ruleReference || `${unitNumber}A`,
+        source: "curated",
+        questionBankItemId: bankItem.id,
+      });
+    }
+  } catch {
+    // If DB check fails, continue safely
+  }
+
+  // 2. If approved bank items do not fulfill count, supplement with legacy in-memory curated if available
+  if (curatedPool.length < count && CURATED_TOEIC_UNIT_QUESTIONS[unitNumber]) {
     const byTier = CURATED_TOEIC_UNIT_QUESTIONS[unitNumber][difficulty] || [];
     for (const item of byTier) {
-      curatedPool.push({ ...item, source: "curated" });
+      if (curatedPool.length >= count) break;
+      if (!curatedPool.some((p) => p.prompt.toLowerCase() === item.prompt.toLowerCase())) {
+        curatedPool.push({ ...item, source: "curated" });
+      }
     }
   }
 

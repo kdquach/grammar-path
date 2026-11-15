@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-11-13T17:20:02.310Z",
+  "host": "ep-small-dream-a1lqsn1r.ap-southeast-1.aws.neon.tech",
+  "database": "grammarpath-staging",
+  "tables": {
+    "user": 3,
+    "exerciseAttempt": 2,
+    "questionAttemptItem": 2,
+    "userConceptMastery": 0,
+    "conceptMasteryEvent": 0,
+    "conceptReviewSchedule": 0,
+    "toeicPracticeSession": 0,
+    "toeicPracticeItem": 0,
+    "unitToeicMetadata": 145,
+    "grammarConcept": 161
+  },
+  "existingAttempts": [
+    {
+      "id": "8956759f-39f5-4db6-9582-b1e610cec216",
+      "attemptId": "4876486d-3e63-47ff-9b67-d8e54c700350",
+      "userId": "9bd72baf-a361-4804-945d-604c8ae0a0f6",
+      "questionId": "0c657406-9046-4704-8609-55a9ed670fd5",
+      "studentAnswer": null,
+      "isCorrect": null,
+      "attemptStatus": "unanswered",
+      "attemptSource": "exercise_submission",
+      "createdAt": "2026-11-13T05:27:31.666Z"
+    },
+    {
+      "id": "5ac3259f-cf3a-43c7-a20f-ee57602fd5b0",
+      "attemptId": "49e4c47f-d10b-4b7a-9806-50883af97854",
+      "userId": "5a04a899-3f2a-4c56-9a5f-012891b4cf0f",
+      "questionId": "0c657406-9046-4704-8609-55a9ed670fd5",
+      "studentAnswer": "I'm not listening",
+      "isCorrect": true,
+      "attemptStatus": "correct",
+      "attemptSource": "exercise_submission",
+      "createdAt": "2026-11-13T05:35:42.390Z"
+    }
+  ]
+}

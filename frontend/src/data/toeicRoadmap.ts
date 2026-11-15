@@ -183,7 +183,7 @@ export const TOEIC_ROADMAP_STAGES: RoadmapStage[] = [
         code: "1.1",
         titleVi: "Cấu trúc câu & Trật tự từ nền tảng",
         subtitleEn: "Sentence Word Order & Question Patterns",
-        toeicParts: ["Listening Part 2", "Reading Part 5"],
+        toeicParts: ["Part 2", "Part 5"],
         descriptionVi:
           "Hiểu trật tự chuẩn Chủ ngữ + Động từ + Tân ngữ + Nơi chốn + Thời gian, cấu trúc There is/are và cách đặt câu hỏi để nghe đúng trọng tâm Part 2.",
         trapTipVi:

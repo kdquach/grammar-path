@@ -109,6 +109,8 @@ const rawEnvSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).max(3600000).default(15 * 60 * 1000),
   RATE_LIMIT_AUTH_MAX: z.coerce.number().int().min(1).max(1000).default(15),
   RATE_LIMIT_AI_MAX: z.coerce.number().int().min(1).max(1000).default(20),
+  RATE_LIMIT_SUBMISSION_MAX: z.coerce.number().int().min(1).max(10000).default(60),
+  RATE_LIMIT_GENERAL_MAX: z.coerce.number().int().min(1).max(10000).default(500),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().optional(),
 });
@@ -125,6 +127,8 @@ export interface AppEnvConfig {
   rateLimitWindowMs: number;
   rateLimitAuthMax: number;
   rateLimitAiMax: number;
+  rateLimitSubmissionMax: number;
+  rateLimitGeneralMax: number;
   geminiApiKey?: string;
   geminiModel?: string;
 }
@@ -180,6 +184,8 @@ export function validateEnv(rawEnv: NodeJS.ProcessEnv = process.env): AppEnvConf
     rateLimitWindowMs: data.RATE_LIMIT_WINDOW_MS,
     rateLimitAuthMax: data.RATE_LIMIT_AUTH_MAX,
     rateLimitAiMax: data.RATE_LIMIT_AI_MAX,
+    rateLimitSubmissionMax: data.RATE_LIMIT_SUBMISSION_MAX,
+    rateLimitGeneralMax: data.RATE_LIMIT_GENERAL_MAX,
     geminiApiKey: data.GEMINI_API_KEY?.trim() || undefined,
     geminiModel: data.GEMINI_MODEL?.trim() || undefined,
   };

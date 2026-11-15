@@ -36,6 +36,7 @@ import {
   TOEIC_ROADMAP_STAGES,
   ToeicGoalBand,
   getAllRoadmapUnits,
+  type RoadmapStage,
 } from "../data/toeicRoadmap";
 import ToeicPracticeModal from "../components/adaptive/ToeicPracticeModal";
 import AuthModal from "../components/auth/AuthModal";
@@ -95,8 +96,12 @@ export const ToeicRoadmapPage: React.FC = () => {
   });
 
   const [priorityFilter, setPriorityFilter] = useState<"all" | "core">("all");
+  const [partFilter, setPartFilter] = useState<string>("all");
   const [onlyUnfinished, setOnlyUnfinished] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [roadmapStages, setRoadmapStages] = useState<RoadmapStage[]>(
+    TOEIC_ROADMAP_STAGES
+  );
   const [activeGuideTab, setActiveGuideTab] = useState<"none" | "routine" | "matrix">(
     "routine"
   );
@@ -121,21 +126,57 @@ export const ToeicRoadmapPage: React.FC = () => {
     }
   };
 
-  // Load full curriculum unit summaries
+  // Load full curriculum unit summaries & normalized DB roadmap metadata
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
     setLoadError(null);
 
-    api
-      .getUnits({ page: 1, limit: 145 })
-      .then(({ units }) => {
+    Promise.all([
+      api.getUnits({ page: 1, limit: 145 }),
+      typeof api.getCurriculumRoadmap === "function"
+        ? api.getCurriculumRoadmap().catch(() => null)
+        : Promise.resolve(null),
+    ])
+      .then(([{ units }, roadmapData]) => {
         if (!isMounted) return;
         const map: Record<number, UnitSummary> = {};
         for (const u of units) {
           map[u.unitNumber] = u;
         }
         setUnitsByNumber(map);
+        if (roadmapData && Array.isArray(roadmapData.stages) && roadmapData.stages.length > 0) {
+          setRoadmapStages(
+            roadmapData.stages.map((stage) => ({
+              id: stage.id,
+              stageNumber: stage.stageNumber,
+              titleVi: stage.titleVi,
+              targetBand: stage.targetBand,
+              goalBandKey: stage.goalBandKey,
+              durationEstimate: stage.durationEstimate,
+              accent: stage.accent,
+              summaryVi: stage.summaryVi,
+              whyForBeginnersVi: stage.whyForBeginnersVi,
+              outcomeVi: stage.outcomeVi,
+              modules: stage.modules.map((mod) => ({
+                id: mod.id,
+                code: mod.code,
+                titleVi: mod.titleVi,
+                subtitleEn: mod.subtitleEn,
+                toeicParts: mod.toeicParts,
+                descriptionVi: mod.descriptionVi,
+                trapTipVi: mod.trapTipVi,
+                units: mod.units.map((u) => ({
+                  unitNumber: u.unitNumber,
+                  priority: u.priority,
+                  toeicTag: u.toeicTag,
+                  toeicParts: u.toeicParts,
+                  noteVi: u.noteVi,
+                })),
+              })),
+            }))
+          );
+        }
       })
       .catch((err: unknown) => {
         console.error("Failed to fetch curriculum units for roadmap:", err);
@@ -218,7 +259,12 @@ export const ToeicRoadmapPage: React.FC = () => {
     [selectedGoal]
   );
 
-  const allRoadmapUnits = useMemo(() => getAllRoadmapUnits(), []);
+  const allRoadmapUnits = useMemo(
+    () =>
+      roadmapStages.flatMap((s) => s.modules.flatMap((m) => m.units)) ||
+      getAllRoadmapUnits(),
+    [roadmapStages]
+  );
   const totalCoreUnitsCount = useMemo(
     () => allRoadmapUnits.filter((u) => u.priority === "core").length,
     [allRoadmapUnits]
@@ -226,7 +272,7 @@ export const ToeicRoadmapPage: React.FC = () => {
 
   // Compute progress scoped to the chosen TOEIC goal track
   const goalStats = useMemo(() => {
-    const targetStages = TOEIC_ROADMAP_STAGES.filter((s) =>
+    const targetStages = roadmapStages.filter((s) =>
       activeGoalTrack.includedStages.includes(s.stageNumber)
     );
     const unitsInGoal = targetStages.flatMap((s) =>
@@ -250,11 +296,11 @@ export const ToeicRoadmapPage: React.FC = () => {
       percentage: pct,
       totalAllCompleted: overview?.units.completedCount ?? 0,
     };
-  }, [activeGoalTrack, progressMap, overview]);
+  }, [activeGoalTrack, progressMap, overview, roadmapStages]);
 
   // Recommend next unit to study today
   const recommendedNext = useMemo(() => {
-    const stagesInGoal = TOEIC_ROADMAP_STAGES.filter((s) =>
+    const stagesInGoal = roadmapStages.filter((s) =>
       activeGoalTrack.includedStages.includes(s.stageNumber)
     );
     const orderedUnits = stagesInGoal.flatMap((stage) =>
@@ -334,14 +380,21 @@ export const ToeicRoadmapPage: React.FC = () => {
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
     if (value.trim().length > 0) {
-      setExpandedStages(new Set(TOEIC_ROADMAP_STAGES.map((s) => s.id)));
+      setExpandedStages(new Set(roadmapStages.map((s) => s.id)));
     }
   };
 
   const handlePriorityChange = (mode: "all" | "core") => {
     setPriorityFilter(mode);
     if (mode === "core") {
-      setExpandedStages(new Set(TOEIC_ROADMAP_STAGES.map((s) => s.id)));
+      setExpandedStages(new Set(roadmapStages.map((s) => s.id)));
+    }
+  };
+
+  const handlePartFilterChange = (part: string) => {
+    setPartFilter(part);
+    if (part !== "all") {
+      setExpandedStages(new Set(roadmapStages.map((s) => s.id)));
     }
   };
 
@@ -349,7 +402,7 @@ export const ToeicRoadmapPage: React.FC = () => {
     setOnlyUnfinished((prev) => {
       const next = !prev;
       if (next) {
-        setExpandedStages(new Set(TOEIC_ROADMAP_STAGES.map((s) => s.id)));
+        setExpandedStages(new Set(roadmapStages.map((s) => s.id)));
       }
       return next;
     });
@@ -358,16 +411,23 @@ export const ToeicRoadmapPage: React.FC = () => {
   const handleResetFilters = () => {
     setSearchQuery("");
     setPriorityFilter("all");
+    setPartFilter("all");
     setOnlyUnfinished(false);
     setExpandedStages(new Set(["stage-1"]));
   };
 
   const filteredStages = useMemo(() => {
-    return TOEIC_ROADMAP_STAGES.map((stage) => {
+    return roadmapStages.map((stage) => {
       const filteredModules = stage.modules
         .map((mod) => {
           const matchingUnits = mod.units.filter((u) => {
             if (priorityFilter === "core" && u.priority !== "core") {
+              return false;
+            }
+            if (
+              partFilter !== "all" &&
+              !u.toeicParts.some((p) => p.toLowerCase() === partFilter.toLowerCase())
+            ) {
               return false;
             }
             if (onlyUnfinished && progressMap[u.unitNumber] === "completed") {
@@ -412,7 +472,7 @@ export const ToeicRoadmapPage: React.FC = () => {
         completedCount: completedInStage,
       };
     }).filter((stage) => stage.modules.length > 0);
-  }, [priorityFilter, onlyUnfinished, normalizedQuery, progressMap, unitsByNumber]);
+  }, [priorityFilter, partFilter, onlyUnfinished, normalizedQuery, progressMap, unitsByNumber, roadmapStages]);
 
   const toggleStage = (stageId: string) => {
     setExpandedStages((prev) => {
@@ -427,7 +487,7 @@ export const ToeicRoadmapPage: React.FC = () => {
   };
 
   const handleExpandAll = () => {
-    setExpandedStages(new Set(TOEIC_ROADMAP_STAGES.map((s) => s.id)));
+    setExpandedStages(new Set(roadmapStages.map((s) => s.id)));
   };
 
   const handleCollapseAll = () => {
@@ -886,6 +946,27 @@ export const ToeicRoadmapPage: React.FC = () => {
             >
               Ẩn Unit đã hoàn thành
             </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+          <span className="text-slate-500 font-semibold pr-1">Lọc theo Part:</span>
+          {["all", "Part 1", "Part 2", "Part 3", "Part 5", "Part 6", "Part 7"].map(
+            (part) => (
+              <button
+                key={part}
+                type="button"
+                onClick={() => handlePartFilterChange(part)}
+                aria-pressed={partFilter === part}
+                className={`px-2.5 py-1 rounded-md font-bold transition-colors cursor-pointer ${
+                  partFilter === part
+                    ? "bg-indigo-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {part === "all" ? "Tất cả Part" : part}
+              </button>
+            )
           )}
         </div>
       </section>

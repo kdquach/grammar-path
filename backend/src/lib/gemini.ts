@@ -1,6 +1,8 @@
-interface GeminiModelCandidate {
-  name: string;
-  extraGenerationConfig?: Record<string, unknown>;
+export interface GeminiUsageMetadata {
+  promptTokenCount: number;
+  candidatesTokenCount: number;
+  totalTokenCount: number;
+  thinkingTokenCount?: number;
 }
 
 export interface GeminiGenerateOptions {
@@ -8,11 +10,15 @@ export interface GeminiGenerateOptions {
   timeoutMs?: number;
   responseMimeType?: string;
   temperature?: number;
+  model?: string;
+  maxOutputTokens?: number;
 }
 
 export interface GeminiGenerateResult {
   text: string;
   model: string;
+  usageMetadata?: GeminiUsageMetadata;
+  latencyMs?: number;
 }
 
 export type GeminiDetailedResult =
@@ -20,44 +26,52 @@ export type GeminiDetailedResult =
       ok: true;
       text: string;
       model: string;
+      usageMetadata?: GeminiUsageMetadata;
+      latencyMs: number;
     }
   | {
       ok: false;
-      reason: "missing_api_key" | "upstream_error" | "empty_response";
+      reason: "missing_api_key" | "upstream_error" | "empty_response" | "budget_exceeded";
+      status?: number;
+      model?: string;
+      errorMessage?: string;
+      errorDetails?: unknown;
+      latencyMs?: number;
     };
 
-const DEFAULT_MODEL_CANDIDATES: GeminiModelCandidate[] = [
-  {
-    name: "gemini-3-flash-preview",
-    extraGenerationConfig: {
-      thinkingConfig: { thinkingLevel: "minimal" },
-    },
-  },
-  {
-    name: "gemini-flash-lite-latest",
-  },
-  {
-    name: "gemini-3.1-flash-lite-preview",
-  },
-  {
-    name: "gemini-flash-latest",
-  },
-];
-
-function buildModelCandidates(): GeminiModelCandidate[] {
-  const customModel = process.env.GEMINI_MODEL?.trim();
-  if (!customModel) {
-    return DEFAULT_MODEL_CANDIDATES;
-  }
-
-  const normalized = customModel.replace(/^models\//, "");
-  const rest = DEFAULT_MODEL_CANDIDATES.filter((c) => c.name !== normalized);
-  return [{ name: normalized }, ...rest];
+/**
+ * Returns the configured primary generation model ID.
+ * Defaults to process.env.GEMINI_GENERATION_MODEL or process.env.GEMINI_MODEL.
+ */
+export function getGenerationModel(): string {
+  const model =
+    process.env.GEMINI_GENERATION_MODEL?.trim() ||
+    process.env.GEMINI_MODEL?.trim() ||
+    "gemini-2.5-pro";
+  return model.replace(/^models\//, "");
 }
 
 /**
- * Generates text using the Google Gemini REST API with automatic model fallback
- * and explicit failure classification (missing API key vs upstream failure vs empty response).
+ * Returns the configured independent critic model ID.
+ * Defaults to process.env.GEMINI_CRITIC_MODEL or process.env.GEMINI_MODEL.
+ */
+export function getCriticModel(): string {
+  const model =
+    process.env.GEMINI_CRITIC_MODEL?.trim() ||
+    process.env.GEMINI_MODEL?.trim() ||
+    "gemini-2.5-flash";
+  return model.replace(/^models\//, "");
+}
+
+/**
+ * Generates text using the Google Gemini REST API with explicit model pinning
+ * and strict FAIL-CLOSED behavior (zero unmanaged preview fallbacks or silent downgrades).
+ *
+ * Invariants:
+ * 1. Pinned model ID is strictly respected.
+ * 2. If the upstream provider returns an error (404, 429, 500, etc.), processing halts immediately.
+ * 3. Never prints, logs, or leaks API keys or secrets.
+ * 4. Captures usage metadata (prompt, candidate, total, and thinking tokens) and latency.
  */
 export async function generateGeminiTextDetailed(
   options: GeminiGenerateOptions
@@ -72,104 +86,166 @@ export async function generateGeminiTextDetailed(
     timeoutMs = 15000,
     responseMimeType,
     temperature,
+    maxOutputTokens,
   } = options;
 
-  const candidates = buildModelCandidates();
-  let hadUpstreamError = false;
+  const targetModel = (options.model?.trim() || getGenerationModel()).replace(
+    /^models\//,
+    ""
+  );
 
-  for (const candidate of candidates) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const startTime = Date.now();
 
-    try {
-      const generationConfig: Record<string, unknown> = {
-        ...(candidate.extraGenerationConfig || {}),
-        ...(responseMimeType ? { responseMimeType } : {}),
-        ...(typeof temperature === "number" ? { temperature } : {}),
-      };
+  try {
+    const generationConfig: Record<string, unknown> = {
+      ...(responseMimeType ? { responseMimeType } : {}),
+      ...(typeof temperature === "number" ? { temperature } : {}),
+      ...(typeof maxOutputTokens === "number" ? { maxOutputTokens } : {}),
+    };
 
-      const bodyPayload: Record<string, unknown> = {
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }],
-          },
-        ],
-        ...(Object.keys(generationConfig).length > 0
-          ? { generationConfig }
-          : {}),
-      };
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${candidate.name}:generateContent`,
+    const bodyPayload: Record<string, unknown> = {
+      contents: [
         {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-goog-api-key": apiKey,
-          },
-          body: JSON.stringify(bodyPayload),
-          signal: controller.signal,
-        }
-      );
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      ...(Object.keys(generationConfig).length > 0
+        ? { generationConfig }
+        : {}),
+    };
 
-      clearTimeout(timeoutId);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${targetModel}:generateContent`;
 
-      if (!response.ok) {
-        hadUpstreamError = true;
-        console.warn(
-          `[Gemini] Model '${candidate.name}' returned HTTP ${response.status}`
-        );
-        continue;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
+      body: JSON.stringify(bodyPayload),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+    const latencyMs = Date.now() - startTime;
+
+    if (!response.ok) {
+      let errorJson: any = null;
+      try {
+        errorJson = await response.json();
+      } catch {
+        // Response was not JSON
       }
 
-      const data = (await response.json()) as {
-        candidates?: Array<{
-          content?: {
-            parts?: Array<{ text?: string; thought?: boolean }>;
-          };
-        }>;
+      const errorMessage =
+        errorJson?.error?.message ||
+        `HTTP ${response.status} ${response.statusText}`;
+
+      // Redact any accidental secret reflection in error strings
+      const sanitizedMessage = errorMessage.replace(/key=[^& \n]+/gi, "key=[REDACTED]");
+
+      console.warn(
+        `[Gemini FAIL-CLOSED] Target model '${targetModel}' returned HTTP ${response.status}: ${sanitizedMessage}`
+      );
+
+      // FAIL-CLOSED: strictly return failure without attempting any fallback model
+      return {
+        ok: false,
+        reason: "upstream_error",
+        status: response.status,
+        model: targetModel,
+        errorMessage: sanitizedMessage,
+        errorDetails: errorJson?.error || null,
+        latencyMs,
       };
-
-      const parts = data.candidates?.[0]?.content?.parts || [];
-      const text = parts
-        .filter((part) => !part.thought && typeof part.text === "string")
-        .map((part) => part.text || "")
-        .join("")
-        .trim();
-
-      if (text.length > 0) {
-        return { ok: true, text, model: candidate.name };
-      }
-
-      console.warn(
-        `[Gemini] Model '${candidate.name}' returned an empty candidate payload.`
-      );
-    } catch (error: unknown) {
-      clearTimeout(timeoutId);
-      hadUpstreamError = true;
-      const message =
-        error instanceof Error ? error.name : "UnknownError";
-      console.warn(
-        `[Gemini] Request to '${candidate.name}' failed (${message}).`
-      );
     }
-  }
 
-  return {
-    ok: false,
-    reason: hadUpstreamError ? "upstream_error" : "empty_response",
-  };
+    const data = (await response.json()) as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ text?: string; thought?: boolean }>;
+        };
+      }>;
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+        thinkingTokenCount?: number;
+      };
+    };
+
+    const parts = data.candidates?.[0]?.content?.parts || [];
+    const text = parts
+      .filter((part) => !part.thought && typeof part.text === "string")
+      .map((part) => part.text || "")
+      .join("")
+      .trim();
+
+    const usageMetadata: GeminiUsageMetadata | undefined = data.usageMetadata
+      ? {
+          promptTokenCount: data.usageMetadata.promptTokenCount ?? 0,
+          candidatesTokenCount: data.usageMetadata.candidatesTokenCount ?? 0,
+          totalTokenCount: data.usageMetadata.totalTokenCount ?? 0,
+          thinkingTokenCount: data.usageMetadata.thinkingTokenCount,
+        }
+      : undefined;
+
+    if (text.length > 0) {
+      return {
+        ok: true,
+        text,
+        model: targetModel,
+        usageMetadata,
+        latencyMs,
+      };
+    }
+
+    console.warn(
+      `[Gemini FAIL-CLOSED] Target model '${targetModel}' returned an empty candidate payload.`
+    );
+    return {
+      ok: false,
+      reason: "empty_response",
+      model: targetModel,
+      latencyMs,
+    };
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+    const latencyMs = Date.now() - startTime;
+    const message = error instanceof Error ? error.message : "UnknownError";
+    const sanitizedMessage = message.replace(/key=[^& \n]+/gi, "key=[REDACTED]");
+
+    console.warn(
+      `[Gemini FAIL-CLOSED] Request to '${targetModel}' failed: ${sanitizedMessage}`
+    );
+
+    return {
+      ok: false,
+      reason: "upstream_error",
+      model: targetModel,
+      errorMessage: sanitizedMessage,
+      latencyMs,
+    };
+  }
 }
 
 /**
- * Generates text using the Google Gemini REST API with automatic model fallback
- * and per-attempt timeouts. Returns null if no API key is configured or all
- * candidate models fail.
+ * Generates text using the Google Gemini REST API with explicit model pinning
+ * and strict fail-closed error handling. Returns null on failure.
  */
 export async function generateGeminiText(
   options: GeminiGenerateOptions
 ): Promise<GeminiGenerateResult | null> {
   const result = await generateGeminiTextDetailed(options);
-  return result.ok ? { text: result.text, model: result.model } : null;
+  return result.ok
+    ? {
+        text: result.text,
+        model: result.model,
+        usageMetadata: result.usageMetadata,
+        latencyMs: result.latencyMs,
+      }
+    : null;
 }

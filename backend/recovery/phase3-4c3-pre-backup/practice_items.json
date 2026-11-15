@@ -1,0 +1,398 @@
+[
+  {
+    "id": "71918fdc-ecda-4fa9-aab2-e521406fb75e",
+    "sessionId": "f8347441-6aa0-46fc-8d26-e7bc61871e01",
+    "questionBankItemId": "45e751fd-4915-4bac-a386-c7bae5295911",
+    "itemOrder": 1,
+    "source": "curated",
+    "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+    "options": [
+      {
+        "key": "A",
+        "text": "repair"
+      },
+      {
+        "key": "B",
+        "text": "repaired"
+      },
+      {
+        "key": "C",
+        "text": "repairs"
+      },
+      {
+        "key": "D",
+        "text": "is repairing"
+      }
+    ],
+    "correctAnswer": "D",
+    "explanation": "Cập nhật giải thích chi tiết hơn cho người học.",
+    "ruleReference": "1A",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "7cbee6cf-4877-48ec-89a6-aee78e159323",
+    "sessionId": "f85a10c5-7584-4405-8b34-b72e01f36a2a",
+    "questionBankItemId": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+    "itemOrder": 1,
+    "source": "curated",
+    "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+    "options": [
+      {
+        "key": "A",
+        "text": "explained"
+      },
+      {
+        "key": "B",
+        "text": "explains"
+      },
+      {
+        "key": "C",
+        "text": "explain"
+      },
+      {
+        "key": "D",
+        "text": "is explaining"
+      }
+    ],
+    "correctAnswer": "D",
+    "explanation": "Cập nhật giải thích chi tiết hơn cho người học.",
+    "ruleReference": "1B",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "8a92df9a-75a2-45d9-8a00-4284ff724b0b",
+    "sessionId": "f85a10c5-7584-4405-8b34-b72e01f36a2a",
+    "questionBankItemId": null,
+    "itemOrder": 2,
+    "source": "dynamic",
+    "prompt": "3 You can turn off the radio. _______ (I / listen) to it.",
+    "options": [
+      {
+        "key": "A",
+        "text": "I'm not listening"
+      },
+      {
+        "key": "B",
+        "text": "I'm not eating"
+      },
+      {
+        "key": "C",
+        "text": "She's having"
+      },
+      {
+        "key": "D",
+        "text": "He's learning"
+      }
+    ],
+    "correctAnswer": "A",
+    "explanation": "Vì có thể tắt radio nên người nói 'không đang nghe' radio: dùng thể phủ định 'I'm not listening' (I am not listening).",
+    "ruleReference": "1B",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "185d5a75-a453-4723-a800-790b04d11dbd",
+    "sessionId": "3d33663c-ad50-45ab-a16f-736097db8f9b",
+    "questionBankItemId": "45e751fd-4915-4bac-a386-c7bae5295911",
+    "itemOrder": 1,
+    "source": "curated",
+    "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+    "options": [
+      {
+        "key": "A",
+        "text": "repairs"
+      },
+      {
+        "key": "B",
+        "text": "repaired"
+      },
+      {
+        "key": "C",
+        "text": "is repairing"
+      },
+      {
+        "key": "D",
+        "text": "repair"
+      }
+    ],
+    "correctAnswer": "C",
+    "explanation": "Cập nhật giải thích chi tiết hơn cho người học.",
+    "ruleReference": "1A",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "c49c2a96-9747-49de-857c-b281d7c4ccad",
+    "sessionId": "3d33663c-ad50-45ab-a16f-736097db8f9b",
+    "questionBankItemId": null,
+    "itemOrder": 2,
+    "source": "dynamic",
+    "prompt": "3 You can turn off the radio. _______ (I / listen) to it.",
+    "options": [
+      {
+        "key": "A",
+        "text": "She's having"
+      },
+      {
+        "key": "B",
+        "text": "He's learning"
+      },
+      {
+        "key": "C",
+        "text": "I'm not eating"
+      },
+      {
+        "key": "D",
+        "text": "I'm not listening"
+      }
+    ],
+    "correctAnswer": "D",
+    "explanation": "Vì có thể tắt radio nên người nói 'không đang nghe' radio: dùng thể phủ định 'I'm not listening' (I am not listening).",
+    "ruleReference": "1B",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "5ddb3c51-8e41-49c3-9b48-e67fa651c1a2",
+    "sessionId": "260fade4-0bf1-42f1-956e-c0a26c53074a",
+    "questionBankItemId": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+    "itemOrder": 1,
+    "source": "curated",
+    "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+    "options": [
+      {
+        "key": "A",
+        "text": "is explaining"
+      },
+      {
+        "key": "B",
+        "text": "explained"
+      },
+      {
+        "key": "C",
+        "text": "explains"
+      },
+      {
+        "key": "D",
+        "text": "explain"
+      }
+    ],
+    "correctAnswer": "A",
+    "explanation": "Cập nhật giải thích chi tiết hơn cho người học.",
+    "ruleReference": "1B",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "9136f4cc-5742-4935-8db9-46dc906c1d2b",
+    "sessionId": "f1551831-1dd4-4df0-a2e3-059bc2328e1d",
+    "questionBankItemId": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+    "itemOrder": 1,
+    "source": "curated",
+    "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+    "options": [
+      {
+        "key": "A",
+        "text": "explains"
+      },
+      {
+        "key": "B",
+        "text": "explain"
+      },
+      {
+        "key": "C",
+        "text": "explained"
+      },
+      {
+        "key": "D",
+        "text": "is explaining"
+      }
+    ],
+    "correctAnswer": "D",
+    "explanation": "Cập nhật giải thích chi tiết hơn cho người học.",
+    "ruleReference": "1B",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "4420d731-728e-4693-8a91-a2ce84dd5518",
+    "sessionId": "f1551831-1dd4-4df0-a2e3-059bc2328e1d",
+    "questionBankItemId": null,
+    "itemOrder": 2,
+    "source": "dynamic",
+    "prompt": "3 You can turn off the radio. _______ (I / listen) to it.",
+    "options": [
+      {
+        "key": "A",
+        "text": "He's learning"
+      },
+      {
+        "key": "B",
+        "text": "I'm not eating"
+      },
+      {
+        "key": "C",
+        "text": "I'm not listening"
+      },
+      {
+        "key": "D",
+        "text": "She's having"
+      }
+    ],
+    "correctAnswer": "C",
+    "explanation": "Vì có thể tắt radio nên người nói 'không đang nghe' radio: dùng thể phủ định 'I'm not listening' (I am not listening).",
+    "ruleReference": "1B",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "0cdf0e5b-e914-410b-adbe-7491991315fe",
+    "sessionId": "13d699be-795b-4540-a8a1-80c8c9d1b6b1",
+    "questionBankItemId": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+    "itemOrder": 1,
+    "source": "curated",
+    "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+    "options": [
+      {
+        "key": "A",
+        "text": "explains"
+      },
+      {
+        "key": "B",
+        "text": "is explaining"
+      },
+      {
+        "key": "C",
+        "text": "explained"
+      },
+      {
+        "key": "D",
+        "text": "explain"
+      }
+    ],
+    "correctAnswer": "B",
+    "explanation": "Cập nhật giải thích chi tiết hơn cho người học.",
+    "ruleReference": "1B",
+    "studentAnswer": "B",
+    "isCorrect": true,
+    "attemptCount": 2,
+    "answeredAt": "2026-11-13T19:15:40.073Z"
+  },
+  {
+    "id": "ff65d7a9-d9f8-432d-b9cc-44ddc2c76be4",
+    "sessionId": "94742cf2-3d52-4b37-9295-01549a6b06e1",
+    "questionBankItemId": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+    "itemOrder": 1,
+    "source": "curated",
+    "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+    "options": [
+      {
+        "key": "A",
+        "text": "explains"
+      },
+      {
+        "key": "B",
+        "text": "explained"
+      },
+      {
+        "key": "C",
+        "text": "is explaining"
+      },
+      {
+        "key": "D",
+        "text": "explain"
+      }
+    ],
+    "correctAnswer": "C",
+    "explanation": "Cập nhật giải thích chi tiết hơn cho người học.",
+    "ruleReference": "1B",
+    "studentAnswer": "C",
+    "isCorrect": true,
+    "attemptCount": 2,
+    "answeredAt": "2026-11-13T19:14:06.548Z"
+  },
+  {
+    "id": "a9b9e725-0632-4099-918e-33a1eaeccbcb",
+    "sessionId": "3b62e4ef-bdb6-4118-a47a-0d1902ec1d4b",
+    "questionBankItemId": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+    "itemOrder": 1,
+    "source": "curated",
+    "prompt": "The IT technician is not at his desk because he _______ the server hardware in Room 3 right now.",
+    "options": [
+      {
+        "key": "A",
+        "text": "explained"
+      },
+      {
+        "key": "B",
+        "text": "explains"
+      },
+      {
+        "key": "C",
+        "text": "explain"
+      },
+      {
+        "key": "D",
+        "text": "is explaining"
+      }
+    ],
+    "correctAnswer": "D",
+    "explanation": "Cập nhật giải thích chi tiết hơn cho người học.",
+    "ruleReference": "1B",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  },
+  {
+    "id": "b908946c-7c23-4d1c-8da9-391f4b9bb005",
+    "sessionId": "3b62e4ef-bdb6-4118-a47a-0d1902ec1d4b",
+    "questionBankItemId": null,
+    "itemOrder": 2,
+    "source": "dynamic",
+    "prompt": "3 You can turn off the radio. _______ (I / listen) to it.",
+    "options": [
+      {
+        "key": "A",
+        "text": "I'm not eating"
+      },
+      {
+        "key": "B",
+        "text": "She's having"
+      },
+      {
+        "key": "C",
+        "text": "I'm not listening"
+      },
+      {
+        "key": "D",
+        "text": "He's learning"
+      }
+    ],
+    "correctAnswer": "C",
+    "explanation": "Vì có thể tắt radio nên người nói 'không đang nghe' radio: dùng thể phủ định 'I'm not listening' (I am not listening).",
+    "ruleReference": "1B",
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptCount": 0,
+    "answeredAt": null
+  }
+]

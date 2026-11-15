@@ -275,7 +275,12 @@ describe("Frontend Authentication, Progress Dashboard & Mistake Review", () => {
 
     // Verify checkQuestionAnswer was called
     await waitFor(() => {
-      expect(api.checkQuestionAnswer).toHaveBeenCalledWith("1.1-q2", "e");
+      expect(api.checkQuestionAnswer).toHaveBeenCalledWith(
+        "1.1-q2",
+        "e",
+        undefined,
+        "mistake_retry"
+      );
     });
 
     // Verify resolved banner and explanation are displayed
@@ -353,10 +358,12 @@ describe("Frontend Authentication, Progress Dashboard & Mistake Review", () => {
     fireEvent.click(screen.getByRole("button", { name: /check correction/i }));
 
     await waitFor(() => {
-      expect(api.checkQuestionAnswer).toHaveBeenCalledWith("86.4-q9", [
-        "No-one",
-        "anyone",
-      ]);
+      expect(api.checkQuestionAnswer).toHaveBeenCalledWith(
+        "86.4-q9",
+        ["No-one", "anyone"],
+        undefined,
+        "mistake_retry"
+      );
       expect(screen.getByText(/resolved! cleared from mistakes list/i)).toBeInTheDocument();
       // Analytics refetched after resolving mistake
       expect(vi.mocked(api.getAdaptiveAnalytics).mock.calls.length).toBeGreaterThanOrEqual(2);

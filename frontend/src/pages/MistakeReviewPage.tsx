@@ -246,7 +246,12 @@ export const MistakeReviewPage: React.FC = () => {
     try {
       inFlightChecksRef.current.add(questionId);
       setCheckingQuestionId(questionId);
-      const res = await api.checkQuestionAnswer(questionId, normalizedAnswer);
+      const res = await api.checkQuestionAnswer(
+        questionId,
+        normalizedAnswer,
+        undefined,
+        "mistake_retry"
+      );
       setCheckResults((prev) => ({
         ...prev,
         [questionId]: res,

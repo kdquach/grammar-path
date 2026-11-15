@@ -6,6 +6,11 @@ import { AppError } from "../middleware/error-handler";
 import { formatQuestionDetail, formatQuestionSolution } from "../utils/formatters";
 import { evaluateQuestion, isEmptyStudentAnswer } from "../utils/grader";
 import { runDeduplicatedSubmission, stableSerialize } from "../utils/idempotency";
+import {
+  ALLOWED_QUESTION_CHECK_SOURCES,
+  deriveAttemptStatus,
+} from "../utils/attempt-telemetry";
+import { triggerIncrementalMasteryUpdate } from "../services/mastery.service";
 import { assertNoSpoilerQueryParams } from "./exercises.controller";
 
 export const questionIdParamSchema = z.object({
@@ -18,6 +23,7 @@ export const questionIdParamSchema = z.object({
 
 export const checkQuestionBodySchema = z.object({
   submissionId: z.string().trim().min(1).max(120).optional(),
+  source: z.enum(ALLOWED_QUESTION_CHECK_SOURCES).optional(),
   answer: z.union([
     z.string().max(1000, "Answer text exceeds maximum length"),
     z.array(z.string().max(1000)).max(20),
@@ -121,7 +127,16 @@ export async function getQuestionSolution(
             },
           },
         },
-        explanation: true,
+        explanation: {
+          include: {
+            theorySection: {
+              select: {
+                sectionId: true,
+                heading: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -138,13 +153,16 @@ export async function getQuestionSolution(
         where: {
           userId,
           questionId: question.id,
+          attemptStatus: { not: "unanswered" },
         },
-        select: { studentAnswer: true },
+        select: { studentAnswer: true, attemptStatus: true },
         take: 25,
       });
 
       const hasSubmittedAttempt = priorAttempts.some(
-        (item) => !isEmptyStudentAnswer(item.studentAnswer)
+        (item) =>
+          item.attemptStatus !== "unanswered" &&
+          !isEmptyStudentAnswer(item.studentAnswer)
       );
 
       if (!hasSubmittedAttempt) {
@@ -156,8 +174,9 @@ export async function getQuestionSolution(
       }
     }
 
-    let linkedSection: { sectionId: string; heading: string } | null = null;
-    if (question.explanation?.ruleReference) {
+    let linkedSection: { sectionId: string; heading: string } | null =
+      question.explanation?.theorySection || null;
+    if (!linkedSection && question.explanation?.ruleReference) {
       const section = await prisma.theorySection.findFirst({
         where: {
           sectionId: {
@@ -190,7 +209,8 @@ export async function checkQuestionAnswer(
 ): Promise<void> {
   try {
     const { questionId } = questionIdParamSchema.parse(req.params);
-    const { answer, submissionId } = checkQuestionBodySchema.parse(req.body);
+    const { answer, submissionId, source } = checkQuestionBodySchema.parse(req.body);
+    const attemptSource = source ?? "single_check";
 
     if (isEmptyStudentAnswer(answer)) {
       throw AppError.badRequest(
@@ -249,7 +269,12 @@ export async function checkQuestionAnswer(
       const unitId = question.exercise.unitId;
       const dedupeKey = submissionId
         ? `question:${userId}:${question.id}:sub:${submissionId}`
-        : `question:${userId}:${question.id}:${stableSerialize(answer)}`;
+        : `question:${userId}:${question.id}:${attemptSource}:${stableSerialize(answer)}`;
+
+      const derived = deriveAttemptStatus({
+        hasAttempted: true,
+        isCorrect: Boolean(result.isCorrect),
+      });
 
       const txResult = await runDeduplicatedSubmission(dedupeKey, () =>
         prisma.$transaction(async (tx) => {
@@ -261,7 +286,9 @@ export async function checkQuestionAnswer(
               studentAnswer: (result.studentAnswer !== undefined
                 ? result.studentAnswer
                 : null) as any,
-              isCorrect: result.isCorrect,
+              isCorrect: derived.isCorrect,
+              attemptStatus: derived.attemptStatus,
+              attemptSource,
               createdAt: new Date(),
             },
           });
@@ -304,6 +331,7 @@ export async function checkQuestionAnswer(
       );
 
       questionAttemptId = txResult;
+      await triggerIncrementalMasteryUpdate(userId, question.id);
     }
 
     sendSuccess(res, {

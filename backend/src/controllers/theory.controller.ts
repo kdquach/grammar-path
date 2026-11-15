@@ -37,6 +37,17 @@ export async function getTheorySectionById(
             title: true,
           },
         },
+        conceptLinks: {
+          include: {
+            concept: {
+              select: {
+                code: true,
+                name: true,
+                category: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -96,6 +107,14 @@ export async function getTheorySectionById(
       },
       linkedQuestionCount: questionIds.length,
       linkedQuestionIds: questionIds,
+      concepts: section.conceptLinks.map((link) => ({
+        code: link.concept.code,
+        name: link.concept.name,
+        category: link.concept.category,
+        role: link.role,
+        confidence: link.confidence,
+        provenance: link.provenance,
+      })),
     };
 
     sendSuccess(res, data);

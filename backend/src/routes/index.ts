@@ -9,6 +9,17 @@ import authRouter from "./auth.routes";
 import progressRouter from "./progress.routes";
 import aiRouter from "./ai.routes";
 import adaptiveRouter from "./adaptive.routes";
+import curriculumRouter from "./curriculum.routes";
+import dashboardRouter from "./dashboard.routes";
+import masteryRouter from "./mastery.routes";
+import reviewRouter from "./review.routes";
+import recommendationsRouter from "./recommendations.routes";
+import onboardingRouter from "./onboarding.routes";
+import learningPathRouter from "./learning-path.routes";
+import dailyPlanRouter from "./daily-plan.routes";
+import studySessionRouter from "./study-session.routes";
+import engagementRouter from "./engagement.routes";
+import adminToeicRouter from "./admin-toeic.routes";
 
 const router = Router();
 
@@ -22,5 +33,16 @@ router.use(authRouter);
 router.use(progressRouter);
 router.use(aiRouter);
 router.use(adaptiveRouter);
+router.use(curriculumRouter);
+router.use(dashboardRouter);
+router.use(masteryRouter);
+router.use(reviewRouter);
+router.use(recommendationsRouter);
+router.use(onboardingRouter);
+router.use(learningPathRouter);
+router.use(dailyPlanRouter);
+router.use(studySessionRouter);
+router.use(engagementRouter);
+router.use("/admin/toeic", adminToeicRouter);
 
 export default router;

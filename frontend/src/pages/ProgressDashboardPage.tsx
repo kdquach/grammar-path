@@ -267,30 +267,38 @@ export const ProgressDashboardPage: React.FC = () => {
             <div className="flex items-baseline gap-2">
               <span
                 className={`text-2xl font-black ${
-                  exercises.averageScorePercentage >= 80
+                  exercises.averageScorePercentage === null
+                    ? "text-slate-400"
+                    : exercises.averageScorePercentage >= 80
                     ? "text-emerald-600"
                     : exercises.averageScorePercentage >= 50
                     ? "text-amber-600"
                     : "text-slate-900"
                 }`}
               >
-                {exercises.averageScorePercentage}%
+                {exercises.averageScorePercentage !== null
+                  ? `${exercises.averageScorePercentage}%`
+                  : "—"}
               </span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-1.5 mt-3 overflow-hidden">
               <div
                 className={`h-1.5 rounded-full transition-all duration-500 ${
-                  exercises.averageScorePercentage >= 80
+                  exercises.averageScorePercentage === null
+                    ? "bg-slate-300"
+                    : exercises.averageScorePercentage >= 80
                     ? "bg-emerald-500"
                     : exercises.averageScorePercentage >= 50
                     ? "bg-amber-500"
                     : "bg-brand-500"
                 }`}
-                style={{ width: `${Math.min(100, exercises.averageScorePercentage)}%` }}
+                style={{ width: `${Math.min(100, exercises.averageScorePercentage ?? 0)}%` }}
               />
             </div>
             <p className="text-[11px] text-slate-400 mt-1.5">
-              Across all evaluated exercise attempts
+              {exercises.averageScorePercentage !== null
+                ? "Across all evaluated exercise attempts"
+                : "No exercise attempts recorded yet"}
             </p>
           </div>
         </div>
@@ -307,8 +315,14 @@ export const ProgressDashboardPage: React.FC = () => {
           </div>
           <div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-black text-slate-900">
-                {questions.accuracyPercentage}%
+              <span
+                className={`text-2xl font-black ${
+                  questions.accuracyPercentage === null ? "text-slate-400" : "text-slate-900"
+                }`}
+              >
+                {questions.accuracyPercentage !== null
+                  ? `${questions.accuracyPercentage}%`
+                  : "—"}
               </span>
               <span className="text-xs text-slate-400 font-semibold">
                 ({questions.correctUniqueQuestions} unique solved)
@@ -317,11 +331,13 @@ export const ProgressDashboardPage: React.FC = () => {
             <div className="w-full bg-slate-100 rounded-full h-1.5 mt-3 overflow-hidden">
               <div
                 className="bg-indigo-500 h-1.5 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, questions.accuracyPercentage)}%` }}
+                style={{ width: `${Math.min(100, questions.accuracyPercentage ?? 0)}%` }}
               />
             </div>
             <p className="text-[11px] text-slate-400 mt-1.5">
-              {questions.totalAnswered} total question attempts answered
+              {questions.totalAnswered > 0
+                ? `${questions.totalAnswered} answered question attempts (unanswered excluded)`
+                : "No answered questions yet"}
             </p>
           </div>
         </div>
@@ -398,7 +414,14 @@ export const ProgressDashboardPage: React.FC = () => {
                       </Link>
                     </td>
                     <td className="py-3 px-3 text-slate-600">
-                      {attempt.correctCount} / {attempt.totalQuestions}
+                      <span>
+                        {attempt.correctCount} / {attempt.totalQuestions}
+                      </span>
+                      {typeof attempt.unansweredCount === "number" && attempt.unansweredCount > 0 && (
+                        <span className="ml-1.5 text-[10px] text-slate-400">
+                          ({attempt.answeredCount ?? attempt.totalQuestions - attempt.unansweredCount} answered, {attempt.unansweredCount} skipped)
+                        </span>
+                      )}
                     </td>
                     <td className="py-3 px-3">
                       <span

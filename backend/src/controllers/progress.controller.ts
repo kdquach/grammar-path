@@ -4,6 +4,10 @@ import { prisma } from "../lib/prisma";
 import { AppError } from "../middleware/error-handler";
 import { sendSuccess } from "../utils/response";
 import { getLatestUnresolvedMistakes } from "../services/mistakes.service";
+import {
+  computeNullableAccuracy,
+  computeNullableAverageScore,
+} from "../utils/attempt-telemetry";
 
 const unitNumberParamSchema = z.object({
   unitNumber: z.coerce
@@ -72,24 +76,29 @@ export async function getProgressOverview(
         _avg: { scorePercentage: true },
       }),
       prisma.questionAttemptItem.count({
-        where: { userId },
+        where: { userId, attemptStatus: { not: "unanswered" }, isCorrect: { not: null } },
       }),
       prisma.questionAttemptItem.groupBy({
         by: ["questionId"],
-        where: { userId },
+        where: { userId, attemptStatus: { not: "unanswered" }, isCorrect: { not: null } },
       }),
       prisma.questionAttemptItem.groupBy({
         by: ["questionId"],
-        where: { userId, isCorrect: true },
+        where: { userId, attemptStatus: "correct" },
       }),
       prisma.questionAttemptItem.count({
-        where: { userId, isCorrect: true },
+        where: { userId, attemptStatus: "correct" },
       }),
       prisma.exerciseAttempt.findMany({
         where: { userId },
         orderBy: { submittedAt: "desc" },
         take: 10,
         include: {
+          items: {
+            select: {
+              attemptStatus: true,
+            },
+          },
           exercise: {
             select: {
               exerciseId: true,
@@ -126,27 +135,37 @@ export async function getProgressOverview(
     const completionPercentage =
       totalUnits > 0 ? Math.round((completedCount / totalUnits) * 1000) / 10 : 0;
 
-    const averageScorePercentage =
-      avgScoreResult._avg.scorePercentage !== null
-        ? Math.round(avgScoreResult._avg.scorePercentage * 10) / 10
-        : 0;
+    const averageScorePercentage = computeNullableAverageScore(
+      avgScoreResult._avg.scorePercentage,
+      totalAttempts
+    );
 
-    const accuracyPercentage =
-      totalAnswered > 0
-        ? Math.round((totalCorrectAnswered / totalAnswered) * 1000) / 10
-        : 0;
+    const accuracyPercentage = computeNullableAccuracy(
+      totalCorrectAnswered,
+      totalAnswered
+    );
 
-    const recentAttempts = recentAttemptsRaw.map((a) => ({
-      id: a.id,
-      exerciseId: a.exercise.exerciseId,
-      exerciseNumber: a.exercise.exerciseNumber,
-      unitNumber: a.exercise.unit.unitNumber,
-      unitTitle: a.exercise.unit.title,
-      scorePercentage: a.scorePercentage,
-      correctCount: a.correctCount,
-      totalQuestions: a.totalQuestions,
-      submittedAt: a.submittedAt,
-    }));
+    const recentAttempts = recentAttemptsRaw.map((a) => {
+      const answeredCount = a.items.filter(
+        (it) => it.attemptStatus !== "unanswered"
+      ).length;
+      const unansweredCount = a.items.filter(
+        (it) => it.attemptStatus === "unanswered"
+      ).length;
+      return {
+        id: a.id,
+        exerciseId: a.exercise.exerciseId,
+        exerciseNumber: a.exercise.exerciseNumber,
+        unitNumber: a.exercise.unit.unitNumber,
+        unitTitle: a.exercise.unit.title,
+        scorePercentage: a.scorePercentage,
+        correctCount: a.correctCount,
+        totalQuestions: a.totalQuestions,
+        answeredCount: a.items.length > 0 ? answeredCount : a.totalQuestions,
+        unansweredCount,
+        submittedAt: a.submittedAt,
+      };
+    });
 
     const unitProgressMap = touchedUnitsRaw.map((p) => ({
       unitNumber: p.unit.unitNumber,
@@ -273,9 +292,10 @@ export async function updateUnitProgress(
         scorePercentage: a.scorePercentage,
         submittedAt: a.submittedAt,
         items: a.items.map((it) => ({
-          questionId: it.question.questionId,
+          questionId: it.question?.questionId ?? "",
           studentAnswer: it.studentAnswer,
           isCorrect: it.isCorrect,
+          attemptStatus: it.attemptStatus,
         })),
       })),
     });
@@ -361,9 +381,10 @@ export async function getUnitProgress(
         scorePercentage: a.scorePercentage,
         submittedAt: a.submittedAt,
         items: a.items.map((it) => ({
-          questionId: it.question.questionId,
+          questionId: it.question?.questionId ?? "",
           studentAnswer: it.studentAnswer,
           isCorrect: it.isCorrect,
+          attemptStatus: it.attemptStatus,
         })),
       })),
     });

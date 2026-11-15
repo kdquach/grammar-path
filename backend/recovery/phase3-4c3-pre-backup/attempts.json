@@ -1,0 +1,50 @@
+[
+  {
+    "id": "01f20d58-1374-4031-a1e9-8a9e9a593c48",
+    "attemptId": null,
+    "userId": "a8750eab-1291-435b-b76b-11f7f5333b25",
+    "questionId": null,
+    "questionBankItemId": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+    "studentAnswer": "C",
+    "isCorrect": true,
+    "attemptStatus": "correct",
+    "attemptSource": "toeic_practice",
+    "createdAt": "2026-11-13T19:14:05.739Z"
+  },
+  {
+    "id": "8956759f-39f5-4db6-9582-b1e610cec216",
+    "attemptId": "4876486d-3e63-47ff-9b67-d8e54c700350",
+    "userId": "9bd72baf-a361-4804-945d-604c8ae0a0f6",
+    "questionId": "0c657406-9046-4704-8609-55a9ed670fd5",
+    "questionBankItemId": null,
+    "studentAnswer": null,
+    "isCorrect": null,
+    "attemptStatus": "unanswered",
+    "attemptSource": "exercise_submission",
+    "createdAt": "2026-11-13T05:27:31.666Z"
+  },
+  {
+    "id": "a2c8a2e3-b228-4f57-b62b-755cba5096d5",
+    "attemptId": null,
+    "userId": "31e34f5f-8571-4b87-a293-9d9a344eb2dc",
+    "questionId": null,
+    "questionBankItemId": "44931eb1-344b-4ec8-aceb-5524a952ed59",
+    "studentAnswer": "B",
+    "isCorrect": true,
+    "attemptStatus": "correct",
+    "attemptSource": "toeic_practice",
+    "createdAt": "2026-11-13T19:15:39.321Z"
+  },
+  {
+    "id": "5ac3259f-cf3a-43c7-a20f-ee57602fd5b0",
+    "attemptId": "49e4c47f-d10b-4b7a-9806-50883af97854",
+    "userId": "5a04a899-3f2a-4c56-9a5f-012891b4cf0f",
+    "questionId": "0c657406-9046-4704-8609-55a9ed670fd5",
+    "questionBankItemId": null,
+    "studentAnswer": "I'm not listening",
+    "isCorrect": true,
+    "attemptStatus": "correct",
+    "attemptSource": "exercise_submission",
+    "createdAt": "2026-11-13T05:35:42.390Z"
+  }
+]

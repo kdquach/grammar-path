@@ -5,6 +5,7 @@ import {
   Layers,
   Compass,
   ArrowRight,
+  LayoutDashboard,
   BarChart3,
   BookmarkCheck,
   LogOut,
@@ -14,6 +15,8 @@ import {
   PanelLeftOpen,
   ChevronLeft,
   ChevronRight,
+  Award,
+  Clock,
 } from "lucide-react";
 import type { AuthUser } from "../../types/api.types";
 
@@ -49,6 +52,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
 
   const isCatalog = location.pathname === "/";
+  const isDashboard = location.pathname === "/dashboard";
+  const isLearningPath = location.pathname === "/learning-path";
+  const isMastery = location.pathname === "/mastery";
+  const isReviews = location.pathname === "/reviews";
   const isRoadmap = location.pathname === "/roadmap";
   const isProgress = location.pathname === "/progress";
   const isMistakes = location.pathname === "/mistakes";
@@ -330,6 +337,86 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Personal Learning
               </div>
             )}
+
+            <Link
+              to="/dashboard"
+              onClick={onCloseMobileMenu}
+              title="Dashboard"
+              className={`flex items-center transition-all ${
+                collapsed
+                  ? "w-11 h-11 mx-auto justify-center rounded-xl"
+                  : "gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-xl"
+              } ${
+                isDashboard
+                  ? "bg-brand-50 text-brand-700 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+              }`}
+            >
+              <LayoutDashboard
+                className={`w-4 h-4 shrink-0 ${isDashboard ? "text-brand-600" : "text-slate-400"}`}
+              />
+              {!collapsed && <span>Dashboard</span>}
+            </Link>
+
+            <Link
+              to="/learning-path"
+              onClick={onCloseMobileMenu}
+              title="Lộ trình học tập cá nhân"
+              className={`flex items-center transition-all ${
+                collapsed
+                  ? "w-11 h-11 mx-auto justify-center rounded-xl"
+                  : "gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-xl"
+              } ${
+                isLearningPath
+                  ? "bg-brand-50 text-brand-700 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+              }`}
+            >
+              <Compass
+                className={`w-4 h-4 shrink-0 ${isLearningPath ? "text-brand-600" : "text-slate-400"}`}
+              />
+              {!collapsed && <span>Lộ trình cá nhân</span>}
+            </Link>
+
+            <Link
+              to="/mastery"
+              onClick={onCloseMobileMenu}
+              title="Độ thành thạo (Mastery)"
+              className={`flex items-center transition-all ${
+                collapsed
+                  ? "w-11 h-11 mx-auto justify-center rounded-xl"
+                  : "gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-xl"
+              } ${
+                isMastery
+                  ? "bg-brand-50 text-brand-700 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+              }`}
+            >
+              <Award
+                className={`w-4 h-4 shrink-0 ${isMastery ? "text-brand-600" : "text-slate-400"}`}
+              />
+              {!collapsed && <span>Độ thành thạo</span>}
+            </Link>
+
+            <Link
+              to="/reviews"
+              onClick={onCloseMobileMenu}
+              title="Ôn tập Spaced Repetition"
+              className={`flex items-center transition-all ${
+                collapsed
+                  ? "w-11 h-11 mx-auto justify-center rounded-xl"
+                  : "gap-2.5 px-3 py-2.5 text-xs font-semibold rounded-xl"
+              } ${
+                isReviews
+                  ? "bg-brand-50 text-brand-700 font-bold shadow-2xs"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70"
+              }`}
+            >
+              <Clock
+                className={`w-4 h-4 shrink-0 ${isReviews ? "text-brand-600" : "text-slate-400"}`}
+              />
+              {!collapsed && <span>Ôn tập ngắt quãng</span>}
+            </Link>
 
             <Link
               to="/progress"

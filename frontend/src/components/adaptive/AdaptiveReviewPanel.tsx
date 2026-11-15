@@ -204,7 +204,12 @@ export const AdaptiveReviewPanel: React.FC<AdaptiveReviewPanelProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Độ chính xác trung bình: <strong>{analytics.accuracyPercentage}%</strong>
+                  Độ chính xác trung bình:{" "}
+                  <strong>
+                    {analytics.accuracyPercentage !== null
+                      ? `${analytics.accuracyPercentage}%`
+                      : "Chưa có dữ liệu"}
+                  </strong>
                 </p>
               </div>
 

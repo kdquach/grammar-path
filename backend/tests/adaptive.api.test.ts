@@ -74,7 +74,7 @@ describe("Adaptive Learning, AI Explanation & Personalized Review Engine REST AP
     expect(analyticsRes.body.success).toBe(true);
     expect(analyticsRes.body.data.totalEvaluated).toBe(0);
     expect(analyticsRes.body.data.totalErrors).toBe(0);
-    expect(analyticsRes.body.data.accuracyPercentage).toBe(0);
+    expect(analyticsRes.body.data.accuracyPercentage).toBeNull();
     expect(analyticsRes.body.data.weakestUnits).toEqual([]);
     expect(analyticsRes.body.data.errorDistribution).toEqual([]);
     expect(analyticsRes.body.data.weakestQuestionType).toBeNull();

@@ -1,0 +1,26 @@
+[
+  {
+    "_count": {
+      "id": 5
+    },
+    "reviewStatus": "archived"
+  },
+  {
+    "_count": {
+      "id": 4
+    },
+    "reviewStatus": "withdrawn"
+  },
+  {
+    "_count": {
+      "id": 12
+    },
+    "reviewStatus": "approved"
+  },
+  {
+    "_count": {
+      "id": 20
+    },
+    "reviewStatus": "validated"
+  }
+]

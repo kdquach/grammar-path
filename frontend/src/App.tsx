@@ -8,6 +8,11 @@ import UnitPage from "./pages/UnitPage";
 import ProgressDashboardPage from "./pages/ProgressDashboardPage";
 import MistakeReviewPage from "./pages/MistakeReviewPage";
 import ToeicRoadmapPage from "./pages/ToeicRoadmapPage";
+import DashboardPage from "./pages/DashboardPage";
+import MasteryPage from "./pages/MasteryPage";
+import ReviewCenterPage from "./pages/ReviewCenterPage";
+import LearningPathPage from "./pages/LearningPathPage";
+import StudySessionPage from "./pages/StudySessionPage";
 
 export const App: React.FC = () => {
   return (
@@ -17,6 +22,11 @@ export const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<AppLayout />}>
               <Route index element={<CatalogPage />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="learning-path" element={<LearningPathPage />} />
+              <Route path="study-session" element={<StudySessionPage />} />
+              <Route path="mastery" element={<MasteryPage />} />
+              <Route path="reviews" element={<ReviewCenterPage />} />
               <Route path="roadmap" element={<ToeicRoadmapPage />} />
               <Route path="units/:unitNumber" element={<UnitPage />} />
               <Route path="progress" element={<ProgressDashboardPage />} />

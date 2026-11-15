@@ -153,12 +153,16 @@ export const ExerciseViewer: React.FC<ExerciseViewerProps> = ({
 
     if (targetAttempt.items && targetAttempt.items.length > 0) {
       for (const item of targetAttempt.items) {
-        if (item.studentAnswer !== null && item.studentAnswer !== undefined) {
+        const isEvaluated =
+          item.attemptStatus !== "unanswered" &&
+          item.studentAnswer !== null &&
+          item.studentAnswer !== undefined;
+        if (isEvaluated) {
           restoredAnswers[item.questionId] = item.studentAnswer;
           restoredResults[item.questionId] = {
             questionId: item.questionId,
-            status: item.isCorrect ? "correct" : "incorrect",
-            isCorrect: item.isCorrect,
+            status: item.attemptStatus || (item.isCorrect ? "correct" : "incorrect"),
+            isCorrect: Boolean(item.isCorrect),
             studentAnswer: item.studentAnswer,
           };
         } else {

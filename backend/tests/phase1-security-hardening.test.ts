@@ -343,7 +343,10 @@ describe("Phase 1 Security Hardening, Env Validation, Rate Limiting & Offline Mi
       expect(analyticsRes.status).toBe(200);
       expect(mockPrisma.questionAttemptItem.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { userId: TEST_USER.id },
+          where: expect.objectContaining({
+            userId: TEST_USER.id,
+            attemptStatus: { not: "unanswered" },
+          }),
         })
       );
     });

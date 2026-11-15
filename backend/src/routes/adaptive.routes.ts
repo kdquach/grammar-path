@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
-import { aiRateLimiter } from "../middleware/rate-limit";
+import { aiRateLimiter, submissionRateLimiter } from "../middleware/rate-limit";
 import {
   getAdaptiveAnalytics,
   getAdaptiveRecommendations,
@@ -30,6 +30,7 @@ router.post(
 router.post(
   "/adaptive/toeic-practice/check",
   requireAuth,
+  submissionRateLimiter,
   checkToeicPracticeHandler
 );
 
@@ -45,6 +46,7 @@ router.post(
 router.post(
   "/adaptive/quiz/check",
   requireAuth,
+  submissionRateLimiter,
   checkAdaptiveQuizHandler
 );
 

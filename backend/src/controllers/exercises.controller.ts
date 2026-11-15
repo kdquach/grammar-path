@@ -1,11 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { sendSuccess } from "../utils/response";
 import { AppError } from "../middleware/error-handler";
 import { formatExercise, formatQuestionSolution } from "../utils/formatters";
 import { evaluateQuestion, isEmptyStudentAnswer } from "../utils/grader";
 import { runDeduplicatedSubmission, stableSerialize } from "../utils/idempotency";
+import { deriveAttemptStatus } from "../utils/attempt-telemetry";
+import { triggerIncrementalMasteryUpdate } from "../services/mastery.service";
 import { unitNumberParamSchema } from "./units.controller";
 
 const SPOILER_QUERY_KEYS = [
@@ -211,7 +214,16 @@ export async function getExerciseSolutions(
                 },
               },
             },
-            explanation: true,
+            explanation: {
+              include: {
+                theorySection: {
+                  select: {
+                    sectionId: true,
+                    heading: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -266,7 +278,8 @@ export async function getExerciseSolutions(
 
     const solutions = exercise.questions.map((q) => {
       const ref = q.explanation?.ruleReference?.toUpperCase();
-      const linkedSection = ref ? sectionMap.get(ref) || null : null;
+      const linkedSection =
+        q.explanation?.theorySection || (ref ? sectionMap.get(ref) || null : null);
       return formatQuestionSolution(q, linkedSection);
     });
 
@@ -434,18 +447,25 @@ export async function checkExerciseAnswers(
           });
 
           // 2. Create QuestionAttemptItems (keep one per graded question for structural attempt integrity;
-          //    unattempted items store null so mistakes & individual solution locks ignore them)
+          //    unattempted items store attemptStatus='unanswered', isCorrect=null, studentAnswer=NULL)
           const questionIdToUuid = new Map(exercise.questions.map((q) => [q.questionId, q.id]));
           const attemptItemsData = resolvedEntries.map(({ question, hasAttempted }, idx) => {
             const r = results[idx];
+            const derived = deriveAttemptStatus({
+              hasAttempted,
+              isCorrect: Boolean(r.isCorrect),
+            });
             return {
               attemptId: attempt.id,
               userId,
               questionId: questionIdToUuid.get(r.questionId) || question.id,
-              studentAnswer: (hasAttempted && r.studentAnswer !== undefined
-                ? r.studentAnswer
-                : null) as any,
-              isCorrect: r.isCorrect,
+              studentAnswer:
+                hasAttempted && r.studentAnswer !== undefined
+                  ? (r.studentAnswer as Prisma.InputJsonValue)
+                  : Prisma.DbNull,
+              isCorrect: derived.isCorrect,
+              attemptStatus: derived.attemptStatus,
+              attemptSource: "exercise_submission" as const,
               createdAt: new Date(),
             };
           });
@@ -532,12 +552,20 @@ export async function checkExerciseAnswers(
 
       attemptId = txResult.attemptId;
       unitProgressStatus = txResult.unitProgressStatus;
+
+      if (userId && exercise.questions.length > 0) {
+        for (const q of exercise.questions) {
+          triggerIncrementalMasteryUpdate(userId, q.id).catch(() => {});
+        }
+      }
     }
 
     sendSuccess(res, {
       exerciseId: exercise.exerciseId,
       exerciseNumber: exercise.exerciseNumber,
       totalQuestions,
+      answeredCount: attemptedCount,
+      unansweredCount: Math.max(0, totalQuestions - attemptedCount),
       correctCount,
       scorePercentage,
       results,
