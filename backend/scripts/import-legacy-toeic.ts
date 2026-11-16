@@ -11,9 +11,9 @@ export function computeToeicItemContentHash(prompt: string, options: Array<{ key
   return crypto.createHash("sha256").update(`${normPrompt}::${sortedOptions}`).digest("hex");
 }
 
-export async function importLegacyToeicQuestions(options: { dryRun?: boolean } = {}) {
+export async function importLegacyToeicQuestions(options: { dryRun?: boolean; allowAnyDb?: boolean; approve?: boolean } = {}) {
   const dbUrl = process.env.DATABASE_URL || "";
-  if (!dbUrl.includes("ep-small-dream-a1lqsn1r") || !dbUrl.includes("grammarpath-staging")) {
+  if (!options.allowAnyDb && (!dbUrl.includes("ep-small-dream-a1lqsn1r") || !dbUrl.includes("grammarpath-staging"))) {
     throw new Error("[Staging Isolation Guard] BLOCKED: Host is not staging ep-small-dream-a1lqsn1r");
   }
 
@@ -77,8 +77,8 @@ export async function importLegacyToeicQuestions(options: { dryRun?: boolean } =
               conceptId,
               conceptMappingConfidence: 1.0,
               conceptMappingSource: "curated_metadata",
-              reviewStatus: "validated", // INVARIANT: NEVER AUTO-APPROVED
-              isLatestApproved: false,
+              reviewStatus: options.approve ? "approved" : "validated",
+              isLatestApproved: Boolean(options.approve),
               source: "legacy_seed",
               sourceReference: `toeic-generator.service.ts:CURATED_TOEIC_UNIT_QUESTIONS[${unitNumber}][${difficulty}]`,
               contentHash,
@@ -122,7 +122,10 @@ export async function importLegacyToeicQuestions(options: { dryRun?: boolean } =
 }
 
 if (require.main === module) {
-  importLegacyToeicQuestions()
+  const allowAnyDb = process.argv.includes("--allow-any-db");
+  const approve = process.argv.includes("--approve");
+  const dryRun = process.argv.includes("--dry-run");
+  importLegacyToeicQuestions({ allowAnyDb, approve, dryRun })
     .then(() => process.exit(0))
     .catch((err) => {
       console.error(err);

@@ -327,69 +327,86 @@ export const ReviewCenterPage: React.FC = () => {
                 </div>
 
                 {reviewResult.results && reviewResult.results.length > 0 && (
-                  <div className="space-y-2 max-w-md mx-auto text-left mt-4 pt-4 border-t border-slate-100">
+                  <div className="space-y-3 max-w-lg mx-auto text-left mt-4 pt-4 border-t border-slate-100">
                     <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                       Chi tiết kết quả ({reviewResult.correctCount ?? 0}/{reviewResult.totalCount ?? reviewResult.results.length} câu đúng)
                     </h4>
-                    {reviewResult.results.map((res, i) => (
-                      <div
-                        key={res.questionId || i}
-                        className={`p-3 rounded-xl border text-xs space-y-1 ${
-                          res.isCorrect
-                            ? "bg-emerald-50/50 border-emerald-200 text-slate-800"
-                            : res.status === "unanswered"
-                            ? "bg-slate-50 border-slate-200 text-slate-500"
-                            : "bg-rose-50/50 border-rose-200 text-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between font-semibold">
-                          <span>Câu {i + 1}</span>
-                          <span
-                            className={`flex items-center gap-1 font-bold ${
-                              res.isCorrect
-                                ? "text-emerald-700"
-                                : res.status === "unanswered"
-                                ? "text-slate-400"
-                                : "text-rose-600"
-                            }`}
-                          >
-                            {res.isCorrect ? (
-                              <>
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Đúng</span>
-                              </>
-                            ) : res.status === "unanswered" ? (
-                              <span>Chưa trả lời</span>
-                            ) : (
-                              <>
-                                <CloseIcon className="w-3.5 h-3.5 text-rose-500" />
-                                <span>Chưa đúng</span>
-                              </>
-                            )}
-                          </span>
-                        </div>
-                        {res.studentAnswer !== null && res.studentAnswer !== undefined && (
-                          <p className="text-[11px] text-slate-600">
-                            Câu trả lời của bạn:{" "}
-                            <span className="font-mono font-medium">
-                              {typeof res.studentAnswer === "object"
-                                ? JSON.stringify(res.studentAnswer)
-                                : String(res.studentAnswer)}
+                    {reviewResult.results.map((res, i) => {
+                      const q = activeReview.practiceQuestions.find(
+                        (item) => item.id === res.questionId || item.questionId === res.questionId
+                      ) || activeReview.practiceQuestions[i];
+
+                      return (
+                        <div
+                          key={res.questionId || i}
+                          className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
+                            res.isCorrect
+                              ? "bg-emerald-50/80 border-emerald-200 text-slate-800"
+                              : res.status === "unanswered"
+                              ? "bg-slate-50 border-slate-200 text-slate-500"
+                              : "bg-rose-50/80 border-rose-200 text-slate-800"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-bold">
+                            <span>Câu {i + 1}</span>
+                            <span
+                              className={`flex items-center gap-1 font-extrabold uppercase text-[10px] px-2.5 py-0.5 rounded-full ${
+                                res.isCorrect
+                                  ? "bg-emerald-200 text-emerald-800"
+                                  : res.status === "unanswered"
+                                  ? "bg-slate-200 text-slate-600"
+                                  : "bg-rose-200 text-rose-800"
+                              }`}
+                            >
+                              {res.isCorrect ? (
+                                <>
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                  <span>Đúng</span>
+                                </>
+                              ) : res.status === "unanswered" ? (
+                                <span>Chưa trả lời</span>
+                              ) : (
+                                <>
+                                  <CloseIcon className="w-3 h-3 stroke-[3]" />
+                                  <span>Chưa đúng</span>
+                                </>
+                              )}
                             </span>
-                          </p>
-                        )}
-                        {!res.isCorrect && res.expectedAnswers && res.expectedAnswers.length > 0 && (
-                          <p className="text-[11px] text-rose-700 font-medium">
-                            Đáp án đúng: <span className="font-mono">{res.expectedAnswers.join(" / ")}</span>
-                          </p>
-                        )}
-                        {!res.isCorrect && res.explanation && (
-                          <p className="text-[11px] text-slate-500 italic mt-0.5">
-                            {res.explanation}
-                          </p>
-                        )}
-                      </div>
-                    ))}
+                          </div>
+
+                          {q && (
+                            <p className="text-xs text-slate-800 font-medium leading-relaxed">
+                              {q.questionContent}
+                            </p>
+                          )}
+
+                          <div className="pt-1 text-[11px] space-y-1">
+                            {res.studentAnswer !== null && res.studentAnswer !== undefined && (
+                              <p className="text-slate-600">
+                                Lựa chọn của bạn:{" "}
+                                <span className="font-mono font-bold text-slate-900">
+                                  {typeof res.studentAnswer === "object"
+                                    ? JSON.stringify(res.studentAnswer)
+                                    : String(res.studentAnswer)}
+                                </span>
+                              </p>
+                            )}
+                            {!res.isCorrect && res.expectedAnswers && res.expectedAnswers.length > 0 && (
+                              <p className="text-rose-700 font-bold">
+                                Đáp án đúng:{" "}
+                                <span className="font-mono">{res.expectedAnswers.join(" / ")}</span>
+                              </p>
+                            )}
+                            {res.explanation && (
+                              <div className="mt-1.5 p-2.5 rounded-xl bg-white/90 border border-slate-200/80 text-slate-700 text-[11px] leading-relaxed">
+                                <span className="font-bold text-brand-700">💡 Giải thích: </span>
+                                {res.explanation}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -404,46 +421,101 @@ export const ReviewCenterPage: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 <div className="space-y-3">
-                  {activeReview.practiceQuestions.map((q, idx) => (
-                    <div key={q.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-                        <span>Câu {idx + 1}</span>
-                        <span className="text-[10px] text-slate-400">
-                          {q.exercise.exerciseNumber ? `Ex ${q.exercise.exerciseNumber}` : ""}
-                        </span>
-                      </div>
-                      <p className="text-xs font-medium text-slate-800 leading-relaxed">
-                        {q.questionContent}
-                      </p>
+                  {activeReview.practiceQuestions.map((q, idx) => {
+                    const hasOptions = q.options && q.options.length > 0;
+                    return (
+                      <div key={q.id} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 font-extrabold text-[11px]">
+                              Câu {idx + 1}
+                            </span>
+                            {hasOptions && (
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                                TOEIC Part 5
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-medium">
+                            {q.exercise.exerciseNumber ? q.exercise.exerciseNumber : ""}
+                          </span>
+                        </div>
 
-                      <input
-                        type="text"
-                        placeholder="Nhập câu trả lời của bạn..."
-                        value={answers[q.id] || ""}
-                        onChange={(e) => handleAnswerChange(q.id, e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-brand-500"
-                      />
-                    </div>
-                  ))}
+                        <p className="text-sm font-semibold text-slate-900 leading-relaxed">
+                          {q.questionContent}
+                        </p>
+
+                        {hasOptions ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                            {q.options.map((opt) => {
+                              const isSelected = answers[q.id] === opt.optionKey;
+                              return (
+                                <button
+                                  key={opt.optionKey}
+                                  type="button"
+                                  onClick={() => handleAnswerChange(q.id, opt.optionKey)}
+                                  className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                                    isSelected
+                                      ? "bg-brand-50/90 border-brand-500 ring-2 ring-brand-400/40 text-brand-950 font-semibold shadow-xs"
+                                      : "bg-white border-slate-200 hover:border-brand-300 hover:bg-slate-50/80 text-slate-800 shadow-2xs"
+                                  }`}
+                                >
+                                  <span
+                                    className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold border transition-colors ${
+                                      isSelected
+                                        ? "bg-brand-600 border-brand-600 text-white"
+                                        : "bg-slate-100 border-slate-300 text-slate-700"
+                                    }`}
+                                  >
+                                    {isSelected ? <Check className="w-4 h-4 stroke-[3]" /> : opt.optionKey}
+                                  </span>
+                                  <span className="text-xs sm:text-sm leading-snug">{opt.optionText}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder="Nhập câu trả lời của bạn..."
+                            value={answers[q.id] || ""}
+                            onChange={(e) => handleAnswerChange(q.id, e.target.value)}
+                            className="w-full px-3.5 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-brand-500"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={handleCloseReview}
-                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSubmitReview}
-                    disabled={isSubmitting}
-                    className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>Nộp bài & Cập nhật lịch</span>
-                  </button>
+                <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-100">
+                  <span className="text-xs text-slate-500 font-medium">
+                    Đã chọn:{" "}
+                    <strong className="text-slate-800">
+                      {Object.keys(answers).filter((k) => answers[k]?.trim()).length} /{" "}
+                      {activeReview.practiceQuestions.length}
+                    </strong>{" "}
+                    câu
+                  </span>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCloseReview}
+                      className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSubmitReview}
+                      disabled={isSubmitting}
+                      className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors shadow-xs disabled:opacity-50 cursor-pointer"
+                    >
+                      {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      <span>Nộp bài & Cập nhật lịch</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

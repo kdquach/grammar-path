@@ -10,7 +10,7 @@
     "prisma:generate": "prisma generate",
     "test:migrations": "tsx scripts/verify-migrations.ts",
     "test": "vitest run",
-    "test:unit": "vitest run tests/phase1-security-hardening.test.ts tests/phase1-6-hygiene.test.ts tests/phase1-7-staging-guard.test.ts tests/phase2-1-unit.test.ts tests/phase2-2-unit.test.ts tests/phase3-1-unit.test.ts tests/phase3-2-unit.test.ts tests/phase3-3-unit.test.ts",
+    "test:unit": "vitest run tests/phase1-security-hardening.test.ts tests/phase1-6-hygiene.test.ts tests/phase1-7-staging-guard.test.ts tests/phase2-1-unit.test.ts tests/phase2-2-unit.test.ts tests/phase3-1-unit.test.ts tests/phase3-2-unit.test.ts tests/phase3-2-toeic-review.unit.test.ts tests/phase3-3-unit.test.ts",
     "staging:check": "node scripts/run-with-staging-env.mjs --check-only",
     "prisma:status:staging": "node scripts/run-with-staging-env.mjs -- ./node_modules/.bin/prisma migrate status",
     "prisma:migrate:staging": "node scripts/run-with-staging-env.mjs -- ./node_modules/.bin/prisma migrate deploy",

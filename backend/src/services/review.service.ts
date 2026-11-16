@@ -1,13 +1,263 @@
+import crypto from "node:crypto";
 import prisma from "../lib/prisma";
 import { calculateConceptMastery } from "./mastery.service";
 import { AppError } from "../middleware/error-handler";
 import { evaluateQuestion, isEmptyStudentAnswer } from "../utils/grader";
 import { runDeduplicatedSubmission, stableSerialize } from "../utils/idempotency";
+import { generateToeicQuestionsForUnit } from "./toeic-generator.service";
 
 export interface CompleteReviewPayload {
   answers: Record<string, unknown>;
   scheduleId?: string;
   submissionId?: string;
+}
+
+/**
+ * Deterministic hash for TOEIC question bank items deduplication.
+ */
+function computeLocalToeicHash(
+  prompt: string,
+  options: Array<{ key?: string; optionKey?: string; text?: string; optionText?: string }>
+): string {
+  const normPrompt = prompt.trim().toLowerCase().replace(/\s+/g, " ");
+  const sortedOptions = [...options]
+    .sort((a, b) => (a.key || a.optionKey || "").localeCompare(b.key || b.optionKey || ""))
+    .map((o) => `${o.key || o.optionKey}:${(o.text || o.optionText || "").trim().toLowerCase()}`)
+    .join("|");
+  return crypto.createHash("sha256").update(`${normPrompt}::${sortedOptions}`).digest("hex");
+}
+
+/**
+ * Retrieves or dynamically generates Multiple Choice (TOEIC Part 5) review questions for a concept.
+ */
+export async function fetchReviewQuestionsForConcept(
+  conceptId: string,
+  unit: { id: string; unitNumber: number; title: string } | null,
+  theorySectionIds: string[]
+) {
+  const unitNumber = unit?.unitNumber ?? null;
+
+  // 1. Priority 1: Check for approved/validated TOEIC Part 5 questions in ToeicQuestionBankItem
+  if (conceptId || unitNumber) {
+    const bankItems = await prisma.toeicQuestionBankItem.findMany({
+      where: {
+        OR: [
+          { conceptId },
+          unitNumber ? { unitNumber } : {},
+        ],
+        reviewStatus: { in: ["approved", "validated"] },
+      },
+      include: {
+        options: { orderBy: { displayOrder: "asc" } },
+      },
+      orderBy: [
+        { isLatestApproved: "desc" },
+        { qualityScore: "desc" },
+      ],
+      take: 5,
+    });
+
+    if (bankItems.length >= 3) {
+      return bankItems.map((item, idx) => ({
+        id: item.id,
+        questionId: item.id,
+        questionContent: item.prompt,
+        displayOrder: idx + 1,
+        exercise: {
+          id: `toeic-${item.unitNumber}`,
+          exerciseId: `toeic-u${item.unitNumber}`,
+          exerciseNumber: "TOEIC Part 5",
+          instruction: "Chọn phương án đúng nhất (A, B, C hoặc D) để hoàn thành câu.",
+          unitId: unit?.id || "",
+          unit: {
+            unitNumber: item.unitNumber,
+            title: unit?.title || `Unit ${item.unitNumber}`,
+          },
+        },
+        blanks: [],
+        options: item.options.map((opt) => ({
+          id: opt.id,
+          optionKey: opt.optionKey,
+          optionText: opt.optionText,
+        })),
+      }));
+    }
+  }
+
+  // 2. Priority 2: If unitNumber is available, try to generate & persist dynamic TOEIC/MCQ drills
+  if (unitNumber && unit) {
+    try {
+      const fullUnit = await prisma.unit.findUnique({
+        where: { id: unit.id },
+        include: {
+          theorySections: true,
+          textbookExamples: true,
+          exercises: {
+            include: {
+              questions: {
+                include: {
+                  blanks: { include: { acceptedAnswers: true } },
+                  options: true,
+                  explanation: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (fullUnit) {
+        const allQuestions = fullUnit.exercises.flatMap((e) =>
+          e.questions.map((q) => ({
+            questionId: q.questionId,
+            questionContent: q.questionContent,
+            blanks: q.blanks,
+            options: q.options,
+            explanation: q.explanation,
+            exercise: { exerciseId: e.exerciseId },
+          }))
+        );
+
+        const generated = await generateToeicQuestionsForUnit({
+          unitNumber,
+          title: fullUnit.title,
+          theorySections: fullUnit.theorySections.map((s) => ({
+            sectionId: s.sectionId,
+            heading: s.heading,
+            sourceContent: s.sourceContent,
+          })),
+          textbookExamples: fullUnit.textbookExamples.map((e) => ({
+            originalText: e.originalText,
+            translationVi: e.translationVi,
+          })),
+          unitQuestions: allQuestions,
+          count: 4,
+          difficulty: "medium",
+        });
+
+        if (generated.questions && generated.questions.length >= 3) {
+          const createdItems = [];
+          for (const q of generated.questions) {
+            const contentHash = computeLocalToeicHash(q.prompt, q.options);
+            let item = await prisma.toeicQuestionBankItem.findUnique({
+              where: { contentHash },
+              include: { options: { orderBy: { displayOrder: "asc" } } },
+            });
+
+            if (!item) {
+              item = await prisma.toeicQuestionBankItem.create({
+                data: {
+                  part: "PART_5",
+                  format: "PART5_INCOMPLETE_SENTENCE",
+                  prompt: q.prompt,
+                  explanation: q.explanation,
+                  difficulty: q.difficulty as any,
+                  primarySkill: "direct_grammar",
+                  unitNumber,
+                  ruleReference: q.ruleReference,
+                  conceptId,
+                  reviewStatus: "approved",
+                  isLatestApproved: true,
+                  source: q.source === "curated" ? "legacy_seed" : "ai_generated",
+                  sourceReference: `review-engine:unit-${unitNumber}`,
+                  contentHash,
+                  options: {
+                    create: q.options.map((opt, oIdx) => ({
+                      optionKey: opt.key,
+                      optionText: opt.text,
+                      isCorrect: opt.key.trim().toUpperCase() === q.correctAnswer.trim().toUpperCase(),
+                      displayOrder: oIdx,
+                    })),
+                  },
+                },
+                include: { options: { orderBy: { displayOrder: "asc" } } },
+              });
+            }
+            createdItems.push(item);
+          }
+
+          if (createdItems.length >= 3) {
+            return createdItems.map((item, idx) => ({
+              id: item.id,
+              questionId: item.id,
+              questionContent: item.prompt,
+              displayOrder: idx + 1,
+              exercise: {
+                id: `toeic-${item.unitNumber}`,
+                exerciseId: `toeic-u${item.unitNumber}`,
+                exerciseNumber: "TOEIC Part 5",
+                instruction: "Chọn phương án đúng nhất (A, B, C hoặc D) để hoàn thành câu.",
+                unitId: unit.id,
+                unit: {
+                  unitNumber: item.unitNumber,
+                  title: unit.title,
+                },
+              },
+              blanks: [],
+              options: item.options.map((opt) => ({
+                id: opt.id,
+                optionKey: opt.optionKey,
+                optionText: opt.optionText,
+              })),
+            }));
+          }
+        }
+      }
+    } catch {
+      // Gracefully continue to fallback
+    }
+  }
+
+  // 3. Fallback: Textbook questions, prioritizing any questions with options
+  return await prisma.question.findMany({
+    where: {
+      OR: [
+        { explanation: { theorySectionId: { in: theorySectionIds } } },
+        unit ? { exercise: { unitId: unit.id } } : {},
+      ],
+    },
+    orderBy: [
+      { options: { _count: "desc" } },
+      { displayOrder: "asc" },
+    ],
+    take: 5,
+    select: {
+      id: true,
+      questionId: true,
+      questionContent: true,
+      displayOrder: true,
+      exercise: {
+        select: {
+          id: true,
+          exerciseId: true,
+          exerciseNumber: true,
+          instruction: true,
+          unitId: true,
+          unit: {
+            select: {
+              unitNumber: true,
+              title: true,
+            },
+          },
+        },
+      },
+      blanks: {
+        orderBy: { blankIndex: "asc" },
+        select: {
+          id: true,
+          blankIndex: true,
+        },
+      },
+      options: {
+        orderBy: { displayOrder: "asc" },
+        select: {
+          id: true,
+          optionKey: true,
+          optionText: true,
+        },
+      },
+    },
+  });
 }
 
 /**
@@ -57,53 +307,8 @@ export async function getDueReviews(userId: string) {
     const unit = c.theoryLinks[0]?.theorySection.unit ?? null;
     const userMastery = c.userMasteries[0] ?? null;
 
-    // Fetch 3-5 real practice questions from the curriculum (without spoilers)
-    const questions = await prisma.question.findMany({
-      where: {
-        OR: [
-          { explanation: { theorySectionId: { in: theorySectionIds } } },
-          unit ? { exercise: { unitId: unit.id } } : {},
-        ],
-      },
-      orderBy: { displayOrder: "asc" },
-      take: 5,
-      select: {
-        id: true,
-        questionId: true,
-        questionContent: true,
-        displayOrder: true,
-        exercise: {
-          select: {
-            id: true,
-            exerciseId: true,
-            exerciseNumber: true,
-            instruction: true,
-            unitId: true,
-            unit: {
-              select: {
-                unitNumber: true,
-                title: true,
-              },
-            },
-          },
-        },
-        blanks: {
-          orderBy: { blankIndex: "asc" },
-          select: {
-            id: true,
-            blankIndex: true,
-          },
-        },
-        options: {
-          orderBy: { displayOrder: "asc" },
-          select: {
-            id: true,
-            optionKey: true,
-            optionText: true,
-          },
-        },
-      },
-    });
+    // Fetch 3-5 practice questions (prioritizing TOEIC Part 5 multiple-choice drills)
+    const questions = await fetchReviewQuestionsForConcept(c.id, unit, theorySectionIds);
 
     dueItems.push({
       scheduleId: s.id,
@@ -223,45 +428,58 @@ export async function completeConceptReview(
   }
 
   // 4. Retrieve canonical questions, answer keys, options, and accepted answers from database
-  const questions = await prisma.question.findMany({
-    where: {
-      OR: [
-        { id: { in: submittedKeys } },
-        { questionId: { in: submittedKeys } },
-      ],
-    },
-    include: {
-      answerKey: true,
-      acceptedAnswers: true,
-      blanks: {
-        include: {
-          acceptedAnswers: true,
+  const [questions, toeicBankItems] = await Promise.all([
+    prisma.question.findMany({
+      where: {
+        OR: [
+          { id: { in: submittedKeys } },
+          { questionId: { in: submittedKeys } },
+        ],
+      },
+      include: {
+        answerKey: true,
+        acceptedAnswers: true,
+        blanks: {
+          include: {
+            acceptedAnswers: true,
+          },
+        },
+        parts: {
+          include: {
+            acceptedAnswers: true,
+          },
+        },
+        options: {
+          orderBy: { displayOrder: "asc" },
+        },
+        explanation: true,
+        exercise: {
+          select: {
+            id: true,
+            unitId: true,
+            exerciseNumber: true,
+          },
         },
       },
-      parts: {
-        include: {
-          acceptedAnswers: true,
-        },
+    }),
+    prisma.toeicQuestionBankItem.findMany({
+      where: {
+        id: { in: submittedKeys },
       },
-      options: {
-        orderBy: { displayOrder: "asc" },
+      include: {
+        options: { orderBy: { displayOrder: "asc" } },
       },
-      explanation: true,
-      exercise: {
-        select: {
-          id: true,
-          unitId: true,
-          exerciseNumber: true,
-        },
-      },
-    },
-  });
+    }),
+  ]);
 
   // Check for fabricated or foreign question IDs
   const foundKeys = new Set<string>();
   for (const q of questions) {
     foundKeys.add(q.id);
     foundKeys.add(q.questionId);
+  }
+  for (const b of toeicBankItems) {
+    foundKeys.add(b.id);
   }
 
   const foreignOrFabricated = submittedKeys.filter((k) => !foundKeys.has(k));
@@ -272,14 +490,16 @@ export async function completeConceptReview(
     );
   }
 
-  // 5. Server-Authoritative Grading using canonical engine
-  const evaluatedItems = questions.map((question) => {
+  // 5. Server-Authoritative Grading
+  const evaluatedTextbookItems = questions.map((question) => {
     const rawStudentAnswer = rawAnswers[question.id] ?? rawAnswers[question.questionId];
     const isUnanswered = isEmptyStudentAnswer(rawStudentAnswer);
 
     if (isUnanswered) {
       return {
-        question,
+        id: question.id,
+        questionId: question.questionId,
+        isToeic: false,
         status: "unanswered" as const,
         isCorrect: false,
         studentAnswer: null,
@@ -294,7 +514,9 @@ export async function completeConceptReview(
     const isCorrect = evalResult.isCorrect === true;
 
     return {
-      question,
+      id: question.id,
+      questionId: question.questionId,
+      isToeic: false,
       status: (isCorrect ? "correct" : "incorrect") as "correct" | "incorrect",
       isCorrect,
       studentAnswer: evalResult.studentAnswer ?? rawStudentAnswer,
@@ -304,6 +526,51 @@ export async function completeConceptReview(
       ruleReference: evalResult.ruleReference ?? null,
     };
   });
+
+  const evaluatedToeicItems = toeicBankItems.map((bankItem) => {
+    const rawStudentAnswer = rawAnswers[bankItem.id];
+    const isUnanswered = isEmptyStudentAnswer(rawStudentAnswer);
+    const correctOpt = bankItem.options.find((o) => o.isCorrect);
+    const expectedKey = correctOpt?.optionKey || "A";
+    const expectedText = correctOpt?.optionText || "";
+
+    if (isUnanswered) {
+      return {
+        id: bankItem.id,
+        questionId: bankItem.id,
+        isToeic: true,
+        status: "unanswered" as const,
+        isCorrect: false,
+        studentAnswer: null,
+        correctAnswers: [expectedKey],
+        expectedAnswers: [`${expectedKey}. ${expectedText}`],
+        explanation: bankItem.explanation,
+        ruleReference: bankItem.ruleReference,
+      };
+    }
+
+    const studentStr = String(rawStudentAnswer).trim().toLowerCase();
+    const isCorrect =
+      studentStr === expectedKey.toLowerCase() ||
+      studentStr === expectedText.toLowerCase() ||
+      studentStr === `${expectedKey.toLowerCase()}. ${expectedText.toLowerCase()}` ||
+      studentStr === `${expectedKey.toLowerCase()}) ${expectedText.toLowerCase()}`;
+
+    return {
+      id: bankItem.id,
+      questionId: bankItem.id,
+      isToeic: true,
+      status: (isCorrect ? "correct" : "incorrect") as "correct" | "incorrect",
+      isCorrect,
+      studentAnswer: rawStudentAnswer,
+      correctAnswers: [expectedKey],
+      expectedAnswers: [`${expectedKey}. ${expectedText}`],
+      explanation: bankItem.explanation,
+      ruleReference: bankItem.ruleReference,
+    };
+  });
+
+  const evaluatedItems = [...evaluatedTextbookItems, ...evaluatedToeicItems];
 
   const totalCount = evaluatedItems.length;
   const correctCount = evaluatedItems.filter((r) => r.isCorrect).length;
@@ -323,7 +590,8 @@ export async function completeConceptReview(
           data: {
             attemptId: null,
             userId,
-            questionId: item.question.id,
+            questionId: item.isToeic ? null : item.id,
+            questionBankItemId: item.isToeic ? item.id : null,
             studentAnswer: (item.studentAnswer !== undefined ? item.studentAnswer : null) as any,
             isCorrect: item.isCorrect,
             attemptStatus: item.status,
@@ -369,7 +637,7 @@ export async function completeConceptReview(
           schedule: updatedSchedule,
           messageVi: "Bạn chưa trả lời câu hỏi nào. Buổi ôn tập được lên lịch lại vào ngày mai.",
           results: evaluatedItems.map((r) => ({
-            questionId: r.question.questionId,
+            questionId: r.questionId,
             isCorrect: false,
             status: r.status,
             studentAnswer: null,
@@ -461,7 +729,7 @@ export async function completeConceptReview(
             ? `Ghi nhớ tốt! Độ ổn định tăng lên ${newStability} ngày. Lần ôn tập tiếp theo: sau ${newInterval} ngày.`
             : `Cần củng cố thêm. Khoảng cách ôn tập được rút ngắn về 1 ngày để đảm bảo ghi nhớ.`,
         results: evaluatedItems.map((r) => ({
-          questionId: r.question.questionId,
+          questionId: r.questionId,
           isCorrect: r.isCorrect,
           status: r.status,
           studentAnswer: r.studentAnswer,
