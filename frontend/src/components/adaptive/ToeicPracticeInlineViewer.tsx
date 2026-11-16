@@ -46,7 +46,7 @@ export const ToeicPracticeInlineViewer: React.FC<ToeicPracticeInlineViewerProps>
   const toast = useToast();
   const [session, setSession] = useState<ToeicPracticeSession | null>(null);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>("medium");
-  const [questionCount] = useState<number>(5);
+  const [questionCount] = useState<number>(10);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [checkResults, setCheckResults] = useState<
@@ -100,7 +100,7 @@ export const ToeicPracticeInlineViewer: React.FC<ToeicPracticeInlineViewerProps>
 
   const correctCount = Object.values(checkResults).filter((r) => r.isCorrect).length;
   const scorePercent = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
-  const isPassed = isFinished && scorePercent >= 70;
+  const isPassed = isFinished && scorePercent >= 80;
 
   // Auto trigger unit completion when user passes the test
   useEffect(() => {
@@ -207,7 +207,7 @@ export const ToeicPracticeInlineViewer: React.FC<ToeicPracticeInlineViewerProps>
               <span>TOEIC Part 5 Checkpoint</span>
             </span>
             <span className="text-xs text-slate-400 font-medium">
-              Đạt $\ge 70\%$ để tốt nghiệp Unit
+              Đạt $\ge 80\%$ (ít nhất 8/10 câu) để tốt nghiệp Unit
             </span>
           </div>
           <h2 className="text-base sm:text-lg font-black text-slate-900">
@@ -266,7 +266,7 @@ export const ToeicPracticeInlineViewer: React.FC<ToeicPracticeInlineViewerProps>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
               {isPassed
                 ? `Bạn đã trả lời đúng ${correctCount}/${totalQuestions} câu (${scorePercent}%). Unit ${unitNumber} đã được chính thức đánh dấu HOÀN THÀNH và nạp vào lịch Ôn tập ngắt quãng (Review Center).`
-                : `Bạn trả lời đúng ${correctCount}/${totalQuestions} câu. Để hoàn thành Unit, hãy đạt từ 70% trở lên. Bạn có thể xem lại lý thuyết hoặc tạo bộ đề mới để thử lại ngay!`}
+                : `Bạn trả lời đúng ${correctCount}/${totalQuestions} câu. Để hoàn thành Unit, hãy đạt từ 80% trở lên (ít nhất 8/10 câu đúng). Bạn có thể xem lại lý thuyết hoặc tạo bộ đề mới để thử lại ngay!`}
             </p>
           </div>
 

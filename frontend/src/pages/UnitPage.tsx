@@ -142,7 +142,7 @@ export const UnitPage: React.FC = () => {
               : prev?.attempts ?? [],
         }));
         toast.success(
-          `🎉 Chúc mừng! Bạn đạt ${accuracy}% và đã hoàn thành Unit ${unitNumber}!`
+          `🎉 Chúc mừng! Bạn đạt ${accuracy}% (vượt chuẩn 80%) và đã hoàn thành Unit ${unitNumber}!`
         );
       }
     } catch (err: any) {

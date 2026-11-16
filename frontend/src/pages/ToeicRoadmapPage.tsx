@@ -752,7 +752,7 @@ export const ToeicRoadmapPage: React.FC = () => {
                 className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
               >
                 <Target className="w-3.5 h-3.5" />
-                <span>Luyện 5 câu TOEIC Part 5</span>
+                <span>Luyện 10 câu TOEIC Part 5</span>
               </button>
             </div>
           </div>
@@ -1249,7 +1249,7 @@ export const ToeicRoadmapPage: React.FC = () => {
                                           handleOpenToeicPractice(unitItem.unitNumber)
                                         }
                                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold transition-colors cursor-pointer"
-                                        title={`Làm thử 5 câu TOEIC Part 5 cho Unit ${unitItem.unitNumber}`}
+                                        title={`Làm bài kiểm tra 10 câu TOEIC Part 5 cho Unit ${unitItem.unitNumber}`}
                                       >
                                         <Target className="w-3 h-3" />
                                         <span>Đề TOEIC</span>

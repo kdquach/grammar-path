@@ -92,7 +92,7 @@ export const ToeicSpotlightCard: React.FC<ToeicSpotlightCardProps> = ({
       <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-xs text-indigo-200">
           <BookmarkCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>Làm bài kiểm tra trắc nghiệm 5 câu để chính thức hoàn thành Unit này.</span>
+          <span>Làm bài kiểm tra trắc nghiệm 10 câu đạt $\ge 80\%$ để chính thức hoàn thành Unit này.</span>
         </div>
 
         <button

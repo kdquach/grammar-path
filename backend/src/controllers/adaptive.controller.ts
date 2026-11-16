@@ -549,7 +549,7 @@ export const toeicPracticeSchema = z.object({
     .int()
     .min(1, "unitNumber must be between 1 and 145")
     .max(145, "unitNumber must be between 1 and 145"),
-  count: z.coerce.number().int().min(1).max(20).optional().default(5),
+  count: z.coerce.number().int().min(1).max(20).optional().default(10),
   difficulty: z.enum(["easy", "medium", "hard"]).optional().default("medium"),
 });
 
