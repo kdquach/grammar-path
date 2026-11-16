@@ -91,6 +91,13 @@ export interface UnitDetail {
   sourcePages: UnitSourcePage[];
   theorySections: TheorySectionSummary[];
   exercises: ExerciseSummary[];
+  toeicMetadata?: {
+    priority: "core" | "extended" | "advanced";
+    toeicTag: string;
+    toeicParts: string[];
+    grammarFocus: string;
+    noteVi: string;
+  } | null;
 }
 
 export interface TheorySection {

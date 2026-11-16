@@ -157,6 +157,15 @@ export async function getUnitByNumber(
     const unit = await prisma.unit.findFirst({
       where: { unitNumber },
       include: {
+        toeicMetadata: {
+          select: {
+            priority: true,
+            toeicTag: true,
+            toeicParts: true,
+            grammarFocus: true,
+            noteVi: true,
+          },
+        },
         sourcePages: {
           orderBy: [{ pageNumber: "asc" }, { pageRole: "asc" }],
         },

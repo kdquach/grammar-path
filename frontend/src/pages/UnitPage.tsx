@@ -22,7 +22,9 @@ import type {
 } from "../types/api.types";
 import TheoryViewer from "../components/theory/TheoryViewer";
 import RuleReferenceModal from "../components/theory/RuleReferenceModal";
+import ToeicSpotlightCard from "../components/theory/ToeicSpotlightCard";
 import ExerciseViewer from "../components/exercises/ExerciseViewer";
+import ToeicPracticeInlineViewer from "../components/adaptive/ToeicPracticeInlineViewer";
 import ToeicPracticeModal from "../components/adaptive/ToeicPracticeModal";
 import AuthModal from "../components/auth/AuthModal";
 
@@ -38,7 +40,9 @@ export const UnitPage: React.FC = () => {
   const [unitTheory, setUnitTheory] = useState<UnitTheory | null>(null);
   const [unitProgress, setUnitProgress] = useState<UnitProgressDetail | null>(null);
   const [isUpdatingProgress, setIsUpdatingProgress] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"theory" | "exercises">("theory");
+  const [activeTab, setActiveTab] = useState<
+    "theory" | "toeic_checkpoint" | "murphy_drills"
+  >("theory");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -119,6 +123,30 @@ export const UnitPage: React.FC = () => {
       }));
     } catch (err: any) {
       toast.error(err?.message || "Failed to update unit progress");
+    } finally {
+      setIsUpdatingProgress(false);
+    }
+  };
+
+  const handleToeicUnitCompleted = async (accuracy: number) => {
+    if (!user) return;
+    try {
+      if (unitProgress?.status !== "completed") {
+        setIsUpdatingProgress(true);
+        const updated = await api.updateUnitProgress(unitNumber, "completed");
+        setUnitProgress((prev) => ({
+          ...updated,
+          attempts:
+            updated.attempts && updated.attempts.length > 0
+              ? updated.attempts
+              : prev?.attempts ?? [],
+        }));
+        toast.success(
+          `🎉 Chúc mừng! Bạn đạt ${accuracy}% và đã hoàn thành Unit ${unitNumber}!`
+        );
+      }
+    } catch (err: any) {
+      console.error("Failed to auto-complete unit progress:", err);
     } finally {
       setIsUpdatingProgress(false);
     }
@@ -273,67 +301,126 @@ export const UnitPage: React.FC = () => {
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs shadow-sm hover:shadow-md transition-all cursor-pointer shrink-0 self-start sm:self-auto border border-indigo-500/30"
               >
                 <Target className="w-4 h-4 text-white shrink-0" />
-                <span>🎯 Luyện tập thêm dạng đề TOEIC</span>
+                <span>🎯 Luyện tập TOEIC Part 5 (Tốt nghiệp Unit)</span>
               </button>
             </div>
           </section>
 
           {/* ─── Tab Switcher ─────────────────────────────────────── */}
-          <div className="flex border-b border-slate-200 space-x-6 text-sm font-semibold">
+          <div className="flex border-b border-slate-200 space-x-6 text-sm font-semibold overflow-x-auto">
             <button
               onClick={() => setActiveTab("theory")}
-              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
                 activeTab === "theory"
                   ? "border-brand-600 text-brand-700 font-bold"
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>Theory & Examples</span>
+              <span>Lý thuyết & Bẫy TOEIC</span>
               <span className="px-2 py-0.5 text-xs bg-slate-100 rounded-full font-mono">
                 {unitTheory.theorySections.length}
               </span>
             </button>
 
             <button
-              onClick={() => setActiveTab("exercises")}
-              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
-                activeTab === "exercises"
+              onClick={() => {
+                if (!user) {
+                  setIsAuthModalOpen(true);
+                } else {
+                  setActiveTab("toeic_checkpoint");
+                }
+              }}
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+                activeTab === "toeic_checkpoint"
+                  ? "border-indigo-600 text-indigo-700 font-bold"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              <Target className="w-4 h-4 text-indigo-600" />
+              <span>Luyện tập TOEIC Part 5</span>
+              <span className="px-2 py-0.5 text-[10px] uppercase font-black bg-indigo-100 text-indigo-800 rounded-full">
+                Checkpoint
+              </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("murphy_drills")}
+              className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
+                activeTab === "murphy_drills"
                   ? "border-brand-600 text-brand-700 font-bold"
                   : "border-transparent text-slate-500 hover:text-slate-800"
               }`}
             >
               <PenTool className="w-4 h-4" />
-              <span>Exercises Overview</span>
-              <span className="px-2 py-0.5 text-xs bg-slate-100 rounded-full font-mono">
-                {unitDetail.exercises.length}
+              <span>Bài tập bổ trợ Murphy</span>
+              <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 rounded-full">
+                Tự chọn
               </span>
             </button>
           </div>
 
           {/* ─── Tab Content ──────────────────────────────────────────────── */}
           {activeTab === "theory" ? (
-            <TheoryViewer
-              theorySections={unitTheory.theorySections}
-              textbookExamples={unitTheory.textbookExamples}
-              onOpenRuleModal={(ruleId) => setSelectedRuleId(ruleId)}
-              onRequireAuth={
-                !user
-                  ? () => {
-                      toast.info("Please sign in to use AI Tutor explanations.");
-                      setIsAuthModalOpen(true);
-                    }
-                  : undefined
-              }
+            <div className="space-y-6">
+              {/* TOEIC Exam Spotlight Card */}
+              <ToeicSpotlightCard
+                unitDetail={unitDetail}
+                onGoToToeicPractice={() => {
+                  if (!user) {
+                    setIsAuthModalOpen(true);
+                  } else {
+                    setActiveTab("toeic_checkpoint");
+                  }
+                }}
+              />
+
+              {/* Murphy Textbook Theory & Examples */}
+              <TheoryViewer
+                theorySections={unitTheory.theorySections}
+                textbookExamples={unitTheory.textbookExamples}
+                onOpenRuleModal={(ruleId) => setSelectedRuleId(ruleId)}
+                onRequireAuth={
+                  !user
+                    ? () => {
+                        toast.info("Vui lòng đăng nhập để sử dụng tính năng Gia sư AI.");
+                        setIsAuthModalOpen(true);
+                      }
+                    : undefined
+                }
+              />
+            </div>
+          ) : activeTab === "toeic_checkpoint" ? (
+            <ToeicPracticeInlineViewer
+              unitNumber={unitDetail.unitNumber}
+              unitTitle={unitDetail.title}
+              onUnitCompleted={handleToeicUnitCompleted}
+              onGoToNextUnit={hasNext ? () => navigate(`/units/${unitNumber + 1}`) : undefined}
+              onGoToTheory={() => setActiveTab("theory")}
+              onRequireAuth={() => setIsAuthModalOpen(true)}
             />
           ) : (
-            <ExerciseViewer
-              unitNumber={unitDetail.unitNumber}
-              unitProgress={unitProgress}
-              onOpenRuleReference={(ruleId) => setSelectedRuleId(ruleId)}
-              onProgressChange={handleRefreshProgress}
-              onOpenAuthModal={() => setIsAuthModalOpen(true)}
-            />
+            <div className="space-y-4">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-start gap-3 text-xs text-slate-600">
+                <PenTool className="w-4 h-4 text-slate-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-bold text-slate-800">
+                    Bài tập điền từ & chia động từ bổ trợ (Tự chọn — Raymond Murphy)
+                  </p>
+                  <p className="mt-0.5 leading-relaxed text-slate-500">
+                    Kho bài tập truyền thống giúp củng cố phản xạ tự viết câu. Bạn không bắt buộc phải hoàn thành các bài tập này để tốt nghiệp Unit (chỉ cần vượt qua bài kiểm tra trắc nghiệm TOEIC Part 5).
+                  </p>
+                </div>
+              </div>
+
+              <ExerciseViewer
+                unitNumber={unitDetail.unitNumber}
+                unitProgress={unitProgress}
+                onOpenRuleReference={(ruleId) => setSelectedRuleId(ruleId)}
+                onProgressChange={handleRefreshProgress}
+                onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              />
+            </div>
           )}
 
           {/* TOEIC Part 5 Practice Generator Modal */}
