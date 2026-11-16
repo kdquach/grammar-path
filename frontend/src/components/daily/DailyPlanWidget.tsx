@@ -43,8 +43,8 @@ export const DailyPlanWidget: React.FC<DailyPlanWidgetProps> = ({
     if (item.activityType === "mistake_review") return "/mistakes";
     if (item.activityType === "toeic_practice") return "/roadmap";
     if (item.metadata?.unitNumber) {
-      return `/study-session?unit=${item.metadata.unitNumber}${
-        item.metadata.exerciseNumber ? `&exercise=${item.metadata.exerciseNumber}` : ""
+      return `/units/${item.metadata.unitNumber}${
+        item.metadata.exerciseNumber ? "?tab=toeic_checkpoint" : ""
       }`;
     }
     return "/learning-path";

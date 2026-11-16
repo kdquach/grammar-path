@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -30,10 +30,13 @@ import AuthModal from "../components/auth/AuthModal";
 
 export const UnitPage: React.FC = () => {
   const { unitNumber: unitNumberParam } = useParams<{ unitNumber: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
   const unitNumber = parseInt(unitNumberParam || "1", 10);
+
+  const tabParam = searchParams.get("tab");
 
   // Data state
   const [unitDetail, setUnitDetail] = useState<UnitDetail | null>(null);
@@ -42,9 +45,35 @@ export const UnitPage: React.FC = () => {
   const [isUpdatingProgress, setIsUpdatingProgress] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<
     "theory" | "toeic_checkpoint" | "murphy_drills"
-  >("theory");
+  >(() => {
+    if (tabParam === "toeic_checkpoint" || tabParam === "practice") {
+      return "toeic_checkpoint";
+    }
+    if (tabParam === "murphy_drills" || tabParam === "drills") {
+      return "murphy_drills";
+    }
+    return "theory";
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tabParam === "toeic_checkpoint" || tabParam === "practice") {
+      setActiveTab("toeic_checkpoint");
+    } else if (tabParam === "murphy_drills" || tabParam === "drills") {
+      setActiveTab("murphy_drills");
+    } else if (tabParam === "theory") {
+      setActiveTab("theory");
+    }
+  }, [tabParam]);
+
+  const handleTabChange = (nextTab: "theory" | "toeic_checkpoint" | "murphy_drills") => {
+    setActiveTab(nextTab);
+    setSearchParams(
+      nextTab === "theory" ? {} : { tab: nextTab },
+      { replace: true }
+    );
+  };
 
   // Modal state
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
@@ -291,13 +320,7 @@ export const UnitPage: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => {
-                  if (!user) {
-                    setIsAuthModalOpen(true);
-                  } else {
-                    setIsToeicModalOpen(true);
-                  }
-                }}
+                onClick={() => handleTabChange("toeic_checkpoint")}
                 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-xs shadow-sm hover:shadow-md transition-all cursor-pointer shrink-0 self-start sm:self-auto border border-indigo-500/30"
               >
                 <Target className="w-4 h-4 text-white shrink-0" />
@@ -309,7 +332,7 @@ export const UnitPage: React.FC = () => {
           {/* ─── Tab Switcher ─────────────────────────────────────── */}
           <div className="flex border-b border-slate-200 space-x-6 text-sm font-semibold overflow-x-auto">
             <button
-              onClick={() => setActiveTab("theory")}
+              onClick={() => handleTabChange("theory")}
               className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
                 activeTab === "theory"
                   ? "border-brand-600 text-brand-700 font-bold"
@@ -324,13 +347,7 @@ export const UnitPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => {
-                if (!user) {
-                  setIsAuthModalOpen(true);
-                } else {
-                  setActiveTab("toeic_checkpoint");
-                }
-              }}
+              onClick={() => handleTabChange("toeic_checkpoint")}
               className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
                 activeTab === "toeic_checkpoint"
                   ? "border-indigo-600 text-indigo-700 font-bold"
@@ -345,7 +362,7 @@ export const UnitPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setActiveTab("murphy_drills")}
+              onClick={() => handleTabChange("murphy_drills")}
               className={`pb-3 flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
                 activeTab === "murphy_drills"
                   ? "border-brand-600 text-brand-700 font-bold"
@@ -366,13 +383,7 @@ export const UnitPage: React.FC = () => {
               {/* TOEIC Exam Spotlight Card */}
               <ToeicSpotlightCard
                 unitDetail={unitDetail}
-                onGoToToeicPractice={() => {
-                  if (!user) {
-                    setIsAuthModalOpen(true);
-                  } else {
-                    setActiveTab("toeic_checkpoint");
-                  }
-                }}
+                onGoToToeicPractice={() => handleTabChange("toeic_checkpoint")}
               />
 
               {/* Murphy Textbook Theory & Examples */}
@@ -396,7 +407,7 @@ export const UnitPage: React.FC = () => {
               unitTitle={unitDetail.title}
               onUnitCompleted={handleToeicUnitCompleted}
               onGoToNextUnit={hasNext ? () => navigate(`/units/${unitNumber + 1}`) : undefined}
-              onGoToTheory={() => setActiveTab("theory")}
+              onGoToTheory={() => handleTabChange("theory")}
               onRequireAuth={() => setIsAuthModalOpen(true)}
             />
           ) : (

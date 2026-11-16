@@ -288,10 +288,10 @@ export const LearningPathPage: React.FC = () => {
                         act.type === "review"
                           ? "/reviews"
                           : act.targetUnitNumber
-                          ? `/study-session?unit=${act.targetUnitNumber}${
-                              act.targetExerciseNumber ? `&exercise=${act.targetExerciseNumber}` : ""
+                          ? `/units/${act.targetUnitNumber}${
+                              act.targetExerciseNumber ? "?tab=toeic_checkpoint" : ""
                             }`
-                          : `/study-session?unit=1`
+                          : `/units/1`
                       }
                       className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-brand-600 hover:text-white text-slate-700 font-bold text-xs transition-colors flex items-center justify-between group"
                     >
